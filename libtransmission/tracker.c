@@ -358,7 +358,7 @@ static void recvAnswer( tr_tracker_t * tc )
 
     if( i >= tc->pos - 18 )
     {
-        if( tc->stopped )
+        if( tc->stopped || 0 < tc->newPort )
         {
             goto nodict;
         }

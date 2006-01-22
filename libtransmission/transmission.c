@@ -32,8 +32,6 @@ static float rateUpload( tr_torrent_t * );
 static void  acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
 
-#define PORT_DEBUG
-
 /***********************************************************************
  * tr_init
  ***********************************************************************
