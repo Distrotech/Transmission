@@ -358,8 +358,11 @@ static void recvAnswer( tr_tracker_t * tc )
 
     if( i >= tc->pos - 18 )
     {
-        //tr_err( "Tracker: no dictionary in answer (%s)",
-        //        tc->tor->info.trackerAddress );
+        if( tc->stopped )
+        {
+            goto nodict;
+        }
+        tr_err( "Tracker: no dictionary in answer" );
         // printf( "%s\n", tc->buf );
         return;
     }
@@ -478,6 +481,7 @@ static void recvAnswer( tr_tracker_t * tc )
         }
     }
 
+nodict:
     /* Success */
     tc->started   = 0;
     tc->completed = 0;
