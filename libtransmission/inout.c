@@ -390,7 +390,10 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
     if( i >= inf->fileCount )
     {
         /* Should not happen */
-        tr_err( "readOrWriteBytes: offset out of range" );
+        tr_err( "readOrWriteBytes: offset out of range (off=%llu files=%i i=%i)",
+                offset, inf->fileCount, i);
+        for(i = 0; i < inf->fileCount; i++)
+          tr_err( "file %i %lld %s", i, inf->files[i].length, inf->files[i].name );
         goto fail;
     }
 

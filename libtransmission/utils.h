@@ -29,7 +29,7 @@
 #define tr_err( a... ) tr_msg( TR_MSG_ERR, ## a )
 #define tr_inf( a... ) tr_msg( TR_MSG_INF, ## a )
 #define tr_dbg( a... ) tr_msg( TR_MSG_DBG, ## a )
-void tr_msg  ( int level, char * msg, ... );
+void tr_msg  ( int level, char * msg, ... ) __attribute__ ((format (printf, 2, 3)));
 
 int  tr_rand ( int );
 

@@ -358,8 +358,8 @@ static void recvAnswer( tr_tracker_t * tc )
 
     if( i >= tc->pos - 18 )
     {
-        tr_err( "Tracker: no dictionary in answer (%s)",
-                tc->tor->info.trackerAddress );
+        //tr_err( "Tracker: no dictionary in answer (%s)",
+        //        tc->tor->info.trackerAddress );
         // printf( "%s\n", tc->buf );
         return;
     }

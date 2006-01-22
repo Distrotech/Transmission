@@ -100,6 +100,8 @@ void tr_setBindPort( tr_handle_t * h, int port )
 {
     int ii, sock;
 
+    printf("changing port from %i to %i\n", h->bindPort, port);
+
     if( h->bindPort == port )
       return;
 
@@ -631,7 +633,7 @@ static void acceptLoop( void * _h )
     int           ii, jj;
     uint8_t     * hash;
 #ifdef PORT_DEBUG
-    int           oldsocket;
+    int           oldport, oldsocket;
     int           oldPeerCount;
     tr_peer_t   * oldPeers[TR_MAX_PEER_COUNT];
 #endif
@@ -647,6 +649,7 @@ static void acceptLoop( void * _h )
     tr_lockLock( &h->acceptLock );
 
 #ifdef PORT_DEBUG
+    oldport = h->bindPort;
     oldsocket = h->bindSocket;
 #endif
 
@@ -677,7 +680,7 @@ static void acceptLoop( void * _h )
         {
             if( tr_peerRead( NULL, h->acceptPeers[ii] ) )
             {
-                printf( "failed to read from peer on new port\n" );
+                printf( "failed to read from peer on new port %i\n", h->bindPort );
                 tr_peerDestroy( h->fdlimit, h->acceptPeers[ii] );
                 goto removePeer;
             }
@@ -689,15 +692,15 @@ static void acceptLoop( void * _h )
                     if( 0 == memcmp( h->torrents[jj]->info.hash, hash,
                                      SHA_DIGEST_LENGTH ) )
                     {
-                        printf( "got peer on new port for \"%s\"\n",
-                                h->torrents[jj]->info.name );
+                        printf( "got peer on new port %i for \"%s\"\n",
+                                h->bindPort, h->torrents[jj]->info.name );
                         tr_peerAttach( h->torrents[jj], h->acceptPeers[ii] );
                         tr_lockUnlock( &h->torrents[jj]->lock );
                         goto removePeer;
                     }
                     tr_lockUnlock( &h->torrents[jj]->lock );
                 }
-                printf( "failed to match hash for peer on new port\n" );
+                printf( "failed to match hash for peer on new port %i\n", h->bindPort );
                 tr_peerDestroy( h->fdlimit, h->acceptPeers[ii] );
                 goto removePeer;
             }
@@ -710,6 +713,7 @@ static void acceptLoop( void * _h )
         }
 
 #ifdef PORT_DEBUG
+        if( oldsocket != h->bindSocket) {
         /* Check for incoming connections */
         if( oldsocket > -1 &&
             oldPeerCount < TR_MAX_PEER_COUNT &&
@@ -733,7 +737,7 @@ static void acceptLoop( void * _h )
         {
             if( tr_peerRead( NULL, oldPeers[ii] ) )
             {
-                printf( "failed to read from peer on old port\n" );
+                printf( "failed to read from peer on old port %i\n", oldport );
                 tr_peerDestroy( h->fdlimit, oldPeers[ii] );
                 goto removeOldPeer;
             }
@@ -745,14 +749,14 @@ static void acceptLoop( void * _h )
                     if( 0 == memcmp( h->torrents[jj]->info.hash, hash,
                                      SHA_DIGEST_LENGTH ) )
                     {
-                        printf( "got peer on old port for \"%s\"\n",
-                                h->torrents[jj]->info.name );
+                        printf( "got peer on old port %i for \"%s\"\n",
+                                oldport, h->torrents[jj]->info.name );
                         tr_lockUnlock( &h->torrents[jj]->lock );
                         goto removeOldPeer;
                     }
                     tr_lockUnlock( &h->torrents[jj]->lock );
                 }
-                printf( "failed to match hash for peer on old port\n" );
+                printf( "failed to match hash for peer on old port %i\n", oldport );
                 tr_peerDestroy( h->fdlimit, oldPeers[ii] );
                 goto removeOldPeer;
             }
@@ -762,6 +766,7 @@ static void acceptLoop( void * _h )
             oldPeerCount--;
             memmove( &oldPeers[ii], &oldPeers[ii+1],
                      ( oldPeerCount - ii ) * sizeof( tr_peer_t * ) );
+        }
         }
 #endif
 
