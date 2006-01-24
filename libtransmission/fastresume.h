@@ -185,6 +185,7 @@ static int fastResumeLoad( tr_io_t * io )
         fclose( file );
         return 1;
     }
+    fseek( file, 0, SEEK_SET );
 
     /* Check format version */
     fread( &version, 4, 1, file );
@@ -203,7 +204,6 @@ static int fastResumeLoad( tr_io_t * io )
         fclose( file );
         return 1;
     }
-    fseek( file, 0, SEEK_SET );
 
     if( 1 == version )
     {
