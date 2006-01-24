@@ -152,13 +152,14 @@ static int fastResumeLoad( tr_io_t * io )
     tr_info_t    * inf = &tor->info;
     
     FILE    * file;
-    int       version = 1;
+    int       version = 0;
     char    * path;
     int     * fileMTimes1, * fileMTimes2;
     int       i, j;
     uint8_t * blockBitfield;
 
-    int size;
+    int sizes[2];
+    long filesize;
 
     /* Open resume file */
     path = fastResumeFileName( io );
@@ -172,21 +173,22 @@ static int fastResumeLoad( tr_io_t * io )
     free( path );
 
     /* Check the size */
-    size = 4 + 8 + 8 + 4 * inf->fileCount + 4 * inf->pieceCount +
-        ( tor->blockCount + 7 ) / 8;
+    sizes[1] = 4 + 8 + 8 + 4 * inf->fileCount + 4 * inf->pieceCount +
+      ( tor->blockCount + 7 ) / 8;
+    sizes[0] = sizes[1] - 8 - 8;
     fseek( file, 0, SEEK_END );
-    if( ftell( file ) != size )
+    filesize = ftell( file );
+    if( 4 > filesize )
     {
-        tr_inf( "Wrong size for resume file (%d bytes, %d expected)",
-                ftell( file ), size );
+        tr_inf( "Wrong size for resume file (%d bytes, at least 4 expected)",
+                filesize );
         fclose( file );
         return 1;
     }
-    fseek( file, 0, SEEK_SET );
 
     /* Check format version */
     fread( &version, 4, 1, file );
-    if( version != 0 )
+    if( 0 > version || 1 < version )
     {
         tr_inf( "Resume file has version %d, not supported",
                 version );
@@ -194,9 +196,21 @@ static int fastResumeLoad( tr_io_t * io )
         return 1;
     }
 
-    /* read download and upload totals */
-    fread( &tor->downloaded[9], 8, 1, file );
-    fread( &tor->uploaded[9], 8, 1, file );
+    if( filesize != sizes[version] )
+    {
+        tr_inf( "Wrong size for resume file (%d bytes, %d expected)",
+                filesize, sizes[version] );
+        fclose( file );
+        return 1;
+    }
+    fseek( file, 0, SEEK_SET );
+
+    if( 1 == version )
+    {
+        /* read download and upload totals */
+        fread( &tor->downloaded[9], 8, 1, file );
+        fread( &tor->uploaded[9], 8, 1, file );
+    }
 
     /* Compare file mtimes */
     fileMTimes1 = malloc( inf->fileCount * 4 );
