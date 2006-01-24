@@ -24,7 +24,9 @@
  * Fast resume
  ***********************************************************************
  * Format of the resume file:
- *  - 4 bytes: format version (currently 0)
+ *  - 4 bytes: format version (currently 1)
+ *  - 8 bytes: number of bytes downloaded
+ *  - 8 bytes: number of bytes uploaded
  *  - 4 bytes * number of files: mtimes of files
  *  - 1 bit * number of blocks: whether we have the block or not
  *  - 4 bytes * number of pieces (byte aligned): the pieces that have
@@ -34,8 +36,8 @@
  *
  * All values are stored in the native endianness. Moving a
  * libtransmission resume file from an architecture to another will not
- * work, although it will not hurt either (the mtimes will be wrong,
- * so the files will be scanned).
+ * work, although it will not hurt either (the version will be wrong,
+ * so the resume file will not be read).
  **********************************************************************/
 
 static char * fastResumeFileName( tr_io_t * io )
@@ -97,7 +99,7 @@ static void fastResumeSave( tr_io_t * io )
     tr_info_t    * inf = &tor->info;
     
     FILE    * file;
-    int       version = 0;
+    int       version = 1;
     char    * path;
     int     * fileMTimes;
     uint8_t * blockBitfield;
@@ -123,6 +125,10 @@ static void fastResumeSave( tr_io_t * io )
     /* Write format version */
     fwrite( &version, 4, 1, file );
 
+    /* write download and upload totals */
+    fwrite( &tor->downloaded[9], 8, 1, file );
+    fwrite( &tor->uploaded[9], 8, 1, file );
+
     /* Write file mtimes */
     fwrite( fileMTimes, 4, inf->fileCount, file );
     free( fileMTimes );
@@ -146,7 +152,7 @@ static int fastResumeLoad( tr_io_t * io )
     tr_info_t    * inf = &tor->info;
     
     FILE    * file;
-    int       version = 0;
+    int       version = 1;
     char    * path;
     int     * fileMTimes1, * fileMTimes2;
     int       i, j;
@@ -166,7 +172,7 @@ static int fastResumeLoad( tr_io_t * io )
     free( path );
 
     /* Check the size */
-    size = 4 + 4 * inf->fileCount + 4 * inf->pieceCount +
+    size = 4 + 8 + 8 + 4 * inf->fileCount + 4 * inf->pieceCount +
         ( tor->blockCount + 7 ) / 8;
     fseek( file, 0, SEEK_END );
     if( ftell( file ) != size )
@@ -187,6 +193,10 @@ static int fastResumeLoad( tr_io_t * io )
         fclose( file );
         return 1;
     }
+
+    /* read download and upload totals */
+    fread( &tor->downloaded[9], 8, 1, file );
+    fread( &tor->uploaded[9], 8, 1, file );
 
     /* Compare file mtimes */
     fileMTimes1 = malloc( inf->fileCount * 4 );

@@ -340,9 +340,6 @@ static void torrentReallyStop( tr_handle_t * h, int t )
     {
         tr_peerRem( tor, 0 );
     }
-
-    memset( tor->downloaded, 0, sizeof( tor->downloaded ) );
-    memset( tor->uploaded,   0, sizeof( tor->uploaded ) );
 }
 
 /***********************************************************************
@@ -610,10 +607,18 @@ static float rateGeneric( uint64_t * dates, uint64_t * counts )
 }
 static float rateDownload( tr_torrent_t * tor )
 {
+    if( TR_STATUS_PAUSE & tor->status )
+    {
+        return 0.0;
+    }
     return rateGeneric( tor->dates, tor->downloaded );
 }
 static float rateUpload( tr_torrent_t * tor )
 {
+    if( TR_STATUS_PAUSE & tor->status )
+    {
+        return 0.0;
+    }
     return rateGeneric( tor->dates, tor->uploaded );
 }
 
