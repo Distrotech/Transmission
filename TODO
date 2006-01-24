@@ -1,0 +1,20 @@
+keyboard shortcuts for buttons
+more automation
+  autocheck directory for new torrents
+  move/copy torrent when added
+  move/copy torrent when deleted
+only one simultaneous torrent hash checking
+download threads hang in dns lookups when network goes away
+display upload and download totals per torrent, as well as ratio
+ellipsize for torrent name
+segfault when trying to close a file that failed to open
+flush resume information when torrent is completed
+sorting, rearranging
+dock icon
+remove torrents from saved state if they fail to open
+height of rows inconsistent between downloading and complete
+
+new libtransmission api:
+
+persistent torrent id
+make errors available instead of printing to stderr
