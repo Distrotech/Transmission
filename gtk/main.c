@@ -144,10 +144,10 @@ struct { const gchar *name; const gchar *id; enum listact act; gboolean nomenu;
 actionitems[] = {
   {"Add",         GTK_STOCK_ADD,          ACT_OPEN,   FALSE,  0,
    "Add a new torrent file", "XXX"},
-  {"Resume",      GTK_STOCK_MEDIA_PLAY,   ACT_START,  FALSE,
+  {"Start",       GTK_STOCK_EXECUTE,      ACT_START,  FALSE,
    (TR_STATUS_STOPPING | TR_STATUS_PAUSE),
    "Resume a torrent that has been paused", "XXX"},
-  {"Pause",       GTK_STOCK_MEDIA_PAUSE,  ACT_STOP,   FALSE,
+  {"Stop",        GTK_STOCK_STOP,         ACT_STOP,   FALSE,
    ~(TR_STATUS_STOPPING | TR_STATUS_PAUSE),
    "Pause a torrent", "XXX"},
   {"Remove",      GTK_STOCK_REMOVE,       ACT_DELETE, FALSE, ~0,

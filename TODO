@@ -14,6 +14,8 @@ dock icon
 remove torrents from saved state if they fail to open
 height of rows inconsistent between downloading and complete
 reduce cpu usage, use select on non-beos platforms
+handle utf-8 correctly
+keyboard shortcuts
 
 new libtransmission api:
 
