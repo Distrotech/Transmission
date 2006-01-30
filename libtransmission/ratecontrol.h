@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2006 Eric Petit
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,25 +20,11 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef NAMECELL_H
-#define NAMECELL_H
+typedef struct tr_ratecontrol_s tr_ratecontrol_t;
 
-#import <Cocoa/Cocoa.h>
-#import <transmission.h>
-#import "Controller.h"
-
-@interface NameCell : NSCell
-{
-    BOOL       fWhiteText;
-
-    NSString * fNameString;
-    NSString * fSizeString;
-    NSString * fTimeString;
-    NSString * fPeersString;
-
-    NSImage * fIcon;
-}
-- (void) setStat: (tr_stat_t *) stat whiteText: (BOOL) w;
-@end
-
-#endif
+tr_ratecontrol_t * tr_rcInit();
+void               tr_rcSetLimit( tr_ratecontrol_t *, int );
+int                tr_rcCanTransfer( tr_ratecontrol_t * );
+void               tr_rcTransferred( tr_ratecontrol_t *, int );
+float              tr_rcRate( tr_ratecontrol_t * );
+void               tr_rcClose( tr_ratecontrol_t * );

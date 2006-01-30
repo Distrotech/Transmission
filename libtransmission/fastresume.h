@@ -126,8 +126,8 @@ static void fastResumeSave( tr_io_t * io )
     fwrite( &version, 4, 1, file );
 
     /* write download and upload totals */
-    fwrite( &tor->downloaded[9], 8, 1, file );
-    fwrite( &tor->uploaded[9], 8, 1, file );
+    fwrite( &tor->downloaded, 8, 1, file );
+    fwrite( &tor->uploaded, 8, 1, file );
 
     /* Write file mtimes */
     fwrite( fileMTimes, 4, inf->fileCount, file );
@@ -208,8 +208,8 @@ static int fastResumeLoad( tr_io_t * io )
     if( 1 == version )
     {
         /* read download and upload totals */
-        fread( &tor->downloaded[9], 8, 1, file );
-        fread( &tor->uploaded[9], 8, 1, file );
+        fread( &tor->downloaded, 8, 1, file );
+        fread( &tor->uploaded, 8, 1, file );
     }
 
     /* Compare file mtimes */

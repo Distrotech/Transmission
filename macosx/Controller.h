@@ -23,16 +23,17 @@
 #ifndef CONTROLLER_H
 #define CONTROLLER_H
 
-#include <Cocoa/Cocoa.h>
-#include <transmission.h>
-#include "PrefsController.h"
+#import <Cocoa/Cocoa.h>
+#import <transmission.h>
+#import "PrefsController.h"
+#import "Badger.h"
 
 @class TorrentTableView;
 
 @interface Controller : NSObject
 {
     tr_handle_t                 * fHandle;
-    int                         fCount;
+    int                         fCount, fSeeding, fDownloading, fCompleted;
     tr_stat_t                   * fStat;
     int                         fResumeOnWake[TR_MAX_TORRENT_COUNT];
 
@@ -68,12 +69,15 @@
     io_connect_t                fRootPort;
     NSArray                     * fFilenames;
     NSTimer                     * fTimer;
+    NSTimer                     * fUpdateTimer;
     
     IBOutlet NSPanel            * fPrefsWindow;
     IBOutlet PrefsController    * fPrefsController;
     NSUserDefaults              * fDefaults;
     
     BOOL                        fHasGrowl;
+    Badger                      * fBadger; 
+    BOOL                        fCheckIsAutomatic;
 }
 
 - (void) advancedChanged: (id) sender;
@@ -83,7 +87,6 @@
 
 - (void) quitSheetDidEnd:   (NSWindow *)sheet returnCode:(int)returnCode
                             contextInfo:(void  *)contextInfo;
-- (void) quitProcedure;
                         
 - (void) stopTorrent:               (id) sender;
 - (void) stopAllTorrents:           (id) sender;
@@ -125,6 +128,10 @@
 - (void) finderReveal:      (NSString *) path;
 - (void) finderTrash:       (NSString *) path;
 - (void) growlRegister:     (id) sender;
+
+- (void) checkForUpdate:      (id) sender;
+- (void) checkForUpdateTimer: (NSTimer *) timer;
+- (void) checkForUpdateAuto:  (BOOL) automatic;
 
 @end
 

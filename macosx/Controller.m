@@ -20,12 +20,13 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#include <IOKit/IOMessage.h>
+#import <IOKit/IOMessage.h>
 
-#include "NameCell.h"
-#include "ProgressCell.h"
-#include "Utils.h"
-#include "TorrentTableView.h"
+#import "NameCell.h"
+#import "ProgressCell.h"
+#import "StringAdditions.h"
+#import "Utils.h"
+#import "TorrentTableView.h"
 
 #import "PrefsController.h"
 
@@ -35,8 +36,9 @@
 #define TOOLBAR_PAUSE_ALL   @"Toolbar Pause All"
 #define TOOLBAR_RESUME_ALL  @"Toolbar Resume All"
 
-#define WEBSITE_URL     @"http://transmission.m0k.org/"
-#define FORUM_URL       @"http://transmission.m0k.org/forum/"
+#define WEBSITE_URL         @"http://transmission.m0k.org/"
+#define FORUM_URL           @"http://transmission.m0k.org/forum/"
+#define VERSION_PLIST_URL   @"http://transmission.m0k.org/version.plist"
 
 #define GROWL_PATH  @"/Library/PreferencePanes/Growl.prefPane/Contents/Resources/GrowlHelperApp.app"
 
@@ -132,14 +134,33 @@ static void sleepCallBack( void * controller, io_service_t y,
                 || [manager fileExistsAtPath: [[NSString stringWithFormat: @"~%@",
                 GROWL_PATH] stringByExpandingTildeInPath]];
     [self growlRegister: self];
+
+    //initialize badging
+    fBadger = [[Badger alloc] init];
     
     //update the interface every 500 ms
     fCount = 0;
-    fStat  = NULL;
+    fDownloading = 0;
+    fSeeding = 0;
+    fCompleted = 0;
+    fStat  = nil;
     fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.5 target: self
         selector: @selector( updateUI: ) userInfo: NULL repeats: YES];
     [[NSRunLoop currentRunLoop] addTimer: fTimer
+        forMode: NSModalPanelRunLoopMode];
+    [[NSRunLoop currentRunLoop] addTimer: fTimer
         forMode: NSEventTrackingRunLoopMode];
+
+    [self checkForUpdateTimer: nil];
+    fUpdateTimer = [NSTimer scheduledTimerWithTimeInterval: 60.0
+        target: self selector: @selector( checkForUpdateTimer: )
+        userInfo: NULL repeats: YES];
+}
+
+- (void) windowDidBecomeKey: (NSNotification *) n
+{
+    /* Reset the number of recently completed downloads */
+    fCompleted = 0;
 }
 
 - (void) windowDidResize: (NSNotification *) n
@@ -162,87 +183,84 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-    if ([[fDefaults stringForKey: @"CheckQuit"] isEqualToString:@"YES"])
+    int active = fDownloading + fSeeding;
+    if (active > 0 && [[NSUserDefaults standardUserDefaults] boolForKey: @"CheckQuit"])
     {
-        int i;
-        for( i = 0; i < fCount; i++ )
-        {
-            if( fStat[i].status & ( TR_STATUS_CHECK |
-                    TR_STATUS_DOWNLOAD ) )
-            {
-                NSBeginAlertSheet(@"Confirm Quit",
-                                @"Quit", @"Cancel", nil,
-                                fWindow, self,
-                                @selector(quitSheetDidEnd:returnCode:contextInfo:),
-                                NULL, NULL, @"There are active torrents. Do you really want to quit?");
-                return NSTerminateLater;
-            }
-        }
-    }
+        NSString * message = active == 1
+            ? @"There is an active torrent. Do you really want to quit?"
+            : [NSString stringWithFormat:
+                @"There are %d active torrents. Do you really want to quit?", fDownloading];
+
+        NSBeginAlertSheet(@"Confirm Quit",
+                            @"Quit", @"Cancel", nil,
+                            fWindow, self,
+                            @selector(quitSheetDidEnd:returnCode:contextInfo:),
+                            nil, nil, message);
+        return NSTerminateLater;
+    }                                                                           
     
-    [self quitProcedure];
     return NSTerminateNow;
 }
 
 - (void) quitSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode
                         contextInfo:(void  *)contextInfo
 {
-    if (returnCode == NSAlertDefaultReturn)
-        [self quitProcedure];
-        
     [NSApp stopModal];
-    [NSApp replyToApplicationShouldTerminate: (returnCode == NSAlertDefaultReturn)];
+    [NSApp replyToApplicationShouldTerminate:
+        (returnCode == NSAlertDefaultReturn)];
 }
 
-- (void) quitProcedure
+- (void) applicationWillTerminate: (NSNotification *) notification
 {
     int i;
-    NSMutableArray * history = [NSMutableArray
-        arrayWithCapacity: TR_MAX_TORRENT_COUNT];
     
     // Stop updating the interface
     [fTimer invalidate];
+    [fUpdateTimer invalidate];
+
+    //clear badge
+    [fBadger clearBadge];
+    [fBadger release];                                                          
 
     // Save history and stop running torrents
+    NSMutableArray * history = [NSMutableArray arrayWithCapacity: fCount];
+    BOOL active;
     for( i = 0; i < fCount; i++ )
     {
+        active = fStat[i].status &
+            ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD | TR_STATUS_SEED );
+
         [history addObject: [NSDictionary dictionaryWithObjectsAndKeys:
             [NSString stringWithUTF8String: fStat[i].info.torrent],
             @"TorrentPath",
             [NSString stringWithUTF8String: tr_torrentGetFolder( fHandle, i )],
             @"DownloadFolder",
-            ( fStat[i].status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD |
-                TR_STATUS_SEED ) ) ? @"NO" : @"YES",
+            active ? @"NO" : @"YES",
             @"Paused",
             NULL]];
 
-        if( fStat[i].status & ( TR_STATUS_CHECK |
-                TR_STATUS_DOWNLOAD | TR_STATUS_SEED ) )
+        if( active )
         {
             tr_torrentStop( fHandle, i );
         }
     }
+    [fDefaults setObject: history forKey: @"History"];
 
     // Wait for torrents to stop (5 seconds timeout)
     NSDate * start = [NSDate date];
     while( fCount > 0 )
     {
-        while( [[NSDate date] timeIntervalSinceDate: start] < 5 )
+        while( [[NSDate date] timeIntervalSinceDate: start] < 5 &&
+                !( fStat[0].status & TR_STATUS_PAUSE ) )
         {
-            fCount = tr_torrentStat( fHandle, &fStat );
-            if( fStat[0].status & TR_STATUS_PAUSE )
-            {
-                break;
-            }
-            usleep( 500000 );
+            usleep( 100000 );
+            tr_torrentStat( fHandle, &fStat );
         }
         tr_torrentClose( fHandle, 0 );
         fCount = tr_torrentStat( fHandle, &fStat );
     }
 
     tr_close( fHandle );
-
-    [fDefaults setObject: history forKey: @"History"];
 }
 
 - (void) showPreferenceWindow: (id) sender
@@ -302,7 +320,7 @@ static void sleepCallBack( void * controller, io_service_t y,
         if( [downloadChoice isEqualToString: @"Constant"] )
         {
             tr_torrentSetFolder( fHandle, tr_torrentCount( fHandle ) - 1,
-                                 [downloadFolder UTF8String] );
+                                 [[downloadFolder stringByExpandingTildeInPath] UTF8String] );
             tr_torrentStart( fHandle, tr_torrentCount( fHandle ) - 1 );
         }
         else if( [downloadChoice isEqualToString: @"Torrent"] )
@@ -442,9 +460,9 @@ static void sleepCallBack( void * controller, io_service_t y,
                      deleteData: (BOOL) deleteData
 {
     if ( fStat[idx].status & ( TR_STATUS_CHECK 
-        | TR_STATUS_DOWNLOAD)  )
+        | TR_STATUS_DOWNLOAD | TR_STATUS_SEED )  )
     {
-        if ([[fDefaults stringForKey: @"CheckRemove"] isEqualToString:@"YES"])
+        if ([fDefaults boolForKey: @"CheckRemove"])
         {
             NSDictionary * dict = [NSDictionary dictionaryWithObjectsAndKeys:
                         [NSString stringWithFormat: @"%d", idx], @"Index",
@@ -552,35 +570,49 @@ static void sleepCallBack( void * controller, io_service_t y,
         free(fStat);
         
     fCount = tr_torrentStat( fHandle, &fStat );
+    fDownloading = 0;
+    fSeeding = 0;
     [fTableView updateUI: fStat];
 
     //Update the global DL/UL rates
     tr_torrentRates( fHandle, &dl, &ul );
-    [fTotalDLField setStringValue: [NSString stringWithFormat:
-        @"Total DL: %.2f KB/s", dl]];
-    [fTotalULField setStringValue: [NSString stringWithFormat:
-        @"Total UL: %.2f KB/s", ul]];
+    NSString * downloadRate = [NSString stringForSpeed: dl];
+    NSString * uploadRate = [NSString stringForSpeed: ul];
+    [fTotalDLField setStringValue: downloadRate];
+    [fTotalULField setStringValue: uploadRate];
 
     //Update DL/UL totals in the Info panel
     row = [fTableView selectedRow];
     if( row >= 0 )
     {
         [fInfoDownloaded setStringValue:
-            stringForFileSize( fStat[row].downloaded )];
+            [NSString stringForFileSize: fStat[row].downloaded]];
         [fInfoUploaded setStringValue:
-            stringForFileSize( fStat[row].uploaded )];
+            [NSString stringForFileSize: fStat[row].uploaded]];
     }
     
     //check if torrents have recently ended.
     for (i = 0; i < fCount; i++)
     {
+        if (fStat[i].status & (TR_STATUS_CHECK | TR_STATUS_DOWNLOAD))
+            fDownloading++;
+        else if (fStat[i].status & TR_STATUS_SEED)
+            fSeeding++;
+
         if( !tr_getFinished( fHandle, i ) )
             continue;
-            
+
+        fCompleted++;
         [self notifyGrowl: [NSString stringWithUTF8String: 
             fStat[i].info.name]];
         tr_setFinished( fHandle, i, 0 );
     }
+
+    //badge dock
+    NSUserDefaults * defaults = [NSUserDefaults standardUserDefaults];
+    [fBadger updateBadgeWithCompleted: [defaults boolForKey: @"BadgeCompleted"] ? fCompleted : 0
+                    uploadRate: ul >= 0.1 && [defaults boolForKey: @"BadgeUploadRate"] ? uploadRate : nil
+                    downloadRate: dl >= 0.1 && [defaults boolForKey: @"BadgeDownloadRate"] ? downloadRate : nil];
 }
 
 - (int) numberOfRowsInTableView: (NSTableView *) t
@@ -663,11 +695,11 @@ static void sleepCallBack( void * controller, io_service_t y,
     [fInfoAnnounce setStringValue: [NSString stringWithCString:
         fStat[row].info.trackerAnnounce]];
     [fInfoSize setStringValue:
-        stringForFileSize( fStat[row].info.totalSize )];
+        [NSString stringForFileSize: fStat[row].info.totalSize]];
     [fInfoPieces setStringValue: [NSString stringWithFormat: @"%d",
         fStat[row].info.pieceCount]];
     [fInfoPieceSize setStringValue:
-        stringForFileSize( fStat[row].info.pieceSize )];
+        [NSString stringForFileSize: fStat[row].info.pieceSize]];
     [fInfoFolder setStringValue: [[NSString stringWithUTF8String:
         tr_torrentGetFolder( fHandle, row )] lastPathComponent]];
         
@@ -722,7 +754,7 @@ static void sleepCallBack( void * controller, io_service_t y,
         [item setLabel: @"Resume All"];
         [item setPaletteLabel: [item label]];
         [item setToolTip: @"Resume all torrents"];
-        [item setImage: [NSImage imageNamed: @"Resume.png"]];
+        [item setImage: [NSImage imageNamed: @"ResumeAll.png"]];
         [item setTarget: self];
         [item setAction: @selector( resumeAllTorrents: )];
     }
@@ -731,7 +763,7 @@ static void sleepCallBack( void * controller, io_service_t y,
         [item setLabel: @"Pause All"];
         [item setPaletteLabel: [item label]];
         [item setToolTip: @"Pause all torrents"];
-        [item setImage: [NSImage imageNamed: @"Stop.png"]];
+        [item setImage: [NSImage imageNamed: @"PauseAll.png"]];
         [item setTarget: self];
         [item setAction: @selector( stopAllTorrents: )];
     }
@@ -780,49 +812,61 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (BOOL)validateToolbarItem:(NSToolbarItem *)toolbarItem
 {
+    SEL action = [toolbarItem action];
+
     //enable remove item
-    if ([toolbarItem action] == @selector(removeTorrent:))
+    if (action == @selector(removeTorrent:))
         return [fTableView selectedRow] >= 0;
         
-    //enable pause all and resume all items
-    if ([toolbarItem action] == @selector(stopAllTorrents:)
-            || [toolbarItem action] == @selector(resumeAllTorrents:))
-        return fCount > 0;
+
+    //enable resume all item
+    if (action == @selector(resumeAllTorrents:))
+        return fCount > fDownloading + fSeeding;
+
+    //enable pause all item
+    if (action == @selector(stopAllTorrents:))
+        return fDownloading > 0 || fSeeding > 0;                                
     
     return YES;
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
+    SEL action = [menuItem action];
+
     //disable menus if customize sheet is active
     if ([fToolbar customizationPaletteIsRunning])
         return NO;
         
     //enable customize toolbar item
-    if ([menuItem action] == @selector(showHideToolbar:))
+    if (action == @selector(showHideToolbar:))
     {
         [menuItem setTitle: [fToolbar isVisible] ? @"Hide Toolbar" : @"Show Toolbar"];
         return YES;
     }
         
     //enable show info
-    if ([menuItem action] == @selector(showInfo:))
+    if (action == @selector(showInfo:))
     {
         [menuItem setTitle: [fInfoPanel isVisible] ? @"Hide Info" : @"Show Info"];
         return YES;
     }
+
+    //enable resume all item
+    if (action == @selector(resumeAllTorrents:))
+        return fCount > fDownloading + fSeeding;
+
+    //enable pause all item
+    if (action == @selector(stopAllTorrents:))
+        return fDownloading > 0 || fSeeding > 0;                                
     
-    //enable pause all and resume all
-    if ([menuItem action] == @selector(stopAllTorrents:) || [menuItem action] == @selector(resumeAllTorrents:))
-        return fCount > 0;
-        
     int row = [fTableView selectedRow];
         
     //enable remove items
-    if ([menuItem action] == @selector(removeTorrent:)
-        || [menuItem action] == @selector(removeTorrentDeleteFile:)
-        || [menuItem action] == @selector(removeTorrentDeleteData:)
-        || [menuItem action] == @selector(removeTorrentDeleteBoth:))
+    if (action == @selector(removeTorrent:)
+        || action == @selector(removeTorrentDeleteFile:)
+        || action == @selector(removeTorrentDeleteData:)
+        || action == @selector(removeTorrentDeleteBoth:))
     {
         //append or remove ellipsis when needed
         if (row >= 0 && fStat[row].status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD)
@@ -840,11 +884,11 @@ static void sleepCallBack( void * controller, io_service_t y,
     }
     
     //enable reveal in finder item
-    if ([menuItem action] == @selector(revealFromMenu:))
+    if (action == @selector(revealFromMenu:))
         return row >= 0;
         
     //enable and change pause / remove item
-    if ([menuItem action] == @selector(resumeTorrent:) || [menuItem action] == @selector(stopTorrent:))
+    if (action == @selector(resumeTorrent:) || action == @selector(stopTorrent:))
     {
         if (row >= 0 && fStat[row].status & TR_STATUS_PAUSE)
         {
@@ -893,9 +937,11 @@ static void sleepCallBack( void * controller, io_service_t y,
             break;
 
         case kIOMessageCanSystemSleep:
-            /* Do not prevent idle sleep */
-            /* TODO: prevent it unless there are all paused? */
-            IOAllowPowerChange( fRootPort, (long) messageArgument );
+            /* Prevent idle sleep unless all paused */
+            if (fDownloading > 0 || fSeeding > 0)
+                IOCancelPowerChange( fRootPort, (long) messageArgument );
+            else
+                IOAllowPowerChange( fRootPort, (long) messageArgument );
             break;
 
         case kIOMessageSystemHasPoweredOn:
@@ -1050,6 +1096,133 @@ static void sleepCallBack( void * controller, io_service_t y,
         printf( "finderTrash failed\n" );
     }
     [appleScript release];
+}
+
+- (void) checkForUpdate: (id) sender
+{
+    [self checkForUpdateAuto: NO];
+}
+
+- (void) checkForUpdateTimer: (NSTimer *) timer
+{
+    NSString * check = [fDefaults stringForKey: @"VersionCheck"];
+    if( [check isEqualToString: @"Never"] )
+        return;
+
+    NSTimeInterval interval;
+    if( [check isEqualToString: @"Daily"] )
+        interval = 24 * 3600;
+    else if( [check isEqualToString: @"Weekly"] )
+        interval = 7 * 24 * 3600;
+    else
+        return;
+
+    id lastObject = [fDefaults objectForKey: @"VersionCheckLast"];
+    NSDate * lastDate = [lastObject isKindOfClass: [NSDate class]] ?
+        lastObject : nil;
+    if( lastDate )
+    {
+        NSTimeInterval actualInterval =
+            [[NSDate date] timeIntervalSinceDate: lastDate];
+        if( actualInterval > 0 && actualInterval < interval )
+        {
+            return;
+        }
+    }
+
+    [self checkForUpdateAuto: YES];
+    [fDefaults setObject: [NSDate date] forKey: @"VersionCheckLast"];
+}
+    
+- (void) checkForUpdateAuto: (BOOL) automatic
+{
+    fCheckIsAutomatic = automatic;
+    [[NSURL URLWithString: VERSION_PLIST_URL]
+            loadResourceDataNotifyingClient: self usingCache: NO];
+}
+
+- (void) URLResourceDidFinishLoading: (NSURL *) sender
+{   
+    NSDictionary * dict = [NSPropertyListSerialization
+                            propertyListFromData: [sender resourceDataUsingCache: NO]
+                            mutabilityOption: NSPropertyListImmutable
+                            format: nil errorDescription: nil];
+
+    //check if plist was actually found and contains a version
+    NSString * webVersion = nil;
+    if (dict)
+        webVersion = [dict objectForKey: @"Version"];
+    if (!webVersion)
+    {
+        if (!fCheckIsAutomatic)
+        {
+            NSAlert * dialog = [[NSAlert alloc] init];
+            [dialog addButtonWithTitle: @"OK"];
+            [dialog setMessageText: @"Error checking for updates."];
+            [dialog setInformativeText:
+                    @"Transmission was not able to check the latest version available."];
+            [dialog setAlertStyle: NSInformationalAlertStyle];
+
+            [dialog runModal];
+            [dialog release];
+        }
+        return;
+    }
+
+    NSString * currentVersion = [[[NSBundle mainBundle] infoDictionary]
+                                objectForKey: (NSString *)kCFBundleVersionKey];
+
+    NSEnumerator * webEnum = [[webVersion componentsSeparatedByString: @"."] objectEnumerator],
+            * currentEnum = [[currentVersion componentsSeparatedByString: @"."] objectEnumerator];
+    NSString * webSub, * currentSub;
+
+    BOOL webGreater = NO;
+    NSComparisonResult result;
+    while ((webSub = [webEnum nextObject]))
+    {
+        if (!(currentSub = [currentEnum nextObject]))
+        {
+            webGreater = YES;
+            break;
+        }
+
+        result = [currentSub compare: webSub options: NSNumericSearch];
+        if (result != NSOrderedSame)
+        {
+            if (result == NSOrderedAscending)
+                webGreater = YES;
+            break;
+        }
+    }
+
+    if (webGreater)
+    {
+        NSAlert * dialog = [[NSAlert alloc] init];
+        [dialog addButtonWithTitle: @"Go to Website"];
+        [dialog addButtonWithTitle:@"Cancel"];
+        [dialog setMessageText: @"New version is available!"];
+        [dialog setInformativeText: [NSString stringWithFormat:
+            @"A newer version (%@) is available for download from the Transmission website.", webVersion]];
+        [dialog setAlertStyle: NSInformationalAlertStyle];
+
+        if ([dialog runModal] == NSAlertFirstButtonReturn)
+            [self linkHomepage: nil];
+
+        [dialog release];
+    }
+    else if (!fCheckIsAutomatic)
+    {
+        NSAlert * dialog = [[NSAlert alloc] init];
+        [dialog addButtonWithTitle: @"OK"];
+        [dialog setMessageText: @"No new versions are available."];
+        [dialog setInformativeText: [NSString stringWithFormat:
+            @"You are running the most current version of Transmission (%@).", currentVersion]];
+        [dialog setAlertStyle: NSInformationalAlertStyle];
+
+        [dialog runModal];
+        [dialog release];
+    }
+    else;
 }
 
 @end

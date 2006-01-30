@@ -20,8 +20,9 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#include "NameCell.h"
-#include "Utils.h"
+#import "NameCell.h"
+#import "StringAdditions.h"
+#import "Utils.h"
 
 @implementation NameCell
 
@@ -31,7 +32,13 @@
 
     fNameString  = [NSString stringWithUTF8String: stat->info.name];
     fSizeString  = [NSString stringWithFormat: @" (%@)",
-                    stringForFileSize( stat->info.totalSize )];
+                    [NSString stringForFileSize: stat->info.totalSize]];
+
+    fIcon = [[NSWorkspace sharedWorkspace] iconForFile:
+                [[NSString stringWithUTF8String: stat->folder]
+                stringByAppendingPathComponent: fNameString]];                  
+    [fIcon setFlipped: YES];
+
     fTimeString  = @"";
     fPeersString = @"";
 
@@ -96,6 +103,13 @@
     }
 
     pen = cellFrame.origin;
+    float cellWidth = cellFrame.size.width;
+
+    pen.x += 5;
+    pen.y += 5;                                                                 
+    [fIcon drawAtPoint: pen fromRect:
+        NSMakeRect(0,0,[fIcon size].width,[fIcon size].height)
+        operation: NSCompositeSourceOver fraction: 1.0];
 
     attributes = [NSMutableDictionary dictionaryWithCapacity: 2];
     [attributes setObject: fWhiteText ? [NSColor whiteColor] :
@@ -104,10 +118,10 @@
     [attributes setObject: [NSFont messageFontOfSize: 12.0]
         forKey: NSFontAttributeName];
 
-    pen.x += 5; pen.y += 5;
-    string = [NSString stringWithFormat: @"%@%@",
-        stringFittingInWidth( fNameString, cellFrame.size.width -
-        35 - widthForString( fSizeString, 12 ), 12 ), fSizeString];
+    pen.x += 37;
+    string = [[fNameString stringFittingInWidth: cellWidth -
+        72 - [fSizeString sizeWithAttributes: attributes].width
+        withAttributes: attributes] stringByAppendingString: fSizeString];
     [string drawAtPoint: pen withAttributes: attributes];
 
     [attributes setObject: [NSFont messageFontOfSize: 10.0]
@@ -117,8 +131,8 @@
     [fTimeString drawAtPoint: pen withAttributes: attributes];
 
     pen.x += 0; pen.y += 15;
-    string = stringFittingInWidth( fPeersString,
-                cellFrame.size.width - 40, 10 );
+    string = [fPeersString stringFittingInWidth: cellFrame.size.width -
+        77 withAttributes: attributes];
     [string drawAtPoint: pen withAttributes: attributes];
 
     [view unlockFocus];

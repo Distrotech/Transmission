@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2006 Eric Petit
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,13 +20,9 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-typedef struct tr_upload_s tr_upload_t;
+typedef struct tr_choking_s tr_choking_t;
 
-tr_upload_t * tr_uploadInit();
-void          tr_uploadSetLimit( tr_upload_t *, int );
-int           tr_uploadCanUnchoke( tr_upload_t * );
-void          tr_uploadChoked( tr_upload_t * );
-void          tr_uploadUnchoked( tr_upload_t * );
-int           tr_uploadCanUpload( tr_upload_t * );
-void          tr_uploadUploaded( tr_upload_t *, int );
-void          tr_uploadClose( tr_upload_t * );
+tr_choking_t * tr_chokingInit( tr_handle_t * );
+void           tr_chokingSetLimit( tr_choking_t *, int );
+void           tr_chokingPulse( tr_choking_t * );
+void           tr_chokingClose( tr_choking_t * );

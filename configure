@@ -161,17 +161,17 @@ case $SYSTEM in
 
   FreeBSD)
     DEFINES="$DEFINES SYS_FREEBSD"
-    LINKLIBS="$LINKLIBS -pthread"
+    LINKLIBS="$LINKLIBS -pthread -lm"
     ;;
 
   NetBSD)
     DEFINES="$DEFINES SYS_NETBSD"
-    LINKLIBS="$LINKLIBS -lpthread"
+    LINKLIBS="$LINKLIBS -lpthread -lm"
     ;;
 
   Linux)
     DEFINES="$DEFINES SYS_LINUX"
-    LINKLIBS="$LINKLIBS -lpthread"
+    LINKLIBS="$LINKLIBS -lpthread -lm"
     ;;
 
   *)
@@ -179,6 +179,20 @@ case $SYSTEM in
     exit 1 ;;
 esac
 echo "System:  $SYSTEM"
+
+#
+# Mac OS X check for the Universal SDK
+#
+if [ $SYSTEM = Darwin -a ! -d /Developer/SDKs/MacOSX10.4u.sdk ]; then
+  echo
+  echo "You need to install the Universal SDK in order to build Transmission:"
+  echo "  Get your Xcode CD or package"
+  echo "  Restart the install"
+  echo "  When it gets to \"Installation Type\", select \"Customize\""
+  echo "  Select \"Mac OS X 10.4 (Universal) SDL\" under \"Cross Development\""
+  echo "  Finish the install."
+  exit 1
+fi
 
 #
 # OpenSSL settings

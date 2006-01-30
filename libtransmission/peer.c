@@ -53,6 +53,8 @@ struct tr_peer_s
     char           peerChoking;
     char           peerInterested;
 
+    uint64_t       lastChoke;
+
     uint8_t        id[20];
 
     uint8_t      * bitfield;
@@ -81,6 +83,8 @@ struct tr_peer_s
     uint64_t       outTotal;
     uint64_t       outDate;
     int            outSlow;
+
+    tr_ratecontrol_t * download;
 };
 
 #define peer_dbg( a... ) __peer_dbg( peer, ## a )
@@ -172,6 +176,7 @@ void tr_peerDestroy( tr_fd_t * fdlimit, tr_peer_t * peer )
         tr_netClose( peer->socket );
         tr_fdSocketClosed( fdlimit, 0 );
     }
+    tr_rcClose( peer->download );
     free( peer );
 }
 
@@ -194,10 +199,6 @@ void tr_peerRem( tr_torrent_t * tor, int i )
         r     = &peer->inRequests[j];
         block = tr_block( r->index,r->begin );
         tr_cpDownloaderRem( tor->completion, block );
-    }
-    if( !peer->amChoking )
-    {
-        tr_uploadChoked( tor->upload );
     }
     tr_peerDestroy( tor->fdlimit, peer );
     tor->peerCount--;
@@ -242,7 +243,10 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
         peer->pos  += ret;
         if( NULL != tor )
         {
-            if( parseBuf( tor, peer, ret ) )
+            tr_rcTransferred( peer->download, ret );
+            tr_rcTransferred( tor->download, ret );
+            tr_rcTransferred( tor->globalDownload, ret );
+            if( parseBuf( tor, peer ) )
             {
                 return 1;
             }
@@ -280,15 +284,9 @@ void tr_peerPulse( tr_torrent_t * tor )
     uint8_t * p;
     tr_peer_t * peer;
 
-    tor->dates[9] = tr_date();
-    if( tor->dates[9] > tor->dates[8] + 1000 )
+    if( tr_date() > tor->date + 1000 )
     {
-        memmove( &tor->downloaded[0], &tor->downloaded[1],
-                 9 * sizeof( uint64_t ) );
-        memmove( &tor->uploaded[0], &tor->uploaded[1],
-                 9 * sizeof( uint64_t ) );
-        memmove( &tor->dates[0], &tor->dates[1],
-                 9 * sizeof( uint64_t ) );
+        tor->date = tr_date();
 
         for( i = 0; i < tor->peerCount; )
         {
@@ -358,7 +356,7 @@ writeBegin:
         /* Send pieces if we can */
         while( ( p = blockPending( tor, peer, &size ) ) )
         {
-            if( !tr_uploadCanUpload( tor->upload ) )
+            if( !tr_rcCanTransfer( tor->globalUpload ) )
             {
                 break;
             }
@@ -374,11 +372,12 @@ writeBegin:
             }
 
             blockSent( peer, ret );
-            tr_uploadUploaded( tor->upload, ret );
+            tr_rcTransferred( tor->upload, ret );
+            tr_rcTransferred( tor->globalUpload, ret );
 
-            tor->uploaded[9] += ret;
-            peer->outTotal   += ret;
-            peer->outDate     = tr_date();
+            tor->uploaded  += ret;
+            peer->outTotal += ret;
+            peer->outDate   = tr_date();
 
             /* In case this block is done, you may have messages
                pending. Send them before we start the next block */
@@ -457,4 +456,36 @@ int tr_peerIsDownloading( tr_peer_t * peer )
 uint8_t * tr_peerBitfield( tr_peer_t * peer )
 {
     return peer->bitfield;
+}
+
+float tr_peerDownloadRate( tr_peer_t * peer )
+{
+    return tr_rcRate( peer->download );
+}
+
+int tr_peerIsUnchoked( tr_peer_t * peer )
+{
+    return !peer->amChoking;
+}
+
+int tr_peerIsInterested  ( tr_peer_t * peer )
+{
+    return peer->peerInterested;
+}
+
+void tr_peerChoke( tr_peer_t * peer )
+{
+    sendChoke( peer, 1 );
+    peer->lastChoke = tr_date();
+}
+
+void tr_peerUnchoke( tr_peer_t * peer )
+{
+    sendChoke( peer, 0 );
+    peer->lastChoke = tr_date();
+}
+
+uint64_t tr_peerLastChoke( tr_peer_t * peer )
+{
+    return peer->lastChoke;
 }

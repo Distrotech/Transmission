@@ -20,7 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#include "ProgressCell.h"
+#import "ProgressCell.h"
+#import "StringAdditions.h"
 
 @implementation ProgressCell
 
@@ -121,10 +122,10 @@ static uint32_t kGreen[] =
     fWhiteText = w;
 
     /* Update the strings to be displayed */
-    fDlString = [NSString stringWithFormat:
-        @"DL: %.2f KB/s", fStat->rateDownload];
-    fUlString = [NSString stringWithFormat:
-        @"UL: %.2f KB/s", fStat->rateUpload];
+    fDlString = [@"DL: " stringByAppendingString:
+                    [NSString stringForSpeed: fStat->rateDownload]];
+    fUlString = [@"UL: " stringByAppendingString:
+                    [NSString stringForSpeed: fStat->rateUpload]];
 
     /* Reset our bitmap to the background image... */
     in  = [fBackgroundBmp bitmapData];
@@ -163,10 +164,15 @@ static uint32_t kGreen[] =
        progress bar is 120*14 : the first two columns, the last
        two columns and the last four lines contain the shadow. */
 
-    p      = (uint32_t *) [fProgressBmp bitmapData];
-    p     += 2;
-    end    = lrintf( floor( fStat->progress * 120 ) );
-    colors = ( fStat->status & TR_STATUS_SEED ) ? kGreen : kBlue2;
+    p   = (uint32_t *) [fProgressBmp bitmapData] + 2;
+    end = lrintf( floor( fStat->progress * 120 ) );
+
+    if( fStat->status & TR_STATUS_SEED )
+        colors = kGreen;
+    else if( fStat->status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD ) )
+        colors = kBlue2;
+    else
+        colors = kGray;
 
     for( h = 0; h < 14; h++ )
     {

@@ -3,6 +3,7 @@
         {
             ACTIONS = {
                 advancedChanged = id; 
+                checkForUpdate = id; 
                 growlRegister = id; 
                 linkForums = id; 
                 linkHomepage = id; 
@@ -59,16 +60,21 @@
         {
             ACTIONS = {
                 folderSheetShow = id; 
+                setBadge = id; 
                 setDownloadLocation = id; 
                 setLimitUploadCheck = id; 
                 setPort = id; 
                 setQuitMessage = id; 
                 setRemoveMessage = id; 
+                setUpdate = id; 
                 setUploadLimit = id; 
             }; 
             CLASS = PrefsController; 
             LANGUAGE = ObjC; 
             OUTLETS = {
+                fBadgeCompletedCheck = NSButton; 
+                fBadgeDownloadRateCheck = NSButton; 
+                fBadgeUploadRateCheck = NSButton; 
                 fBlankView = NSView; 
                 fFolderPopUp = NSPopUpButton; 
                 fGeneralView = NSView; 
@@ -77,6 +83,7 @@
                 fPrefsWindow = NSPanel; 
                 fQuitCheck = NSButton; 
                 fRemoveCheck = NSButton; 
+                fUpdatePopUp = NSPopUpButton; 
                 fUploadCheck = NSButton; 
                 fUploadField = NSTextField; 
                 fWindow = NSWindow; 

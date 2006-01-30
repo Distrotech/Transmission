@@ -20,8 +20,8 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#include <Cocoa/Cocoa.h>
-#include <transmission.h>
+#import <Cocoa/Cocoa.h>
+#import <transmission.h>
 
 @interface PrefsController : NSObject
 
@@ -35,11 +35,16 @@
     IBOutlet NSView         * fBlankView;
     
     IBOutlet NSPopUpButton  * fFolderPopUp;
+    IBOutlet NSButton       * fQuitCheck;
+    IBOutlet NSButton       * fRemoveCheck;
+    IBOutlet NSButton       * fBadgeCompletedCheck;
+    IBOutlet NSButton       * fBadgeDownloadRateCheck;
+    IBOutlet NSButton       * fBadgeUploadRateCheck;                            
+    IBOutlet NSPopUpButton  * fUpdatePopUp;
+
     IBOutlet NSTextField    * fPortField;
     IBOutlet NSButton       * fUploadCheck;
     IBOutlet NSTextField    * fUploadField;
-    IBOutlet NSButton       * fQuitCheck;
-    IBOutlet NSButton       * fRemoveCheck;
     
     IBOutlet NSWindow       * fWindow;
 
@@ -49,12 +54,15 @@
 
 - (void) setPrefsWindow: (tr_handle_t *) handle;
 
+- (void) setQuitMessage:        (id) sender;
+- (void) setRemoveMessage:      (id) sender;
+- (void) setBadge:              (id) sender;
+- (void) setUpdate:             (id) sender;
+- (void) setDownloadLocation:   (id) sender;
+- (void) folderSheetShow:       (id) sender;
+
 - (void) setLimitUploadCheck:   (id) sender;
 - (void) setPort:               (id) sender;
 - (void) setUploadLimit:        (id) sender;
-- (void) setQuitMessage:        (id) sender;
-- (void) setRemoveMessage:  (id) sender;
-- (void) setDownloadLocation:   (id) sender;
-- (void) folderSheetShow:       (id) sender;
 
 @end

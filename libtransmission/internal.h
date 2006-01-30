@@ -93,15 +93,19 @@ typedef struct tr_completion_s tr_completion_t;
 #include "peer.h"
 #include "net.h"
 #include "inout.h"
-#include "upload.h"
+#include "ratecontrol.h"
 #include "clients.h"
+#include "choking.h"
 
 struct tr_torrent_s
 {
     tr_info_t info;
 
-    tr_upload_t     * upload;
-    tr_fd_t         * fdlimit;
+    tr_ratecontrol_t * globalUpload;
+    tr_ratecontrol_t * globalDownload;
+    tr_ratecontrol_t * upload;
+    tr_ratecontrol_t * download;
+    tr_fd_t          * fdlimit;
 
     int               status;
 	int				  finished;
@@ -143,9 +147,9 @@ struct tr_torrent_s
     int               peerCount;
     tr_peer_t       * peers[TR_MAX_PEER_COUNT];
 
-    uint64_t          dates[10];
-    uint64_t          downloaded[10];
-    uint64_t          uploaded[10];
+    uint64_t          date;
+    uint64_t          downloaded;
+    uint64_t          uploaded;
 };
 
 #include "utils.h"
@@ -156,8 +160,10 @@ struct tr_handle_s
     int            torrentCount;
     tr_torrent_t * torrents[TR_MAX_TORRENT_COUNT];
 
-    tr_upload_t  * upload;
+    tr_ratecontrol_t * upload;
+    tr_ratecontrol_t * download;
     tr_fd_t      * fdlimit;
+    tr_choking_t * choking;
 
     int            bindPort;
     int            bindSocket;

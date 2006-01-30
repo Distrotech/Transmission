@@ -27,8 +27,6 @@
  **********************************************************************/
 static void torrentReallyStop( tr_handle_t * h, int t );
 static void  downloadLoop( void * );
-static float rateDownload( tr_torrent_t * );
-static float rateUpload( tr_torrent_t * );
 static void  acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
 
@@ -65,8 +63,10 @@ tr_handle_t * tr_init()
     signal( SIGPIPE, SIG_IGN );
 
     /* Initialize rate and file descripts controls */
-    h->upload  = tr_uploadInit();
-    h->fdlimit = tr_fdInit();
+    h->upload   = tr_rcInit();
+    h->download = tr_rcInit();
+    h->fdlimit  = tr_fdInit();
+    h->choking  = tr_chokingInit( h );
 
     h->bindPort = TR_DEFAULT_PORT;
     h->bindSocket = -1;
@@ -145,7 +145,8 @@ void tr_setBindPort( tr_handle_t * h, int port )
  **********************************************************************/
 void tr_setUploadLimit( tr_handle_t * h, int limit )
 {
-    tr_uploadSetLimit( h->upload, limit );
+    tr_rcSetLimit( h->upload, limit );
+    tr_chokingSetLimit( h->choking, limit );
 }
 
 /***********************************************************************
@@ -155,20 +156,8 @@ void tr_setUploadLimit( tr_handle_t * h, int limit )
  **********************************************************************/
 void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
 {
-    int            i;
-    tr_torrent_t * tor;
-
-    *dl = 0.0;
-    *ul = 0.0;
-
-    for( i = 0; i < h->torrentCount; i++ )
-    {
-        tor = h->torrents[i];
-        tr_lockLock( &tor->lock );
-        *dl += rateDownload( tor );
-        *ul += rateUpload( tor );
-        tr_lockUnlock( &tor->lock );
-    }
+    *dl = tr_rcRate( h->download );
+    *ul = tr_rcRate( h->upload );
 }
 
 /***********************************************************************
@@ -248,8 +237,11 @@ int tr_torrentInit( tr_handle_t * h, const char * path )
 
     tr_lockInit( &tor->lock );
 
-    tor->upload  = h->upload;
-    tor->fdlimit = h->fdlimit;
+    tor->globalUpload   = h->upload;
+    tor->globalDownload = h->download;
+    tor->fdlimit        = h->fdlimit;
+    tor->upload         = tr_rcInit();
+    tor->download       = tr_rcInit();
  
     /* We have a new torrent */
     tr_lockLock( &h->acceptLock );
@@ -288,8 +280,6 @@ char * tr_torrentGetFolder( tr_handle_t * h, int t )
 void tr_torrentStart( tr_handle_t * h, int t )
 {
     tr_torrent_t * tor = h->torrents[t];
-    uint64_t       now;
-    int            i;
 
     if( tor->status & ( TR_STATUS_STOPPING | TR_STATUS_STOPPED ) )
     {
@@ -300,12 +290,7 @@ void tr_torrentStart( tr_handle_t * h, int t )
     tor->status   = TR_STATUS_CHECK;
     tor->tracker  = tr_trackerInit( h, tor );
 
-    now = tr_date();
-    for( i = 0; i < 10; i++ )
-    {
-        tor->dates[i] = now;
-    }
-
+    tor->date = tr_date();
     tor->die = 0;
     tr_threadCreate( &tor->thread, downloadLoop, tor );
 }
@@ -340,6 +325,9 @@ static void torrentReallyStop( tr_handle_t * h, int t )
     {
         tr_peerRem( tor, 0 );
     }
+
+    tor->downloaded = 0;
+    tor->uploaded   = 0;
 }
 
 /***********************************************************************
@@ -416,8 +404,8 @@ int tr_torrentStat( tr_handle_t * h, tr_stat_t ** stat )
         }
 
         s[i].progress     = tr_cpCompletionAsFloat( tor->completion );
-        s[i].rateDownload = rateDownload( tor );
-        s[i].rateUpload   = rateUpload( tor );
+        s[i].rateDownload = tr_rcRate( tor->download );
+        s[i].rateUpload   = tr_rcRate( tor->upload );
         
         s[i].seeders	  = tr_trackerSeeders(tor);
 		s[i].leechers	  = tr_trackerLeechers(tor);
@@ -458,8 +446,8 @@ int tr_torrentStat( tr_handle_t * h, tr_stat_t ** stat )
             }
         }
 
-        s[i].downloaded = tor->downloaded[9];
-        s[i].uploaded   = tor->uploaded[9];
+        s[i].downloaded = tor->downloaded;
+        s[i].uploaded   = tor->uploaded;
 
         s[i].folder = tor->destination;
 
@@ -493,6 +481,9 @@ void tr_torrentClose( tr_handle_t * h, int t )
     tr_lockClose( &tor->lock );
     tr_cpClose( tor->completion );
 
+    tr_rcClose( tor->upload );
+    tr_rcClose( tor->download );
+
     if( tor->destination )
     {
         free( tor->destination );
@@ -510,8 +501,10 @@ void tr_torrentClose( tr_handle_t * h, int t )
 void tr_close( tr_handle_t * h )
 {
     acceptStop( h );
+    tr_chokingClose( h->choking );
     tr_fdClose( h->fdlimit );
-    tr_uploadClose( h->upload );
+    tr_rcClose( h->upload );
+    tr_rcClose( h->download );
     free( h );
 }
 
@@ -583,52 +576,12 @@ static void downloadLoop( void * _tor )
 }
 
 /***********************************************************************
- * rateDownload, rateUpload
- **********************************************************************/
-static float rateGeneric( uint64_t * dates, uint64_t * counts )
-{
-    float ret;
-    int i;
-
-    ret = 0.0;
-    for( i = 0; i < 9; i++ )
-    {
-        if( dates[i+1] == dates[i] )
-        {
-            continue;
-        }
-        ret += (float) ( i + 1 ) * 1000.0 / 1024.0 *
-            (float) ( counts[i+1] - counts[i] ) /
-            (float) ( dates[i+1] - dates[i] );
-    }
-    ret *= 1000.0 / 1024.0 / 45.0;
-
-    return ret;
-}
-static float rateDownload( tr_torrent_t * tor )
-{
-    if( TR_STATUS_PAUSE & tor->status )
-    {
-        return 0.0;
-    }
-    return rateGeneric( tor->dates, tor->downloaded );
-}
-static float rateUpload( tr_torrent_t * tor )
-{
-    if( TR_STATUS_PAUSE & tor->status )
-    {
-        return 0.0;
-    }
-    return rateGeneric( tor->dates, tor->uploaded );
-}
-
-/***********************************************************************
  * acceptLoop
  **********************************************************************/
 static void acceptLoop( void * _h )
 {
     tr_handle_t * h = _h;
-    uint64_t      date1, date2;
+    uint64_t      date1, date2, lastchoke = 0;
     int           ii, jj;
     uint8_t     * hash;
 
@@ -695,6 +648,12 @@ static void acceptLoop( void * _h )
             h->acceptPeerCount--;
             memmove( &h->acceptPeers[ii], &h->acceptPeers[ii+1],
                      ( h->acceptPeerCount - ii ) * sizeof( tr_peer_t * ) );
+        }
+
+        if( date1 > lastchoke + 2000 )
+        {
+            tr_chokingPulse( h->choking );
+            lastchoke = date1;
         }
 
         /* Wait up to 20 ms */
