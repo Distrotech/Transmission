@@ -1,0 +1,334 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2006-01-30 22:32-0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+#: conf.c:73
+#, c-format
+msgid ""
+"Error opening file %s for writing:\n"
+"%s"
+msgstr ""
+
+#: conf.c:87
+#, c-format
+msgid "Another copy of %s is already running."
+msgstr ""
+
+#: conf.c:90
+#, c-format
+msgid ""
+"Error obtaining lock on file %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:109
+#, c-format
+msgid ""
+"Failed to check directory %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:115 dialogs.c:169
+#, c-format
+msgid ""
+"Failed to create directory %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:124
+#, c-format
+msgid "%s is not a directory"
+msgstr ""
+
+#: conf.c:158 conf.c:321
+#, c-format
+msgid ""
+"Error opening file %s for reading:\n"
+"%s"
+msgstr ""
+
+#: conf.c:169 conf.c:332
+#, c-format
+msgid ""
+"Error reading file %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:233 conf.c:431
+#, c-format
+msgid ""
+"Error opening or locking file %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:253 conf.c:471
+#, c-format
+msgid ""
+"Error writing to file %s:\n"
+"%s"
+msgstr ""
+
+#: conf.c:260 conf.c:478
+#, c-format
+msgid ""
+"Error renaming %s to %s:\n"
+"%s"
+msgstr ""
+
+#: dialogs.c:74
+#, c-format
+msgid "%s Preferences"
+msgstr ""
+
+#: dialogs.c:81
+msgid "Limit upload speed"
+msgstr ""
+
+#: dialogs.c:83
+msgid "Choose download directory"
+msgstr ""
+
+#: dialogs.c:104
+msgid "Listening port:"
+msgstr ""
+
+#: dialogs.c:122
+msgid "Maximum upload speed:"
+msgstr ""
+
+#: dialogs.c:134
+msgid "Download Directory:"
+msgstr ""
+
+#: dialogs.c:222
+msgid "Add a Torrent"
+msgstr ""
+
+#: dialogs.c:229
+msgid "Automatically start torrent"
+msgstr ""
+
+#: dialogs.c:231
+msgid "Use alternate download directory"
+msgstr ""
+
+#: dialogs.c:235
+msgid "Choose a download directory"
+msgstr ""
+
+#: dialogs.c:261
+msgid "Torrent files"
+msgstr ""
+
+#: dialogs.c:263
+msgid "All files"
+msgstr ""
+
+#: dialogs.c:369
+#, c-format
+msgid "%s Properties"
+msgstr ""
+
+#: dialogs.c:389
+msgid "Tracker:"
+msgstr ""
+
+#: dialogs.c:391
+msgid "Announce:"
+msgstr ""
+
+#: dialogs.c:392
+msgid "Piece Size:"
+msgstr ""
+
+#: dialogs.c:393
+msgid "Pieces:"
+msgstr ""
+
+#: dialogs.c:394
+msgid "Total Size:"
+msgstr ""
+
+#: dialogs.c:398
+msgid "Directory:"
+msgstr ""
+
+#: dialogs.c:399
+msgid "Downloaded:"
+msgstr ""
+
+#: dialogs.c:400
+msgid "Uploaded:"
+msgstr ""
+
+#: main.c:146
+msgid "Add"
+msgstr ""
+
+#: main.c:147
+msgid "Add a new torrent file"
+msgstr ""
+
+#: main.c:148
+msgid "Start"
+msgstr ""
+
+#: main.c:150
+msgid "Resume a torrent that has been paused"
+msgstr ""
+
+#: main.c:151
+msgid "Stop"
+msgstr ""
+
+#: main.c:153
+msgid "Pause a torrent"
+msgstr ""
+
+#: main.c:154
+msgid "Remove"
+msgstr ""
+
+#: main.c:155
+msgid "Remove a torrent from the list"
+msgstr ""
+
+#: main.c:156
+msgid "Properties"
+msgstr ""
+
+#: main.c:157
+msgid "Get additional information for a torrent"
+msgstr ""
+
+#: main.c:158
+msgid "Preferences"
+msgstr ""
+
+#: main.c:159
+msgid "Open preferences dialog"
+msgstr ""
+
+#: main.c:182
+msgid "Transmission"
+msgstr ""
+
+#: main.c:473
+msgid "Name"
+msgstr ""
+
+#: main.c:480
+msgid "Progress"
+msgstr ""
+
+#: main.c:555
+#, c-format
+msgid "Checking existing files (%.1f%%)"
+msgstr ""
+
+#: main.c:557
+#, c-format
+msgid "Finishing in %02i:%02i:%02i (%.1f%%)"
+msgstr ""
+
+#: main.c:560
+#, c-format
+msgid "Seeding, uploading to %d of %d peer"
+msgid_plural "Seeding, uploading to %d of %d peers"
+msgstr[0] ""
+msgstr[1] ""
+
+#: main.c:564
+msgid "Stopping..."
+msgstr ""
+
+#: main.c:566
+#, c-format
+msgid "Paused (%.1f%%)"
+msgstr ""
+
+#: main.c:574
+msgid "Error: "
+msgstr ""
+
+#: main.c:578
+#, c-format
+msgid "Downloading from %i of %i peer"
+msgid_plural "Downloading from %i of %i peer"
+msgstr[0] ""
+msgstr[1] ""
+
+#: main.c:611
+#, c-format
+msgid "DL: %s/s"
+msgstr ""
+
+#: main.c:611
+#, c-format
+msgid "UL: %s/s"
+msgstr ""
+
+#: main.c:658
+#, c-format
+msgid "Total DL: %s/s"
+msgstr ""
+
+#: main.c:659
+#, c-format
+msgid "Total UL: %s/s"
+msgstr ""
+
+#: main.c:925
+#, c-format
+msgid ""
+"Failed to create download directory %s:\n"
+"%s"
+msgstr ""
+
+#: main.c:936
+#, c-format
+msgid "Failed to open torrent file %s"
+msgstr ""
+
+#: util.c:63
+msgid "B"
+msgstr ""
+
+#: util.c:63
+msgid "KiB"
+msgstr ""
+
+#: util.c:63
+msgid "MiB"
+msgstr ""
+
+#: util.c:63
+msgid "GiB"
+msgstr ""
+
+#: util.c:63
+msgid "TiB"
+msgstr ""
+
+#: util.c:63
+msgid "PiB"
+msgstr ""
+
+#: util.c:63
+msgid "EiB"
+msgstr ""

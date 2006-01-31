@@ -34,6 +34,9 @@
 #include <unistd.h>
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
+
+#include "defines.h"
 
 #include "conf.h"
 #include "dialogs.h"
@@ -142,20 +145,20 @@ enum listfrom { FROM_BUTTON, FROM_POPUP };
 struct { const gchar *name; const gchar *id; enum listact act; gboolean nomenu;
   int avail; const char *ttext; const char *tpriv; }
 actionitems[] = {
-  {"Add",         GTK_STOCK_ADD,          ACT_OPEN,   FALSE,  0,
-   "Add a new torrent file", "XXX"},
-  {"Start",       GTK_STOCK_EXECUTE,      ACT_START,  FALSE,
+  {N_("Add"),         GTK_STOCK_ADD,          ACT_OPEN,   FALSE,  0,
+   N_("Add a new torrent file"), "XXX"},
+  {N_("Start"),       GTK_STOCK_EXECUTE,      ACT_START,  FALSE,
    (TR_STATUS_STOPPING | TR_STATUS_PAUSE),
-   "Resume a torrent that has been paused", "XXX"},
-  {"Stop",        GTK_STOCK_STOP,         ACT_STOP,   FALSE,
+   N_("Resume a torrent that has been paused"), "XXX"},
+  {N_("Stop"),        GTK_STOCK_STOP,         ACT_STOP,   FALSE,
    ~(TR_STATUS_STOPPING | TR_STATUS_PAUSE),
-   "Pause a torrent", "XXX"},
-  {"Remove",      GTK_STOCK_REMOVE,       ACT_DELETE, FALSE, ~0,
-   "Remove a torrent from the list", "XXX"},
-  {"Properties",  GTK_STOCK_PROPERTIES,   ACT_INFO,   FALSE, ~0,
-   "Get additional information for a torrent", "XXX"},
-  {"Preferences", GTK_STOCK_PREFERENCES,  ACT_PREF,   TRUE,   0,
-   "Open preferences dialog", "XXX"},
+   N_("Pause a torrent"), "XXX"},
+  {N_("Remove"),      GTK_STOCK_REMOVE,       ACT_DELETE, FALSE, ~0,
+   N_("Remove a torrent from the list"), "XXX"},
+  {N_("Properties"),  GTK_STOCK_PROPERTIES,   ACT_INFO,   FALSE, ~0,
+   N_("Get additional information for a torrent"), "XXX"},
+  {N_("Preferences"), GTK_STOCK_PREFERENCES,  ACT_PREF,   TRUE,   0,
+   N_("Open preferences dialog"), "XXX"},
 };
 
 #define CBDATA_PTR              "callback-data-pointer"
@@ -170,7 +173,10 @@ main(int argc, char **argv) {
 
   gtk_init(&argc, &argv);
 
-  g_set_application_name("Transmission");
+  bindtextdomain("transmission-gtk", LOCALEDIR);
+  textdomain("transmission-gtk");
+
+  g_set_application_name(_("Transmission"));
 
   tr = tr_init();
 
@@ -415,9 +421,9 @@ makewind_toolbar(struct cbdata *data) {
   for(ii = 0; ii < ALEN(actionitems); ii++) {
     item = gtk_tool_button_new_from_stock(actionitems[ii].id);
     data->buttons[ii] = GTK_WIDGET(item);
-    gtk_tool_button_set_label(GTK_TOOL_BUTTON(item), actionitems[ii].name);
+    gtk_tool_button_set_label(GTK_TOOL_BUTTON(item), gettext(actionitems[ii].name));
     gtk_tool_item_set_tooltip(GTK_TOOL_ITEM(item), GTK_TOOLBAR(bar)->tooltips,
-                              actionitems[ii].ttext, actionitems[ii].tpriv);
+                              gettext(actionitems[ii].ttext), actionitems[ii].tpriv);
     g_object_set_data(G_OBJECT(item), LIST_ACTION,
                       GINT_TO_POINTER(actionitems[ii].act));
     g_object_set_data(G_OBJECT(item), LIST_ACTION_FROM,
@@ -461,14 +467,14 @@ makewind_list(struct cbdata *data) {
   data->view = GTK_TREE_VIEW(view);
 
   namerend = gtk_cell_renderer_text_new();
-  col = gtk_tree_view_column_new_with_attributes("Name", namerend, NULL);
+  col = gtk_tree_view_column_new_with_attributes(_("Name"), namerend, NULL);
   gtk_tree_view_column_set_cell_data_func(col, namerend, dfname, NULL, NULL);
   gtk_tree_view_column_set_expand(col, TRUE);
   gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
 
   progrend = tr_cell_renderer_torrent_new();
   g_object_set(progrend, "label", "<big>  fnord    fnord  </big>", NULL);
-  col = gtk_tree_view_column_new_with_attributes("Progress", progrend, NULL);
+  col = gtk_tree_view_column_new_with_attributes(_("Progress"), progrend, NULL);
   gtk_tree_view_column_set_cell_data_func(col, progrend, dfprog, NULL, NULL);
   gtk_tree_view_append_column(GTK_TREE_VIEW(view), col);
 
@@ -543,17 +549,18 @@ dfname(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
   prog *= 100;
 
   if(status & TR_STATUS_CHECK)
-    top = g_strdup_printf("Checking existing files (%.1f%%)", prog);
+    top = g_strdup_printf(_("Checking existing files (%.1f%%)"), prog);
   else if(status & TR_STATUS_DOWNLOAD)
-    top = g_strdup_printf("Finishing in %02i:%02i:%02i (%.1f%%)",
+    top = g_strdup_printf(_("Finishing in %02i:%02i:%02i (%.1f%%)"),
                            eta / 60 / 60, eta / 60 % 60, eta % 60, prog);
   else if(status & TR_STATUS_SEED)
-    top = g_strdup_printf("Seeding, uploading to %d of %d peer%s",
-                           dpeers, tpeers, (1 == tpeers ? "" : "s"));
+    top = g_strdup_printf(ngettext("Seeding, uploading to %d of %d peer",
+                                   "Seeding, uploading to %d of %d peers",
+                                   tpeers), dpeers, tpeers);
   else if(status & TR_STATUS_STOPPING)
-    top = g_strdup("Stopping...");
+    top = g_strdup(_("Stopping..."));
   else if(status & TR_STATUS_PAUSE)
-    top = g_strdup_printf("Paused (%.1f%%)", prog);
+    top = g_strdup_printf(_("Paused (%.1f%%)"), prog);
   else {
     top = g_strdup("");
     assert("XXX unknown status");
@@ -561,12 +568,13 @@ dfname(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
 
   if(status & TR_TRACKER_ERROR) {
     gtk_tree_model_get(model, iter, MC_ERR, &err, -1);
-    bottom = g_strconcat("Error: ", err, NULL);
+    bottom = g_strconcat(_("Error: "), err, NULL);
     g_free(err);
   }
   else if(status & TR_STATUS_DOWNLOAD)
-    bottom = g_strdup_printf("Downloading from %i of %i peer%s",
-                             upeers, tpeers, (1 == tpeers ? "" : "s"));
+    bottom = g_strdup_printf(ngettext("Downloading from %i of %i peer",
+                                      "Downloading from %i of %i peer",
+                                      tpeers), upeers, tpeers);
   else
     bottom = NULL;
 
@@ -583,7 +591,7 @@ dfname(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
 void
 dfprog(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
        GtkTreeModel *model, GtkTreeIter *iter, gpointer gdata SHUTUP) {
-  char *dlstr, *ulstr, *str;
+  char *dlstr, *ulstr, *fmt, *str;
   gfloat prog, dl, ul;
 
   /* XXX should I worry about gtk_tree_model_get failing? */
@@ -596,10 +604,13 @@ dfprog(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
 
   dlstr = readablesize(dl * 1024.0, 2);
   ulstr = readablesize(ul * 1024.0, 2);
-  str = g_strdup_printf("<small>DL: %s/s\nUL: %s/s</small>", dlstr, ulstr);
+  fmt = g_markup_printf_escaped("<small>%s\n%s</small>",
+                                _("DL: %s/s"), _("UL: %s/s"));
+  str = g_strdup_printf(fmt, dlstr, ulstr);
   g_object_set(rend, "text", str, "value", prog, NULL);
   g_free(dlstr);
   g_free(ulstr);
+  g_free(fmt);
   g_free(str);
 }
 
@@ -610,7 +621,7 @@ updatemodel(gpointer gdata) {
   int ii, max;
   GtkTreeIter iter;
   float up, down;
-  char *upstr, *downstr, *str;
+  char *upstr, *downstr, *fmt, *str;
 
   blocksigs();
 
@@ -641,10 +652,13 @@ updatemodel(gpointer gdata) {
   tr_torrentRates(data->tr, &up, &down);
   downstr = readablesize(down * 1024.0, 2);
   upstr = readablesize(up * 1024.0, 2);
-  str = g_strdup_printf("     Total DL: %s/s     Total UL: %s/s", upstr, downstr);
+  fmt = g_strdup_printf("     %s     %s", _("Total DL: %s/s"),
+                        _("Total UL: %s/s"));
+  str = g_strdup_printf(fmt, upstr, downstr);
   gtk_statusbar_pop(data->bar, 0);
   gtk_statusbar_push(data->bar, 0, str);
   g_free(str);
+  g_free(fmt);
   g_free(upstr);
   g_free(downstr);
 
@@ -734,7 +748,7 @@ dopopupmenu(GdkEventButton *event, struct cbdata *data,
        (actionitems[ii].avail &&
         (NULL == ids || !(actionitems[ii].avail & status))))
       continue;
-    item = gtk_menu_item_new_with_label(actionitems[ii].name);
+    item = gtk_menu_item_new_with_label(gettext(actionitems[ii].name));
     /* set the action for the menu item */
     g_object_set_data(G_OBJECT(item), LIST_ACTION,
                       GINT_TO_POINTER(actionitems[ii].act));
@@ -905,7 +919,7 @@ addtorrent(tr_handle_t *tr, GtkWindow *parentwind, const char *torrent,
 
   if(NULL == dir && NULL != (dir = cf_getpref(PREF_DIR))) {
     if(!mkdir_p(dir, 0777)) {
-      errmsg(parentwind, "Failed to create download directory %s:\n%s",
+      errmsg(parentwind, _("Failed to create download directory %s:\n%s"),
              dir, strerror(errno));
       return FALSE;
     }
@@ -916,7 +930,7 @@ addtorrent(tr_handle_t *tr, GtkWindow *parentwind, const char *torrent,
   if(0 != tr_torrentInit(tr, torrent)) {
     unblocksigs();
     /* XXX would be nice to have errno strings, are they printed to stdout? */
-    errmsg(parentwind, "Failed to open torrent file %s", torrent);
+    errmsg(parentwind, _("Failed to open torrent file %s"), torrent);
     return FALSE;
   }
 
