@@ -310,6 +310,8 @@ static void recvAnswer( tr_tracker_t * tc )
     int i;
     benc_val_t   beAll;
     benc_val_t * bePeers, * beFoo;
+    uint8_t * body;
+    int bodylen;
 
     if( tc->pos == tc->size )
     {
@@ -338,32 +340,65 @@ static void recvAnswer( tr_tracker_t * tc )
     tc->status  = TC_STATUS_IDLE;
     tc->dateTry = tr_date();
 
-    if( tc->pos < 1 )
+    if( tc->pos < 12 || ( 0 != memcmp( tc->buf, "HTTP/1.0 ", 9 ) &&
+                          0 != memcmp( tc->buf, "HTTP/1.1 ", 9 ) ) )
     {
-        /* We got nothing */
+        /* We don't have a complete HTTP status line */
+        tr_inf( "Tracker: incomplete HTTP status line" );
         return;
     }
 
+    if( '2' != tc->buf[9] )
+    {
+        /* we didn't get a 2xx status code */
+        tr_err( "Tracker: invalid HTTP status code: %c%c%c",
+                tc->buf[9], tc->buf[10], tc->buf[11] );
+        return;
+    }
+
+    /* find the end of the http headers */
+    body = tr_memmem( tc->buf, tc->pos, "\015\012\015\012", 4 );
+    if( NULL != body )
+    {
+        body += 4;
+    }
+    /* hooray for trackers that violate the HTTP spec */
+    else if( NULL != ( body = tr_memmem( tc->buf, tc->pos, "\015\015", 2 ) ) ||
+             NULL != ( body = tr_memmem( tc->buf, tc->pos, "\012\012", 2 ) ) )
+    {
+        body += 2;
+    }
+    else
+    {
+        tr_err( "Tracker: could not find end of HTTP headers" );
+        return;
+    }
+    bodylen = tc->pos - (body - tc->buf);
+
     /* Find the beginning of the dictionary */
-    for( i = 0; i < tc->pos - 18; i++ )
+    for( i = 0; i < bodylen - 18; i++ )
     {
         /* Hem */
-        if( !memcmp( &tc->buf[i], "d8:interval", 11 ) ||
-            !memcmp( &tc->buf[i], "d8:complete", 11 ) ||
-            !memcmp( &tc->buf[i], "d14:failure reason", 18 ) )
+        if( !memcmp( &body[i], "d8:interval", 11 ) ||
+            !memcmp( &body[i], "d8:complete", 11 ) ||
+            !memcmp( &body[i], "d14:failure reason", 18 ) )
         {
             break;
         }
     }
 
-    if( i >= tc->pos - 18 )
+    if( i >= bodylen - 18 )
     {
+        if( tc->stopped || 0 < tc->newPort )
+        {
+            goto nodict;
+        }
         tr_err( "Tracker: no dictionary in answer" );
-        // printf( "%s\n", tc->buf );
+        // printf( "%s\n", body );
         return;
     }
 
-    if( tr_bencLoad( &tc->buf[i], &beAll, NULL ) )
+    if( tr_bencLoad( &body[i], &beAll, NULL ) )
     {
         tr_err( "Tracker: error parsing bencoded data" );
         return;
@@ -477,6 +512,7 @@ static void recvAnswer( tr_tracker_t * tc )
         }
     }
 
+nodict:
     /* Success */
     tc->started   = 0;
     tc->completed = 0;
