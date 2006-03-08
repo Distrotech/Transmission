@@ -25,7 +25,7 @@
 /***********************************************************************
  * Local prototypes
  **********************************************************************/
-static void torrentReallyStop( tr_handle_t * h, int t );
+static void torrentReallyStop( tr_torrent_t * );
 static void  downloadLoop( void * );
 static void  acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
@@ -85,7 +85,8 @@ tr_handle_t * tr_init()
  **********************************************************************/
 void tr_setBindPort( tr_handle_t * h, int port )
 {
-    int ii, sock;
+    int sock;
+    tr_torrent_t * tor;
 
     if( h->bindPort == port )
       return;
@@ -106,14 +107,14 @@ void tr_setBindPort( tr_handle_t * h, int port )
 
     h->bindPort = port;
 
-    for( ii = 0; ii < h->torrentCount; ii++ )
+    for( tor = h->torrentList; tor; tor = tor->next )
     {
-        tr_lockLock( &h->torrents[ii]->lock );
-        if( NULL != h->torrents[ii]->tracker )
+        tr_lockLock( &tor->lock );
+        if( NULL != tor->tracker )
         {
-            tr_trackerChangePort( h->torrents[ii]->tracker, port );
+            tr_trackerChangePort( tor->tracker, port );
         }
-        tr_lockUnlock( &h->torrents[ii]->lock );
+        tr_lockUnlock( &tor->lock );
     }
 
     if( h->bindSocket > -1 )
@@ -146,13 +147,11 @@ void tr_setUploadLimit( tr_handle_t * h, int limit )
 void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
 {
     tr_torrent_t * tor;
-    int i;
 
     *dl = 0.0;
     *ul = 0.0;
-    for( i = 0; i < h->torrentCount; i++ )
+    for( tor = h->torrentList; tor; tor = tor->next )
     {
-        tor = h->torrents[i];
         tr_lockLock( &tor->lock );
         if( tor->status & TR_STATUS_DOWNLOAD )
             *dl += tr_rcRate( tor->download );
@@ -167,18 +166,12 @@ void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
  * Allocates a tr_torrent_t structure, then relies on tr_metainfoParse
  * to fill it.
  **********************************************************************/
-int tr_torrentInit( tr_handle_t * h, const char * path )
+tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path )
 {
-    tr_torrent_t  * tor;
+    tr_torrent_t  * tor, * tor_tmp;
     tr_info_t     * inf;
     int             i;
     char          * s1, * s2;
-
-    if( h->torrentCount >= TR_MAX_TORRENT_COUNT )
-    {
-        tr_err( "Maximum number of torrents reached" );
-        return 1;
-    }
 
     tor = calloc( sizeof( tr_torrent_t ), 1 );
     inf = &tor->info;
@@ -187,18 +180,18 @@ int tr_torrentInit( tr_handle_t * h, const char * path )
     if( tr_metainfoParse( inf, path ) )
     {
         free( tor );
-        return 1;
+        return NULL;
     }
 
     /* Make sure this torrent is not already open */
-    for( i = 0; i < h->torrentCount; i++ )
+    for( tor_tmp = h->torrentList; tor_tmp; tor_tmp = tor_tmp->next )
     {
-        if( !memcmp( tor->info.hash, h->torrents[i]->info.hash,
+        if( !memcmp( tor->info.hash, tor_tmp->info.hash,
                      SHA_DIGEST_LENGTH ) )
         {
             tr_err( "Torrent already open" );
             free( tor );
-            return 1;
+            return NULL;
         }
     }
 
@@ -246,65 +239,55 @@ int tr_torrentInit( tr_handle_t * h, const char * path )
  
     /* We have a new torrent */
     tr_lockLock( &h->acceptLock );
-    h->torrents[h->torrentCount] = tor;
+    tor->prev = NULL;
+    tor->next = h->torrentList;
+    if( tor->next )
+    {
+        tor->next->prev = tor;
+    }
+    h->torrentList = tor;
     (h->torrentCount)++;
     tr_lockUnlock( &h->acceptLock );
 
-    return 0;
+    return tor;
 }
 
 /***********************************************************************
  * tr_torrentScrape
- ***********************************************************************
- * Allocates a tr_torrent_t structure, then relies on tr_metainfoParse
- * to fill it.
  **********************************************************************/
-int tr_torrentScrape( tr_handle_t * h, int t, int * s, int * l )
+int tr_torrentScrape( tr_torrent_t * tor, int * s, int * l )
 {
-    return tr_trackerScrape( h->torrents[t], s, l );
+    return tr_trackerScrape( tor, s, l );
 }
 
-void tr_torrentSetFolder( tr_handle_t * h, int t, const char * path )
+void tr_torrentSetFolder( tr_torrent_t * tor, const char * path )
 {
-    tr_torrent_t * tor = h->torrents[t];
-
     tor->destination = strdup( path );
 }
 
-char * tr_torrentGetFolder( tr_handle_t * h, int t )
+char * tr_torrentGetFolder( tr_torrent_t * tor )
 {
-    tr_torrent_t * tor = h->torrents[t];
-
     return tor->destination;
 }
 
-void tr_torrentStart( tr_handle_t * h, int t )
+void tr_torrentStart( tr_torrent_t * tor )
 {
-    tr_torrent_t * tor = h->torrents[t];
-
     if( tor->status & ( TR_STATUS_STOPPING | TR_STATUS_STOPPED ) )
     {
         /* Join the thread first */
-        torrentReallyStop( h, t );
+        torrentReallyStop( tor );
     }
 
-    tor->status   = TR_STATUS_CHECK;
-    tor->tracker  = tr_trackerInit( h, tor );
-
-    if( 0 > h->bindPort )
-    {
-        tr_setBindPort( h, TR_DEFAULT_PORT );
-    }
+    tor->status  = TR_STATUS_CHECK;
+    tor->tracker = tr_trackerInit( tor );
 
     tor->date = tr_date();
     tor->die = 0;
     tr_threadCreate( &tor->thread, downloadLoop, tor );
 }
 
-void tr_torrentStop( tr_handle_t * h, int t )
+void tr_torrentStop( tr_torrent_t * tor )
 {
-    tr_torrent_t * tor = h->torrents[t];
-
     tr_lockLock( &tor->lock );
     tr_trackerStopped( tor->tracker );
     tr_rcReset( tor->download );
@@ -319,10 +302,8 @@ void tr_torrentStop( tr_handle_t * h, int t )
  ***********************************************************************
  * Joins the download thread and frees/closes everything related to it.
  **********************************************************************/
-static void torrentReallyStop( tr_handle_t * h, int t )
+static void torrentReallyStop( tr_torrent_t * tor )
 {
-    tr_torrent_t * tor = h->torrents[t];
-
     tor->die = 1;
     tr_threadJoin( &tor->thread );
     tr_dbg( "Thread joined" );
@@ -345,129 +326,116 @@ int tr_torrentCount( tr_handle_t * h )
     return h->torrentCount;
 }
 
-int tr_getFinished( tr_handle_t * h, int i)
+int tr_getFinished( tr_torrent_t * tor )
 {
-	return h->torrents[i]->finished;
+	return tor->finished;
 }
-void tr_setFinished( tr_handle_t * h, int i, int val)
+void tr_setFinished( tr_torrent_t * tor, int val)
 {
-	h->torrents[i]->finished = val;
+	tor->finished = val;
 }
 
-int tr_torrentStat( tr_handle_t * h, tr_stat_t ** stat )
+tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 {
     tr_stat_t * s;
-    tr_torrent_t * tor;
-    tr_info_t * inf;
-    int i, j, k, piece;
+    tr_info_t * inf = &tor->info;
+    int i, j, piece;
 
-    if( h->torrentCount < 1 )
+    tor->statCur = ( tor->statCur + 1 ) % 2;
+    s = &tor->stats[tor->statCur];
+
+    if( ( tor->status & TR_STATUS_STOPPED ) ||
+        ( ( tor->status & TR_STATUS_STOPPING ) &&
+          tr_date() > tor->stopDate + 60000 ) )
     {
-        *stat = NULL;
-        return 0;
+        torrentReallyStop( tor );
+        tor->status = TR_STATUS_PAUSE;
     }
 
-    s = malloc( h->torrentCount * sizeof( tr_stat_t ) );
+    tr_lockLock( &tor->lock );
 
-    for( i = 0; i < h->torrentCount; i++ )
+    memcpy( &s->info, &tor->info, sizeof( tr_info_t ) );
+    s->status = tor->status;
+    memcpy( s->error, tor->error, sizeof( s->error ) );
+
+    s->peersTotal       = 0;
+    s->peersUploading   = 0;
+    s->peersDownloading = 0;
+
+    for( i = 0; i < tor->peerCount; i++ )
     {
-        tor = h->torrents[i];
-        inf = &tor->info;
-
-        if( ( tor->status & TR_STATUS_STOPPED ) ||
-            ( ( tor->status & TR_STATUS_STOPPING ) &&
-              tr_date() > tor->stopDate + 60000 ) )
+        if( tr_peerIsConnected( tor->peers[i] ) )
         {
-            torrentReallyStop( h, i );
-            tor->status = TR_STATUS_PAUSE;
+            (s->peersTotal)++;
+            if( tr_peerIsUploading( tor->peers[i] ) )
+            {
+                (s->peersUploading)++;
+            }
+            if( tr_peerIsDownloading( tor->peers[i] ) )
+            {
+                (s->peersDownloading)++;
+            }
+        }
+    }
+
+    s->progress = tr_cpCompletionAsFloat( tor->completion );
+    if( tor->status & TR_STATUS_DOWNLOAD )
+        s->rateDownload = tr_rcRate( tor->download );
+    else
+        /* tr_rcRate() doesn't make the difference between 'piece'
+           messages and other messages, which causes a non-zero
+           download rate even tough we are not downloading. So we
+           force it to zero not to confuse the user. */
+        s->rateDownload = 0.0;
+    s->rateUpload = tr_rcRate( tor->upload );
+    
+    s->seeders	  = tr_trackerSeeders(tor);
+	s->leechers	  = tr_trackerLeechers(tor);
+
+    if( s->rateDownload < 0.1 )
+    {
+        s->eta = -1;
+    }
+    else
+    {
+        s->eta = (float) ( 1.0 - s->progress ) *
+            (float) inf->totalSize / s->rateDownload / 1024.0;
+        if( s->eta > 99 * 3600 + 59 * 60 + 59 )
+        {
+            s->eta = -1;
+        }
+    }
+
+    for( i = 0; i < 120; i++ )
+    {
+        piece = i * inf->pieceCount / 120;
+
+        if( tr_cpPieceIsComplete( tor->completion, piece ) )
+        {
+            s->pieces[i] = -1;
+            continue;
         }
 
-        tr_lockLock( &tor->lock );
-
-        memcpy( &s[i].info, &tor->info, sizeof( tr_info_t ) );
-        s[i].status = tor->status;
-        memcpy( s[i].error, tor->error, sizeof( s[i].error ) );
-
-        s[i].peersTotal       = 0;
-        s[i].peersUploading   = 0;
-        s[i].peersDownloading = 0;
-
+        s->pieces[i] = 0;
+        
         for( j = 0; j < tor->peerCount; j++ )
         {
-            if( tr_peerIsConnected( tor->peers[j] ) )
+            if( tr_peerBitfield( tor->peers[j] ) &&
+                tr_bitfieldHas( tr_peerBitfield( tor->peers[j] ), piece ) )
             {
-                (s[i].peersTotal)++;
-                if( tr_peerIsUploading( tor->peers[j] ) )
-                {
-                    (s[i].peersUploading)++;
-                }
-                if( tr_peerIsDownloading( tor->peers[j] ) )
-                {
-                    (s[i].peersDownloading)++;
-                }
+                (s->pieces[i])++;
             }
         }
-
-        s[i].progress     = tr_cpCompletionAsFloat( tor->completion );
-        if( tor->status & TR_STATUS_DOWNLOAD )
-            s[i].rateDownload = tr_rcRate( tor->download );
-        else
-            /* tr_rcRate() doesn't make the difference between 'piece'
-               messages and other messages, which causes a non-zero
-               download rate even tough we are not downloading. So we
-               force it to zero not to confuse the user. */
-            s[i].rateDownload = 0.0;
-        s[i].rateUpload = tr_rcRate( tor->upload );
-        
-        s[i].seeders	  = tr_trackerSeeders(tor);
-		s[i].leechers	  = tr_trackerLeechers(tor);
-
-        if( s[i].rateDownload < 0.1 )
-        {
-            s[i].eta = -1;
-        }
-        else
-        {
-            s[i].eta = (float) ( 1.0 - s[i].progress ) *
-                (float) inf->totalSize / s[i].rateDownload / 1024.0;
-            if( s[i].eta > 99 * 3600 + 59 * 60 + 59 )
-            {
-                s[i].eta = -1;
-            }
-        }
-
-        for( j = 0; j < 120; j++ )
-        {
-            piece = j * inf->pieceCount / 120;
-
-            if( tr_cpPieceIsComplete( tor->completion, piece ) )
-            {
-                s[i].pieces[j] = -1;
-                continue;
-            }
-
-            s[i].pieces[j] = 0;
-            
-            for( k = 0; k < tor->peerCount; k++ )
-            {
-                if( tr_peerBitfield( tor->peers[k] ) &&
-                    tr_bitfieldHas( tr_peerBitfield( tor->peers[k] ), piece ) )
-                {
-                    (s[i].pieces[j])++;
-                }
-            }
-        }
-
-        s[i].downloaded = tor->downloaded;
-        s[i].uploaded   = tor->uploaded;
-
-        s[i].folder = tor->destination;
-
-        tr_lockUnlock( &tor->lock );
     }
 
-    *stat = s;
-    return h->torrentCount;
+    s->downloaded = tor->downloaded;
+    s->uploaded   = tor->uploaded;
+
+    s->folder = tor->destination;
+
+    tr_lockUnlock( &tor->lock );
+
+    return s;
 }
 
 /***********************************************************************
@@ -475,15 +443,14 @@ int tr_torrentStat( tr_handle_t * h, tr_stat_t ** stat )
  ***********************************************************************
  * Frees memory allocated by tr_torrentInit.
  **********************************************************************/
-void tr_torrentClose( tr_handle_t * h, int t )
+void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
 {
-    tr_torrent_t * tor = h->torrents[t];
-    tr_info_t    * inf = &tor->info;
+    tr_info_t * inf = &tor->info;
 
     if( tor->status & ( TR_STATUS_STOPPING | TR_STATUS_STOPPED ) )
     {
         /* Join the thread first */
-        torrentReallyStop( h, t );
+        torrentReallyStop( tor );
     }
 
     tr_lockLock( &h->acceptLock );
@@ -502,10 +469,16 @@ void tr_torrentClose( tr_handle_t * h, int t )
     }
     free( inf->pieces );
     free( inf->files );
-    free( tor );
 
-    memmove( &h->torrents[t], &h->torrents[t+1],
-             ( h->torrentCount - t ) * sizeof( void * ) );
+    if( tor->prev )
+    {
+        tor->prev->next = tor->next;
+    }
+    if( tor->next )
+    {
+        tor->next->prev = tor->prev;
+    }
+    free( tor );
 
     tr_lockUnlock( &h->acceptLock );
 }
@@ -595,8 +568,9 @@ static void acceptLoop( void * _h )
 {
     tr_handle_t * h = _h;
     uint64_t      date1, date2, lastchoke = 0;
-    int           ii, jj;
+    int           ii;
     uint8_t     * hash;
+    tr_torrent_t * tor;
 
     tr_dbg( "Accept thread started" );
 
@@ -640,17 +614,17 @@ static void acceptLoop( void * _h )
             }
             if( NULL != ( hash = tr_peerHash( h->acceptPeers[ii] ) ) )
             {
-                for( jj = 0; jj < h->torrentCount; jj++ )
+                for( tor = h->torrentList; tor; tor = tor->next )
                 {
-                    tr_lockLock( &h->torrents[jj]->lock );
-                    if( 0 == memcmp( h->torrents[jj]->info.hash, hash,
+                    tr_lockLock( &tor->lock );
+                    if( 0 == memcmp( tor->info.hash, hash,
                                      SHA_DIGEST_LENGTH ) )
                     {
-                      tr_peerAttach( h->torrents[jj], h->acceptPeers[ii] );
-                      tr_lockUnlock( &h->torrents[jj]->lock );
+                      tr_peerAttach( tor, h->acceptPeers[ii] );
+                      tr_lockUnlock( &tor->lock );
                       goto removePeer;
                     }
-                    tr_lockUnlock( &h->torrents[jj]->lock );
+                    tr_lockUnlock( &tor->lock );
                 }
                 tr_peerDestroy( h->fdlimit, h->acceptPeers[ii] );
                 goto removePeer;

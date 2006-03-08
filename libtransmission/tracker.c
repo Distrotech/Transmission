@@ -57,13 +57,13 @@ struct tr_tracker_s
 static void sendQuery  ( tr_tracker_t * tc );
 static void recvAnswer ( tr_tracker_t * tc );
 
-tr_tracker_t * tr_trackerInit( tr_handle_t * h, tr_torrent_t * tor )
+tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
     tr_tracker_t * tc;
 
     tc           = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor      = tor;
-    tc->id       = h->id;
+    tc->id       = tor->id;
 
     tc->started  = 1;
 
@@ -74,7 +74,8 @@ tr_tracker_t * tr_trackerInit( tr_handle_t * h, tr_torrent_t * tor )
     tc->size     = 1024;
     tc->buf      = malloc( tc->size );
 
-    tc->bindPort = h->bindPort;
+    //tc->bindPort = h->bindPort;
+    tc->bindPort = 9090; /*FIXME*/
     tc->newPort  = -1;
 
     return tc;

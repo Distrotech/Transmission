@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -36,7 +36,6 @@ extern "C" {
 #else
 # define MAX_PATH_LENGTH      1024
 #endif
-#define TR_MAX_TORRENT_COUNT 50
 
 #define TR_DEFAULT_PORT      9090
 
@@ -82,27 +81,15 @@ void tr_setUploadLimit( tr_handle_t *, int );
 void tr_torrentRates( tr_handle_t *, float *, float * );
 
 /***********************************************************************
- * tr_getFinished
- ***********************************************************************
- * Tests to see if torrent is finished
- **********************************************************************/
-int tr_getFinished( tr_handle_t *, int );
-
-/***********************************************************************
- * tr_setFinished
- ***********************************************************************
- * Sets the boolean value finished in the torrent back to false
- **********************************************************************/
-void tr_setFinished( tr_handle_t *, int, int );
-
-/***********************************************************************
  * tr_torrentInit
  ***********************************************************************
  * Opens and parses torrent file at 'path'. If the file exists and is a
- * valid torrent file, returns 0 and adds it to the list of torrents
- * (but doesn't start it). Returns a non-zero value otherwise.
+ * valid torrent file, returns an handle and adds it to the list of
+ * torrents (but doesn't start it). Returns NULL otherwise.
  **********************************************************************/
-int tr_torrentInit( tr_handle_t *, const char * path );
+typedef struct tr_torrent_s tr_torrent_t;
+
+tr_torrent_t * tr_torrentInit( tr_handle_t *, const char * path );
 
 /***********************************************************************
  * tr_torrentScrape
@@ -113,7 +100,7 @@ int tr_torrentInit( tr_handle_t *, const char * path );
  * replied with some error. tr_torrentScrape may block up to 20 seconds
  * before returning.
  **********************************************************************/
-int tr_torrentScrape( tr_handle_t *, int, int * s, int * l );
+int tr_torrentScrape( tr_torrent_t *, int * s, int * l );
 
 /***********************************************************************
  * tr_torrentStart
@@ -121,9 +108,9 @@ int tr_torrentScrape( tr_handle_t *, int, int * s, int * l );
  * Starts downloading. The download is launched in a seperate thread,
  * therefore tr_torrentStart returns immediately.
  **********************************************************************/
-void   tr_torrentSetFolder( tr_handle_t *, int, const char * );
-char * tr_torrentGetFolder( tr_handle_t *, int );
-void   tr_torrentStart( tr_handle_t *, int );
+void   tr_torrentSetFolder( tr_torrent_t *, const char * );
+char * tr_torrentGetFolder( tr_torrent_t * );
+void   tr_torrentStart( tr_torrent_t * );
 
 /***********************************************************************
  * tr_torrentStop
@@ -136,7 +123,23 @@ void   tr_torrentStart( tr_handle_t *, int );
  * - by tr_torrentClose if you choose to remove the torrent without
  *   waiting any further.
  **********************************************************************/
-void tr_torrentStop( tr_handle_t *, int );
+void tr_torrentStop( tr_torrent_t * );
+
+/***********************************************************************
+ * tr_getFinished
+ ***********************************************************************
+ * Tests to see if torrent is finished
+ **********************************************************************/
+int tr_getFinished( tr_torrent_t * );
+
+/***********************************************************************
+ * tr_setFinished
+ ***********************************************************************
+ * Sets the boolean value finished in the torrent back to false
+ **********************************************************************/
+void tr_setFinished( tr_torrent_t *, int );
+
+
 
 /***********************************************************************
  * tr_torrentStat
@@ -153,7 +156,7 @@ void tr_torrentStop( tr_handle_t *, int );
 typedef struct tr_stat_s tr_stat_t;
 
 int tr_torrentCount( tr_handle_t * h );
-int tr_torrentStat( tr_handle_t *, tr_stat_t ** s );
+tr_stat_t * tr_torrentStat( tr_torrent_t * );
 
 /***********************************************************************
  * tr_torrentClose
@@ -161,7 +164,7 @@ int tr_torrentStat( tr_handle_t *, tr_stat_t ** s );
  * Frees memory allocated by tr_torrentInit. If the torrent was running,
  * you must call tr_torrentStop() before closing it.
  **********************************************************************/
-void tr_torrentClose( tr_handle_t *, int );
+void tr_torrentClose( tr_handle_t *, tr_torrent_t * );
 
 /***********************************************************************
  * tr_close
