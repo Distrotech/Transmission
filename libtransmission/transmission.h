@@ -169,6 +169,16 @@ typedef struct tr_stat_s tr_stat_t;
 tr_stat_t * tr_torrentStat( tr_torrent_t * );
 
 /***********************************************************************
+ * tr_torrentAvailability
+ ***********************************************************************
+ * Use this to draw an advanced progress bar which is 'size' pixels
+ * wide. Fills 'tab' which you must have allocated: each byte is set
+ * to either -1 if we have the piece, otherwise it is set to the number
+ * of connected peers who have the piece.
+ **********************************************************************/
+void tr_torrentAvailability( tr_torrent_t *, uint8_t * tab, int size );
+
+/***********************************************************************
  * tr_torrentClose
  ***********************************************************************
  * Frees memory allocated by tr_torrentInit. If the torrent was running,
@@ -239,7 +249,6 @@ struct tr_stat_s
     int         peersTotal;
     int         peersUploading;
     int         peersDownloading;
-    char        pieces[120];
     int         seeders;
     int         leechers;
 

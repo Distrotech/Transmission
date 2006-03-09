@@ -347,7 +347,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 {
     tr_stat_t * s;
     tr_info_t * inf = &tor->info;
-    int i, j, piece;
+    int i;
 
     tor->statCur = ( tor->statCur + 1 ) % 2;
     s = &tor->stats[tor->statCur];
@@ -414,34 +414,40 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
         }
     }
 
-    for( i = 0; i < 120; i++ )
-    {
-        piece = i * inf->pieceCount / 120;
-
-        if( tr_cpPieceIsComplete( tor->completion, piece ) )
-        {
-            s->pieces[i] = -1;
-            continue;
-        }
-
-        s->pieces[i] = 0;
-        
-        for( j = 0; j < tor->peerCount; j++ )
-        {
-            if( tr_peerBitfield( tor->peers[j] ) &&
-                tr_bitfieldHas( tr_peerBitfield( tor->peers[j] ), piece ) )
-            {
-                (s->pieces[i])++;
-            }
-        }
-    }
-
     s->downloaded = tor->downloaded;
     s->uploaded   = tor->uploaded;
 
     tr_lockUnlock( &tor->lock );
 
     return s;
+}
+
+void tr_torrentAvailability( tr_torrent_t * tor, uint8_t * tab, int size )
+{
+    int i, j, piece;
+
+    tr_lockLock( &tor->lock );
+    for( i = 0; i < size; i++ )
+    {
+        piece = i * tor->info.pieceCount / size;
+
+        if( tr_cpPieceIsComplete( tor->completion, piece ) )
+        {
+            tab[i] = -1;
+            continue;
+        }
+
+        tab[i] = 0;
+        for( j = 0; j < tor->peerCount; j++ )
+        {
+            if( tr_peerBitfield( tor->peers[j] ) &&
+                tr_bitfieldHas( tr_peerBitfield( tor->peers[j] ), piece ) )
+            {
+                (tab[i])++;
+            }
+        }
+    }
+    tr_lockUnlock( &tor->lock );
 }
 
 /***********************************************************************
