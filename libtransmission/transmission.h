@@ -46,7 +46,6 @@ extern "C" {
  * be passed to all functions below.
  **********************************************************************/
 typedef struct tr_handle_s tr_handle_t;
-
 tr_handle_t * tr_init();
 
 /***********************************************************************
@@ -74,6 +73,13 @@ void tr_setBindPort( tr_handle_t *, int );
 void tr_setUploadLimit( tr_handle_t *, int );
 
 /***********************************************************************
+ * tr_torrentCount
+ ***********************************************************************
+ * Returns the count of open torrents
+ **********************************************************************/
+int tr_torrentCount( tr_handle_t * h );
+
+/***********************************************************************
  * tr_torrentRates
  ***********************************************************************
  * Gets the total download and upload rates
@@ -81,15 +87,31 @@ void tr_setUploadLimit( tr_handle_t *, int );
 void tr_torrentRates( tr_handle_t *, float *, float * );
 
 /***********************************************************************
+ * tr_close
+ ***********************************************************************
+ * Frees memory allocated by tr_init.
+ **********************************************************************/
+void tr_close( tr_handle_t * );
+
+/***********************************************************************
  * tr_torrentInit
  ***********************************************************************
  * Opens and parses torrent file at 'path'. If the file exists and is a
  * valid torrent file, returns an handle and adds it to the list of
- * torrents (but doesn't start it). Returns NULL otherwise.
+ * torrents (but doesn't start it). Returns NULL and sets error
+ * otherwise.
  **********************************************************************/
 typedef struct tr_torrent_s tr_torrent_t;
+#define TR_SUCCESS      0
+#define TR_EINVALID     1
+#define TR_EUNSUPPORTED 2
+#define TR_EDUPLICATE   3
+#define TR_EOTHER       666
+tr_torrent_t * tr_torrentInit( tr_handle_t *, const char * path,
+                               int * error );
 
-tr_torrent_t * tr_torrentInit( tr_handle_t *, const char * path );
+typedef struct tr_info_s tr_info_t;
+tr_info_t * tr_torrentInfo( tr_torrent_t * );
 
 /***********************************************************************
  * tr_torrentScrape
@@ -128,34 +150,22 @@ void tr_torrentStop( tr_torrent_t * );
 /***********************************************************************
  * tr_getFinished
  ***********************************************************************
- * Tests to see if torrent is finished
+ * The first call after a torrent is completed returns 1. Returns 0
+ * in other cases.
  **********************************************************************/
 int tr_getFinished( tr_torrent_t * );
 
 /***********************************************************************
- * tr_setFinished
- ***********************************************************************
- * Sets the boolean value finished in the torrent back to false
- **********************************************************************/
-void tr_setFinished( tr_torrent_t *, int );
-
-
-
-/***********************************************************************
  * tr_torrentStat
  ***********************************************************************
- * Allocates an array of tr_stat_t structures, containing information
- * about the current status of all open torrents (see the contents
- * of tr_stat_s below). Returns the count of open torrents and sets
- * (*s) to the address of the array, or NULL if no torrent is open.
- * In the former case, the array belongs to the caller who is
- * responsible of freeing it.
- * The interface should call this function every 0.5 second or so in
- * order to update itself.
+ * Returns a pointer to an tr_stat_t structure with updated information
+ * on the torrent. The structure belongs to libtransmission (do not
+ * free it) and is guaranteed to be unchanged until the next call to
+ * tr_torrentStat.
+ * The interface should call this function every second or so in order
+ * to update itself.
  **********************************************************************/
 typedef struct tr_stat_s tr_stat_t;
-
-int tr_torrentCount( tr_handle_t * h );
 tr_stat_t * tr_torrentStat( tr_torrent_t * );
 
 /***********************************************************************
@@ -167,14 +177,6 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * );
 void tr_torrentClose( tr_handle_t *, tr_torrent_t * );
 
 /***********************************************************************
- * tr_close
- ***********************************************************************
- * Frees memory allocated by tr_init.
- **********************************************************************/
-void tr_close( tr_handle_t * );
-
-
-/***********************************************************************
  * tr_stat_s
  **********************************************************************/
 typedef struct tr_file_s
@@ -184,7 +186,7 @@ typedef struct tr_file_s
 }
 tr_file_t;
 
-typedef struct tr_info_s
+struct tr_info_s
 {
     /* Path to torrent */
     char        torrent[MAX_PATH_LENGTH];
@@ -207,13 +209,10 @@ typedef struct tr_info_s
     /* Files info */
     int         fileCount;
     tr_file_t * files;
-}
-tr_info_t;
+};
 
 struct tr_stat_s
 {
-    tr_info_t   info;
-
 #define TR_STATUS_CHECK    0x001 /* Checking files */
 #define TR_STATUS_DOWNLOAD 0x002 /* Downloading */
 #define TR_STATUS_SEED     0x004 /* Seeding */

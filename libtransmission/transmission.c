@@ -166,7 +166,8 @@ void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
  * Allocates a tr_torrent_t structure, then relies on tr_metainfoParse
  * to fill it.
  **********************************************************************/
-tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path )
+tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path,
+                               int * error )
 {
     tr_torrent_t  * tor, * tor_tmp;
     tr_info_t     * inf;
@@ -179,6 +180,7 @@ tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path )
     /* Parse torrent file */
     if( tr_metainfoParse( inf, path ) )
     {
+        *error = TR_EINVALID;
         free( tor );
         return NULL;
     }
@@ -189,7 +191,7 @@ tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path )
         if( !memcmp( tor->info.hash, tor_tmp->info.hash,
                      SHA_DIGEST_LENGTH ) )
         {
-            tr_err( "Torrent already open" );
+            *error = TR_EDUPLICATE;
             free( tor );
             return NULL;
         }
@@ -250,6 +252,11 @@ tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path )
     tr_lockUnlock( &h->acceptLock );
 
     return tor;
+}
+
+tr_info_t * tr_torrentInfo( tr_torrent_t * tor )
+{
+    return &tor->info;
 }
 
 /***********************************************************************
@@ -328,11 +335,12 @@ int tr_torrentCount( tr_handle_t * h )
 
 int tr_getFinished( tr_torrent_t * tor )
 {
-	return tor->finished;
-}
-void tr_setFinished( tr_torrent_t * tor, int val)
-{
-	tor->finished = val;
+    if( tor->finished )
+    {
+        tor->finished = 0;
+        return 1;
+    }
+    return 0;
 }
 
 tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
@@ -354,7 +362,6 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 
     tr_lockLock( &tor->lock );
 
-    memcpy( &s->info, &tor->info, sizeof( tr_info_t ) );
     s->status = tor->status;
     memcpy( s->error, tor->error, sizeof( s->error ) );
 

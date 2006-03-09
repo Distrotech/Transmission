@@ -59,7 +59,7 @@ static void sigHandler       ( int signal );
 
 int main( int argc, char ** argv )
 {
-    int i;
+    int i, error;
     tr_handle_t  * h;
     tr_torrent_t * tor;
     tr_stat_t    * s;
@@ -105,7 +105,7 @@ int main( int argc, char ** argv )
     h = tr_init();
 
     /* Open and parse torrent file */
-    if( !( tor = tr_torrentInit( h, torrentPath ) ) )
+    if( !( tor = tr_torrentInit( h, torrentPath, &error ) ) )
     {
         printf( "Failed opening torrent file `%s'\n", torrentPath );
         goto failed;
@@ -113,10 +113,7 @@ int main( int argc, char ** argv )
 
     if( showInfo )
     {
-        tr_info_t * info;
-
-        s = tr_torrentStat( tor );
-        info = &s->info;
+        tr_info_t * info = tr_torrentInfo( tor );
 
         /* Print torrent info (quite à la btshowmetainfo) */
         printf( "hash:     " );
@@ -211,7 +208,6 @@ int main( int argc, char ** argv )
         
         if( tr_getFinished( tor ) )
         {
-            tr_setFinished( tor, 0 );
             result = system(finishCall);
         }
     }
