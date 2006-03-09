@@ -29,15 +29,16 @@ extern "C" {
 
 #include <inttypes.h>
 
-#define SHA_DIGEST_LENGTH    20
+#define SHA_DIGEST_LENGTH 20
 #ifdef __BEOS__
 # include <StorageDefs.h>
-# define MAX_PATH_LENGTH B_FILE_NAME_LENGTH
+# define MAX_PATH_LENGTH  B_FILE_NAME_LENGTH
 #else
-# define MAX_PATH_LENGTH      1024
+# define MAX_PATH_LENGTH  1024
 #endif
 
-#define TR_DEFAULT_PORT      9090
+#define TR_DEFAULT_PORT   9090
+#define TR_NOERROR        0
 
 /***********************************************************************
  * tr_init
@@ -98,11 +99,10 @@ void tr_close( tr_handle_t * );
  ***********************************************************************
  * Opens and parses torrent file at 'path'. If the file exists and is a
  * valid torrent file, returns an handle and adds it to the list of
- * torrents (but doesn't start it). Returns NULL and sets error
+ * torrents (but doesn't start it). Returns NULL and sets *error
  * otherwise.
  **********************************************************************/
 typedef struct tr_torrent_s tr_torrent_t;
-#define TR_SUCCESS      0
 #define TR_EINVALID     1
 #define TR_EUNSUPPORTED 2
 #define TR_EDUPLICATE   3
@@ -176,8 +176,9 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * );
  **********************************************************************/
 void tr_torrentClose( tr_handle_t *, tr_torrent_t * );
 
+
 /***********************************************************************
- * tr_stat_s
+ * tr_info_s
  **********************************************************************/
 typedef struct tr_file_s
 {
@@ -185,7 +186,6 @@ typedef struct tr_file_s
     char     name[MAX_PATH_LENGTH]; /* Path to the file */
 }
 tr_file_t;
-
 struct tr_info_s
 {
     /* Path to torrent */
@@ -211,18 +211,26 @@ struct tr_info_s
     tr_file_t * files;
 };
 
+/***********************************************************************
+ * tr_stat_s
+ **********************************************************************/
 struct tr_stat_s
 {
 #define TR_STATUS_CHECK    0x001 /* Checking files */
 #define TR_STATUS_DOWNLOAD 0x002 /* Downloading */
 #define TR_STATUS_SEED     0x004 /* Seeding */
+#define TR_STATUS_ACTIVE   0x007 /* CHECK | DOWNLOAD | SEED */
 #define TR_STATUS_STOPPING 0x008 /* Sending 'stopped' to the tracker */
 #define TR_STATUS_STOPPED  0x010 /* Sent 'stopped' but thread still
                                     running (for internal use only) */
 #define TR_STATUS_PAUSE    0x020 /* Paused */
-#define TR_TRACKER_ERROR   0x100
+#define TR_STATUS_INACTIVE 0x038 /* STOPPING | STOPPED | PAUSE */
     int         status;
-    char        error[128];
+
+#define TR_ETRACKER 1
+#define TR_EINOUT   2
+    int         error;
+    char        trackerError[128];
 
     float       progress;
     float       rateDownload;
@@ -237,8 +245,6 @@ struct tr_stat_s
 
     uint64_t    downloaded;
     uint64_t    uploaded;
-
-    char      * folder;
 };
 
 #ifdef __TRANSMISSION__

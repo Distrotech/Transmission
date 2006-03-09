@@ -197,9 +197,9 @@ int main( int argc, char ** argv )
         string[79] = '\0';
         fprintf( stderr, "\r%s", string );
 
-        if( s->status & TR_TRACKER_ERROR )
+        if( s->error & TR_ETRACKER )
         {
-            fprintf( stderr, "\n%s\n", s->error );
+            fprintf( stderr, "\n%s\n", s->trackerError );
         }
         else if( verboseLevel > 0 )
         {

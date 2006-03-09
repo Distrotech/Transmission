@@ -375,13 +375,12 @@ static void recvAnswer( tr_tracker_t * tc )
     if( ( bePeers = tr_bencDictFind( &beAll, "failure reason" ) ) )
     {
         tr_err( "Tracker: %s", bePeers->val.s.s );
-        tor->status |= TR_TRACKER_ERROR;
-        snprintf( tor->error, sizeof( tor->error ),
+        tor->error |= TR_ETRACKER;
+        snprintf( tor->trackerError, sizeof( tor->trackerError ),
                   "%s", bePeers->val.s.s );
         goto cleanup;
     }
-
-    tor->status &= ~TR_TRACKER_ERROR;
+    tor->error &= ~TR_ETRACKER;
 
     if( !tc->interval )
     {

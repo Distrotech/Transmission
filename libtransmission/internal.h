@@ -107,8 +107,9 @@ struct tr_torrent_s
     tr_fd_t          * fdlimit;
 
     int               status;
-	int				  finished;
-    char              error[128];
+    int               error;
+    char              trackerError[128];
+    int               finished;
 
     char            * id;
     char            * key;

@@ -363,7 +363,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     tr_lockLock( &tor->lock );
 
     s->status = tor->status;
-    memcpy( s->error, tor->error, sizeof( s->error ) );
+    memcpy( s->trackerError, tor->trackerError,
+            sizeof( s->trackerError ) );
 
     s->peersTotal       = 0;
     s->peersUploading   = 0;
@@ -437,8 +438,6 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 
     s->downloaded = tor->downloaded;
     s->uploaded   = tor->uploaded;
-
-    s->folder = tor->destination;
 
     tr_lockUnlock( &tor->lock );
 
