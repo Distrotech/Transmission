@@ -29,8 +29,10 @@
 @interface NameCell : NSCell
 {
     Torrent * fTorrent;
+    NSColor * fTextColor;
 }
-- (void) setTorrent: (Torrent *) torrent;
+- (void) setTorrent:   (Torrent *) torrent;
+- (void) setTextColor: (NSColor *) color;
 @end
 
 #endif

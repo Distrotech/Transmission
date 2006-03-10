@@ -31,6 +31,11 @@
     fTorrent = torrent;
 }
 
+- (void) setTextColor: (NSColor *) color
+{
+    fTextColor = color;
+}
+
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) view
 {
     NSString * string;
@@ -52,8 +57,8 @@
         operation: NSCompositeSourceOver fraction: 1.0];
 
     attributes = [NSMutableDictionary dictionaryWithCapacity: 2];
-    [attributes setObject: /*fWhiteText*/0 ? [NSColor whiteColor] :
-        [NSColor blackColor] forKey: NSForegroundColorAttributeName];
+    [attributes setObject: fTextColor
+        forKey: NSForegroundColorAttributeName];
 
     [attributes setObject: [NSFont messageFontOfSize: 12.0]
         forKey: NSFontAttributeName];

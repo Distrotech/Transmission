@@ -85,6 +85,11 @@ static uint32_t kGreen[] =
     fTorrent = torrent;
 }
 
+- (void) setTextColor: (NSColor *) color
+{
+    fTextColor = color;
+}
+
 #if 0
 /***********************************************************************
  * init

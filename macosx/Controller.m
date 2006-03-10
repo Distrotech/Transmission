@@ -646,6 +646,9 @@ static void sleepCallBack( void * controller, io_service_t y,
     forTableColumn: (NSTableColumn *) tableColumn row: (int) rowIndex
 {
     [cell setTorrent: [fTorrents objectAtIndex: rowIndex]];
+    [cell setTextColor: ( [fWindow isKeyWindow] &&
+        rowIndex == [fTableView selectedRow] ) ?
+        [NSColor whiteColor] : [NSColor blackColor]];
 }
 
 - (BOOL) tableView: (NSTableView *) t acceptDrop:
