@@ -54,11 +54,23 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 @implementation Controller
 
+- (id) init
+{
+    fLib      = tr_init();
+    fTorrents = [[NSMutableArray alloc] initWithCapacity: 10];
+    return self;
+}
+
+- (void) dealloc
+{
+    [fTorrents release];
+    tr_close( fLib );
+    [super dealloc];
+}
+
 - (void) awakeFromNib
 {
     [fWindow setContentMinSize: NSMakeSize( 400, 120 )];
-
-    fLib = tr_init();
 
     [fPrefsController setPrefsWindow: fLib];
     fDefaults = [NSUserDefaults standardUserDefaults];
@@ -252,9 +264,6 @@ static void sleepCallBack( void * controller, io_service_t y,
         [fTorrents removeObject: torrent];
         [torrent release];
     }
-    [fTorrents release];
-
-    tr_close( fLib );
 }
 
 - (void) showPreferenceWindow: (id) sender
@@ -629,7 +638,14 @@ static void sleepCallBack( void * controller, io_service_t y,
 - (id) tableView: (NSTableView *) t objectValueForTableColumn:
     (NSTableColumn *) tableColumn row: (int) rowIndex
 {
-    return [fTorrents objectAtIndex: rowIndex];
+    return nil;
+}
+
+
+- (void) tableView: (NSTableView *) t willDisplayCell: (id) cell
+    forTableColumn: (NSTableColumn *) tableColumn row: (int) rowIndex
+{
+    [cell setTorrent: [fTorrents objectAtIndex: rowIndex]];
 }
 
 - (BOOL) tableView: (NSTableView *) t acceptDrop:

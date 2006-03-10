@@ -24,10 +24,13 @@
 #define PROGRESSCELL_H
 
 #import <Cocoa/Cocoa.h>
+#import "Torrent.h"
 
 @interface ProgressCell : NSCell
 {
+    Torrent * fTorrent;
 }
+- (void) setTorrent: (Torrent *) torrent;
 @end
 
 #endif

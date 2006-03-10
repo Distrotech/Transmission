@@ -21,16 +21,18 @@
  *****************************************************************************/
 
 #import "NameCell.h"
-#import "Torrent.h"
 #import "StringAdditions.h"
 #import "Utils.h"
 
 @implementation NameCell
 
+- (void) setTorrent: (Torrent *) torrent
+{
+    fTorrent = torrent;
+}
+
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) view
 {
-    Torrent * torrent = [self objectValue];
-
     NSString * string;
     NSPoint pen;
     NSMutableDictionary * attributes;
@@ -44,7 +46,7 @@
     float cellWidth = cellFrame.size.width;
 
     pen.x += 5; pen.y += 5;
-    NSImage * icon = [torrent icon];
+    NSImage * icon = [fTorrent icon];
     [icon drawAtPoint: pen fromRect:
         NSMakeRect( 0, 0, [icon size].width, [icon size].height )
         operation: NSCompositeSourceOver fraction: 1.0];
@@ -58,8 +60,8 @@
 
     pen.x += 37;
     NSString * sizeString = [NSString stringWithFormat: @" (%@)",
-        [NSString stringForFileSize: [torrent size]]];
-    string = [[[torrent name] stringFittingInWidth: cellWidth -
+        [NSString stringForFileSize: [fTorrent size]]];
+    string = [[[fTorrent name] stringFittingInWidth: cellWidth -
         72 - [sizeString sizeWithAttributes: attributes].width
         withAttributes: attributes] stringByAppendingString: sizeString];
     [string drawAtPoint: pen withAttributes: attributes];
@@ -68,10 +70,10 @@
         forKey: NSFontAttributeName];
 
     pen.x += 5; pen.y += 20;
-    [[torrent statusString] drawAtPoint: pen withAttributes: attributes];
+    [[fTorrent statusString] drawAtPoint: pen withAttributes: attributes];
 
     pen.x += 0; pen.y += 15;
-    string = [[torrent infoString] stringFittingInWidth:
+    string = [[fTorrent infoString] stringFittingInWidth:
         ( cellFrame.size.width - 77 ) withAttributes: attributes];
     [string drawAtPoint: pen withAttributes: attributes];
 

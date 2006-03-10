@@ -24,10 +24,13 @@
 #define NAMECELL_H
 
 #import <Cocoa/Cocoa.h>
+#import "Torrent.h"
 
 @interface NameCell : NSCell
 {
+    Torrent * fTorrent;
 }
+- (void) setTorrent: (Torrent *) torrent;
 @end
 
 #endif

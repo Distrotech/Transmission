@@ -25,14 +25,9 @@
 
 @implementation TorrentTableView
 
-- (void) updateUI: (tr_stat_t *) stat
-{
-    fStat = stat;
-    [self reloadData];
-}
-
 - (void) pauseOrResume: (int) row
 {
+#if 0
     if( fStat[row].status & TR_STATUS_PAUSE )
     {
         [fController resumeTorrentWithIndex: row];
@@ -42,6 +37,7 @@
     {
         [fController stopTorrentWithIndex: row];
     }                                                                   
+#endif
 }
 
 - (void) mouseDown: (NSEvent *) e
@@ -152,6 +148,7 @@
 
     [super drawRect: r];
 
+#if 0
     for( i = 0; i < [self numberOfRows]; i++ )
     {
         rect  = [self pauseRectForRow: i];
@@ -182,6 +179,7 @@
         point = NSMakePoint( rect.origin.x, rect.origin.y + 14 );
         [image compositeToPoint: point operation: NSCompositeSourceOver];
     }
+#endif
 }
 
 @end

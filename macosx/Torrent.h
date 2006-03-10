@@ -32,9 +32,9 @@
     int8_t         fPieces[120];
     BOOL           fResumeOnWake;
 
-    NSImage      * fIcon;
-    NSString     * fStatusString;
-    NSString     * fInfoString;
+    NSImage         * fIcon;
+    NSMutableString * fStatusString;
+    NSMutableString * fInfoString;
 }
 
 - (id)         initWithPath: (NSString *) path lib: (tr_handle_t *) lib;

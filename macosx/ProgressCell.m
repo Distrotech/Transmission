@@ -80,6 +80,11 @@ static uint32_t kGreen[] =
       0x00C900FF, 0x00C600FF, 0x00D100FF, 0x00DB00FF, 0x00E800FF,
       0x00ED00FF, 0x00F200FF, 0x00F400FF, 0x00B500FF };
 
+- (void) setTorrent: (Torrent *) torrent
+{
+    fTorrent = torrent;
+}
+
 #if 0
 /***********************************************************************
  * init

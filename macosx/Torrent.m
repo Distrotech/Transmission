@@ -37,9 +37,15 @@
     }
 
     fInfo = tr_torrentInfo( fHandle );
+
     NSString * fileType = ( fInfo->fileCount > 1 ) ?
         NSFileTypeForHFSTypeCode('fldr') : [[self name] pathExtension];
     fIcon = [[NSWorkspace sharedWorkspace] iconForFileType: fileType];
+    [fIcon setFlipped: YES];
+    [fIcon retain];
+
+    fStatusString = [[NSMutableString alloc] initWithCapacity: 50];
+    fInfoString   = [[NSMutableString alloc] initWithCapacity: 50];
 
     [self update];
     return self;
@@ -50,6 +56,9 @@
     if( fHandle )
     {
         tr_torrentClose( fLib, fHandle );
+        [fIcon release];
+        [fStatusString release];
+        [fInfoString release];
     }
     [super dealloc];
 }
@@ -68,49 +77,51 @@
 {
     fStat = tr_torrentStat( fHandle );
 
-    fStatusString = @"";
-    fInfoString   = @"";
+    [fStatusString setString: @""];
+    [fInfoString   setString: @""];
 
     switch( fStat->status )
     {
         case TR_STATUS_PAUSE:
-            fStatusString = [NSString stringWithFormat:
-                @"Paused (%.2f %%)", 100 * fStat->progress];
+            [fStatusString appendFormat: @"Paused (%.2f %%)",
+                100 * fStat->progress];
             break;
 
         case TR_STATUS_CHECK:
-            fStatusString = [NSString stringWithFormat: 
-                @"Checking existing files (%.2f %%)", 100 * fStat->progress];
+            [fStatusString appendFormat:
+                @"Checking existing files (%.2f %%)",
+                100 * fStat->progress];
             break;
 
         case TR_STATUS_DOWNLOAD:
             if( fStat->eta < 0 )
             {
-                fStatusString = [NSString stringWithFormat:
-                    @"Finishing in --:--:-- (%.2f %%)", 100 * fStat->progress];
+                [fStatusString appendFormat:
+                    @"Finishing in --:--:-- (%.2f %%)",
+                    100 * fStat->progress];
             }
             else
             {
-                fStatusString = [NSString stringWithFormat:
+                [fStatusString appendFormat:
                     @"Finishing in %02d:%02d:%02d (%.2f %%)",
                     fStat->eta / 3600, ( fStat->eta / 60 ) % 60,
                     fStat->eta % 60, 100 * fStat->progress];
             }
-            fInfoString = [NSString stringWithFormat:
+            [fInfoString appendFormat:
                 @"Downloading from %d of %d peer%s",
                 fStat->peersUploading, fStat->peersTotal,
                 ( fStat->peersTotal == 1 ) ? "" : "s"];
             break;
 
         case TR_STATUS_SEED:
-            fStatusString  = [NSString stringWithFormat:
+            [fStatusString appendFormat:
                 @"Seeding, uploading to %d of %d peer%s",
                 fStat->peersDownloading, fStat->peersTotal,
                 ( fStat->peersTotal == 1 ) ? "" : "s"];
             break;
 
         case TR_STATUS_STOPPING:
-            fStatusString  = @"Stopping...";
+            [fStatusString setString: @"Stopping..."];
             break;
     }
 
