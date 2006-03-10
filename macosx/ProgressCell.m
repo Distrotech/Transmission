@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -80,6 +80,7 @@ static uint32_t kGreen[] =
       0x00C900FF, 0x00C600FF, 0x00D100FF, 0x00DB00FF, 0x00E800FF,
       0x00ED00FF, 0x00F200FF, 0x00F400FF, 0x00B500FF };
 
+#if 0
 /***********************************************************************
  * init
  ***********************************************************************
@@ -258,6 +259,7 @@ static uint32_t kGreen[] =
         }
     }
 }
+#endif
 
 /***********************************************************************
  * drawWithFrame
@@ -267,6 +269,7 @@ static uint32_t kGreen[] =
  **********************************************************************/
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) view
 {
+#if 0
     NSImage * img;
     NSMutableDictionary * attributes;
     NSPoint pen;
@@ -307,6 +310,7 @@ static uint32_t kGreen[] =
     [fUlString drawAtPoint: pen withAttributes: attributes];
 
     [view unlockFocus];
+#endif
 }
 
 @end

@@ -176,7 +176,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * );
  * to either -1 if we have the piece, otherwise it is set to the number
  * of connected peers who have the piece.
  **********************************************************************/
-void tr_torrentAvailability( tr_torrent_t *, uint8_t * tab, int size );
+void tr_torrentAvailability( tr_torrent_t *, int8_t * tab, int size );
 
 /***********************************************************************
  * tr_torrentClose
@@ -229,12 +229,13 @@ struct tr_stat_s
 #define TR_STATUS_CHECK    0x001 /* Checking files */
 #define TR_STATUS_DOWNLOAD 0x002 /* Downloading */
 #define TR_STATUS_SEED     0x004 /* Seeding */
-#define TR_STATUS_ACTIVE   0x007 /* CHECK | DOWNLOAD | SEED */
 #define TR_STATUS_STOPPING 0x008 /* Sending 'stopped' to the tracker */
 #define TR_STATUS_STOPPED  0x010 /* Sent 'stopped' but thread still
                                     running (for internal use only) */
 #define TR_STATUS_PAUSE    0x020 /* Paused */
-#define TR_STATUS_INACTIVE 0x038 /* STOPPING | STOPPED | PAUSE */
+
+#define TR_STATUS_ACTIVE   (TR_STATUS_CHECK|TR_STATUS_DOWNLOAD|TR_STATUS_SEED)
+#define TR_STATUS_INACTIVE (TR_STATUS_STOPPING|TR_STATUS_STOPPED|TR_STATUS_PAUSE)
     int         status;
 
 #define TR_ETRACKER 1

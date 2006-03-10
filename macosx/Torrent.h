@@ -20,14 +20,42 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef NAMECELL_H
-#define NAMECELL_H
-
 #import <Cocoa/Cocoa.h>
+#import <transmission.h>
 
-@interface NameCell : NSCell
+@interface Torrent : NSObject
 {
-}
-@end
+    tr_handle_t  * fLib;
+    tr_torrent_t * fHandle;
+    tr_info_t    * fInfo;
+    tr_stat_t    * fStat;
+    int8_t         fPieces[120];
+    BOOL           fResumeOnWake;
 
-#endif
+    NSImage      * fIcon;
+    NSString     * fStatusString;
+    NSString     * fInfoString;
+}
+
+- (id)         initWithPath: (NSString *) path lib: (tr_handle_t *) lib;
+- (void)       setFolder: (NSString *) path;
+- (NSString *) getFolder;
+
+- (void)       update;
+- (void)       start;
+- (void)       stop;
+- (void)       sleep;
+- (void)       wakeUp;
+
+- (NSImage *)  icon;
+- (NSString *) path;
+- (NSString *) name;
+- (uint64_t)   size;
+
+- (BOOL)       isActive;
+- (BOOL)       isPaused;
+- (BOOL)       justFinished;
+- (NSString *) statusString;
+- (NSString *) infoString;
+
+@end

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -24,24 +24,10 @@
 #define PROGRESSCELL_H
 
 #import <Cocoa/Cocoa.h>
-#import <transmission.h>
 
 @interface ProgressCell : NSCell
 {
-    tr_stat_t * fStat;
-    BOOL        fWhiteText;
-
-    NSString  * fDlString;
-    NSString  * fUlString;
-
-    NSBitmapImageRep * fBackgroundBmp;
-    NSBitmapImageRep * fProgressBmp;
 }
-- (id)   init;
-- (void) setStat: (tr_stat_t *) stat whiteText: (BOOL) w;
-- (void) buildSimpleBar;
-- (void) buildAdvancedBar;
-- (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) view;
 @end
 
 #endif

@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -422,7 +422,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     return s;
 }
 
-void tr_torrentAvailability( tr_torrent_t * tor, uint8_t * tab, int size )
+void tr_torrentAvailability( tr_torrent_t * tor, int8_t * tab, int size )
 {
     int i, j, piece;
 

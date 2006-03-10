@@ -36,6 +36,7 @@
 		4DF7500C08A103AD007B0D70 /* Open.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DF7500708A103AD007B0D70 /* Open.png */; };
 		4DF7500D08A103AD007B0D70 /* Info.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DF7500808A103AD007B0D70 /* Info.png */; };
 		4DF7500E08A103AD007B0D70 /* Remove.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DF7500908A103AD007B0D70 /* Remove.png */; };
+		4DFBC2DF09C0970D00D5C571 /* Torrent.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DFBC2DE09C0970D00D5C571 /* Torrent.m */; };
 		8D11072A0486CEB800E47090 /* MainMenu.nib in Resources */ = {isa = PBXBuildFile; fileRef = 29B97318FDCFA39411CA2CEA /* MainMenu.nib */; };
 		8D11072B0486CEB800E47090 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C165CFE840E0CC02AAC07 /* InfoPlist.strings */; };
 		8D11072D0486CEB800E47090 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 29B97316FDCFA39411CA2CEA /* main.m */; settings = {ATTRIBUTES = (); }; };
@@ -114,6 +115,8 @@
 		4DF7500708A103AD007B0D70 /* Open.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Open.png; path = Images/Open.png; sourceTree = "<group>"; };
 		4DF7500808A103AD007B0D70 /* Info.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Info.png; path = Images/Info.png; sourceTree = "<group>"; };
 		4DF7500908A103AD007B0D70 /* Remove.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Remove.png; path = Images/Remove.png; sourceTree = "<group>"; };
+		4DFBC2DD09C0970D00D5C571 /* Torrent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Torrent.h; sourceTree = "<group>"; };
+		4DFBC2DE09C0970D00D5C571 /* Torrent.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = Torrent.m; sourceTree = "<group>"; };
 		8D1107310486CEB800E47090 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D1107320486CEB800E47090 /* Transmission.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Transmission.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -149,6 +152,8 @@
 				4DE5CC9C0980656F00BE280E /* StringAdditions.m */,
 				4DE5CCA50980735700BE280E /* Badger.h */,
 				4DE5CCA60980735700BE280E /* Badger.m */,
+				4DFBC2DD09C0970D00D5C571 /* Torrent.h */,
+				4DFBC2DE09C0970D00D5C571 /* Torrent.m */,
 			);
 			name = Classes;
 			sourceTree = "<group>";
@@ -339,6 +344,7 @@
 				4D364DA0091FBB2C00377D12 /* TorrentTableView.m in Sources */,
 				4DE5CC9D0980656F00BE280E /* StringAdditions.m in Sources */,
 				4DE5CCA70980735700BE280E /* Badger.m in Sources */,
+				4DFBC2DF09C0970D00D5C571 /* Torrent.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
