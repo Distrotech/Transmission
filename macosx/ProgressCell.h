@@ -28,8 +28,13 @@
 
 @interface ProgressCell : NSCell
 {
-    Torrent * fTorrent;
-    NSColor * fTextColor;
+    Torrent          * fTorrent;
+    NSColor          * fTextColor;
+
+    NSBitmapImageRep * fBackground;
+    NSBitmapImageRep * fBitmap;
+    int                fWidth;
+    int8_t           * fPieces;
 }
 - (void) setTorrent:   (Torrent *) torrent;
 - (void) setTextColor: (NSColor *) color;

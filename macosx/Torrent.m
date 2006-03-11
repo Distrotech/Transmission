@@ -21,6 +21,7 @@
  *****************************************************************************/
 
 #import "Torrent.h"
+#import "StringAdditions.h"
 
 @implementation Torrent
 
@@ -44,8 +45,10 @@
     [fIcon setFlipped: YES];
     [fIcon retain];
 
-    fStatusString = [[NSMutableString alloc] initWithCapacity: 50];
-    fInfoString   = [[NSMutableString alloc] initWithCapacity: 50];
+    fStatusString   = [[NSMutableString alloc] initWithCapacity: 50];
+    fInfoString     = [[NSMutableString alloc] initWithCapacity: 50];
+    fDownloadString = [[NSMutableString alloc] initWithCapacity: 10];
+    fUploadString   = [[NSMutableString alloc] initWithCapacity: 10];
 
     [self update];
     return self;
@@ -59,6 +62,8 @@
         [fIcon release];
         [fStatusString release];
         [fInfoString release];
+        [fDownloadString release];
+        [fUploadString release];
     }
     [super dealloc];
 }
@@ -71,6 +76,11 @@
 - (NSString *) getFolder
 {
     return [NSString stringWithUTF8String: tr_torrentGetFolder( fHandle )];
+}
+
+- (void) getAvailability: (int8_t *) tab size: (int) size
+{
+    tr_torrentAvailability( fHandle, tab, size );
 }
 
 - (void) update
@@ -134,7 +144,22 @@
     }
 #endif
 
-    tr_torrentAvailability( fHandle, fPieces, 120 );
+    [fUploadString   setString: @""];
+    if( fStat->progress == 1.0 )
+    {
+        [fDownloadString setString: @"Ratio: "];
+        [fDownloadString appendString: [NSString stringForRatio:
+            fStat->downloaded upload: fStat->uploaded]];
+    }
+    else
+    {
+        [fDownloadString setString: @"DL: "];
+        [fDownloadString appendString: [NSString stringForSpeed:
+            fStat->rateDownload]];
+    }
+    [fUploadString setString: @"UL: "];
+    [fUploadString appendString: [NSString stringForSpeed:
+        fStat->rateUpload]];
 }
 
 - (void) start
@@ -217,6 +242,16 @@
 - (NSString *) infoString
 {
     return fInfoString;
+}
+
+- (NSString *) downloadString
+{
+    return fDownloadString;
+}
+
+- (NSString *) uploadString
+{
+    return fUploadString;
 }
 
 @end

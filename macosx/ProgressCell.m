@@ -80,6 +80,12 @@ static uint32_t kGreen[] =
       0x00C900FF, 0x00C600FF, 0x00D100FF, 0x00DB00FF, 0x00E800FF,
       0x00ED00FF, 0x00F200FF, 0x00F400FF, 0x00B500FF };
 
+/* 0, 255, 0 */
+static uint32_t kBack[] =
+    { 0xB2B2B2FF, 0xDADADAFF, 0xEAEAEAFF, 0xECECECFF, 0xEAEAEAFF,
+      0xE2E2E2FF, 0xE1E1E1FF, 0xE7E7E7FF, 0xEDEDEDFF, 0xF3F3F3FF,
+      0xF6F6F6FF, 0xF8F8F8FF, 0xFAFAFAFF, 0xD7D7D7FF };
+
 - (void) setTorrent: (Torrent *) torrent
 {
     fTorrent = torrent;
@@ -90,7 +96,6 @@ static uint32_t kGreen[] =
     fTextColor = color;
 }
 
-#if 0
 /***********************************************************************
  * init
  ***********************************************************************
@@ -103,54 +108,173 @@ static uint32_t kGreen[] =
 
     /* Load the background image for the progress bar and get it as a
        32-bit bitmap */
-    fBackgroundBmp = [[[NSImage imageNamed: @"Progress.png"]
-                        representations] objectAtIndex: 0];
-
-    /* Allocate another bitmap of the same size. We will draw the
-       progress bar in it */
-    fProgressBmp = [[NSBitmapImageRep alloc]
-        initWithBitmapDataPlanes: NULL pixelsWide:
-        [fBackgroundBmp size].width pixelsHigh:
-        [fBackgroundBmp size].height bitsPerSample: 8
-        samplesPerPixel: 4 hasAlpha: YES isPlanar: NO
-        colorSpaceName: NSCalibratedRGBColorSpace
-        bytesPerRow: 0 bitsPerPixel: 0];
+    fBackground = [[[NSImage imageNamed: @"Progress.png"]
+                     representations] objectAtIndex: 0];
 
     return self;
 }
 
 /***********************************************************************
- * setStat
- ***********************************************************************
- * Readies ourselves to draw updated info.
+ * buildSimpleBar
  **********************************************************************/
-- (void) setStat: (tr_stat_t *) stat whiteText: (BOOL) w
+- (void) buildSimpleBar
 {
-    int i;
-    uint8_t * in, * out;
+    int        h, w, end, pixelsPerRow;
+    uint32_t * p;
+    uint32_t * colors;
 
-    fStat      = stat;
-    fWhiteText = w;
+    pixelsPerRow = [fBitmap bytesPerRow] / 4;
 
-    /* Update the strings to be displayed */
-    if( fStat->progress == 1.0 )
-        fDlString = [@"Ratio: " stringByAppendingString:
-                        [NSString stringForRatio: fStat->downloaded
-                            upload: fStat->uploaded]];
+    /* The background image is 124*18 pixels, but the actual
+       progress bar is 120*14 : the first two columns, the last
+       two columns and the last four lines contain the shadow. */
+
+    p   = (uint32_t *) [fBitmap bitmapData] + 2;
+    end = lrintf( floor( 0.5 /*fStat->progress*/ * fWidth ) );
+
+    /*
+    if( fStat->status & TR_STATUS_SEED )
+        colors = kGreen;
+    else if( fStat->status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD ) )
+    */
+        colors = kBlue2;
+    /*
     else
-        fDlString = [@"DL: " stringByAppendingString:
-                        [NSString stringForSpeed: fStat->rateDownload]];
-    fUlString = [@"UL: " stringByAppendingString:
-                    [NSString stringForSpeed: fStat->rateUpload]];
+        colors = kGray;
+    */
+
+    for( h = 0; h < 14; h++ )
+    {
+        for( w = 0; w < end; w++ )
+        {
+            p[w] = htonl( colors[h] );
+        }
+        for( w = end; w < fWidth; w++ )
+        {
+            p[w] = htonl( kBack[h] );
+        }
+        p += pixelsPerRow;
+    }
+}
+
+/***********************************************************************
+ * buildAdvancedBar
+ **********************************************************************/
+- (void) buildAdvancedBar
+{
+    int        h, w, end, pixelsPerRow;
+    uint32_t * p;
+    uint32_t * colors;
+
+    fPieces = malloc( fWidth );
+    [fTorrent getAvailability: fPieces size: fWidth];
+
+#if 0
+    if( fStat->status & TR_STATUS_SEED )
+    {
+        /* All green, same as the simple bar */
+        [self buildSimpleBar];
+        return;
+    }
+#endif
+
+    pixelsPerRow = [fBitmap bytesPerRow] / 4;
+
+    /* First two lines: dark blue to show progression */
+    p    = (uint32_t *) [fBitmap bitmapData];
+    p   += 2;
+    end  = lrintf( floor( /*fStat->progress*/ 0.5 * fWidth ) );
+    for( h = 0; h < 2; h++ )
+    {
+        for( w = 0; w < end; w++ )
+        {
+            p[w] = htonl( kBlue4[h] );
+        }
+        for( w = end; w < fWidth; w++ )
+        {
+            p[w] = htonl( kBack[h] );
+        }
+        p += pixelsPerRow;
+    }
+
+    /* Lines 2 to 14: blue or grey depending on whether
+       we have the piece or not */
+    for( w = 0; w < fWidth; w++ )
+    {
+        /* Point to pixel ( 2 + w, 2 ). We will then draw
+           "vertically" */
+        p  = (uint32_t *) ( [fBitmap bitmapData] +
+                2 * [fBitmap bytesPerRow] );
+        p += 2 + w;
+
+        if( fPieces[w] < 0 )
+        {
+            colors = kGray;
+        }
+        else if( fPieces[w] < 1 )
+        {
+            colors = kRed;
+        }
+        else if( fPieces[w] < 2 )
+        {
+            colors = kBlue1;
+        }
+        else if( fPieces[w] < 3 )
+        {
+            colors = kBlue2;
+        }
+        else
+        {
+            colors = kBlue3;
+        }
+
+        for( h = 2; h < 14; h++ )
+        {
+            p[0]  = htonl( colors[h] );
+            p    += pixelsPerRow;
+        }
+    }
+
+    free( fPieces );
+}
+
+- (void) buildBar
+{
+    int i, j;
+    uint32_t * in, * out;
 
     /* Reset our bitmap to the background image... */
-    in  = [fBackgroundBmp bitmapData];
-    out = [fProgressBmp bitmapData];
-    for( i = 0; i < [fProgressBmp size].height; i++ )
+    in  = (uint32_t *) [fBackground bitmapData];
+    out = (uint32_t *) [fBitmap bitmapData];
+    for( i = 0; i < [fBitmap size].height - 4; i++ )
     {
-        memcpy( out, in, [fProgressBmp size].width * 4 );
-        in  += [fBackgroundBmp bytesPerRow];
-        out += [fProgressBmp bytesPerRow];
+        for( j = 0; j < 2; j++ )
+        {
+            out[j] = in[j];
+        }
+        for( j = fWidth + 2; j < fWidth + 4; j++ )
+        {
+            out[j] = in[(int)[fBackground size].width + j - fWidth - 4];
+        }
+        in  += [fBackground bytesPerRow] / 4;
+        out += [fBitmap bytesPerRow] / 4;
+    }
+    for( i = [fBitmap size].height - 4; i < [fBitmap size].height; i++ )
+    {
+        for( j = 0; j < 2; j++ )
+        {
+            out[j] = in[j];
+        }
+        for( j = 2; j < fWidth + 2; j++ )
+        {
+            out[j] = in[2];
+        }
+        for( j = fWidth + 2; j < fWidth + 4; j++ )
+        {
+            out[j] = in[(int)[fBackground size].width + j - fWidth - 4];
+        }
+        in  += [fBackground bytesPerRow] / 4;
+        out += [fBitmap bytesPerRow] / 4;
     }
 
     /* ...and redraw the progress bar on the top of it */
@@ -166,112 +290,6 @@ static uint32_t kGreen[] =
 }
 
 /***********************************************************************
- * buildSimpleBar
- **********************************************************************/
-- (void) buildSimpleBar
-{
-    int        h, w, end, pixelsPerRow;
-    uint32_t * p;
-    uint32_t * colors;
-
-    pixelsPerRow = [fProgressBmp bytesPerRow] / 4;
-
-    /* The background image is 124*18 pixels, but the actual
-       progress bar is 120*14 : the first two columns, the last
-       two columns and the last four lines contain the shadow. */
-
-    p   = (uint32_t *) [fProgressBmp bitmapData] + 2;
-    end = lrintf( floor( fStat->progress * 120 ) );
-
-    if( fStat->status & TR_STATUS_SEED )
-        colors = kGreen;
-    else if( fStat->status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD ) )
-        colors = kBlue2;
-    else
-        colors = kGray;
-
-    for( h = 0; h < 14; h++ )
-    {
-        for( w = 0; w < end; w++ )
-        {
-            p[w] = htonl( colors[h] );
-        }
-        p += pixelsPerRow;
-    }
-}
-
-/***********************************************************************
- * buildAdvancedBar
- **********************************************************************/
-- (void) buildAdvancedBar
-{
-    int        h, w, end, pixelsPerRow;
-    uint32_t * p;
-    uint32_t * colors;
-
-    if( fStat->status & TR_STATUS_SEED )
-    {
-        /* All green, same as the simple bar */
-        [self buildSimpleBar];
-        return;
-    }
-
-    pixelsPerRow = [fProgressBmp bytesPerRow] / 4;
-
-    /* First two lines: dark blue to show progression */
-    p    = (uint32_t *) [fProgressBmp bitmapData];
-    p   += 2;
-    end  = lrintf( floor( fStat->progress * 120 ) );
-    for( h = 0; h < 2; h++ )
-    {
-        for( w = 0; w < end; w++ )
-        {
-            p[w] = htonl( kBlue4[h] );
-        }
-        p += pixelsPerRow;
-    }
-
-    /* Lines 2 to 14: blue or grey depending on whether
-       we have the piece or not */
-    for( w = 0; w < 120; w++ )
-    {
-        /* Point to pixel ( 2 + w, 2 ). We will then draw
-           "vertically" */
-        p  = (uint32_t *) ( [fProgressBmp bitmapData] +
-                2 * [fProgressBmp bytesPerRow] );
-        p += 2 + w;
-
-        if( fStat->pieces[w] < 0 )
-        {
-            colors = kGray;
-        }
-        else if( fStat->pieces[w] < 1 )
-        {
-            colors = kRed;
-        }
-        else if( fStat->pieces[w] < 2 )
-        {
-            colors = kBlue1;
-        }
-        else if( fStat->pieces[w] < 3 )
-        {
-            colors = kBlue2;
-        }
-        else
-        {
-            colors = kBlue3;
-        }
-
-        for( h = 2; h < 14; h++ )
-        {
-            p[0]  = htonl( colors[h] );
-            p    += pixelsPerRow;
-        }
-    }
-}
-#endif
-
-/***********************************************************************
  * drawWithFrame
  ***********************************************************************
  * We have the strings, we have the bitmap. Let's just draw them where
@@ -279,7 +297,6 @@ static uint32_t kGreen[] =
  **********************************************************************/
 - (void) drawWithFrame: (NSRect) cellFrame inView: (NSView *) view
 {
-#if 0
     NSImage * img;
     NSMutableDictionary * attributes;
     NSPoint pen;
@@ -291,36 +308,42 @@ static uint32_t kGreen[] =
 
     pen = cellFrame.origin;
 
+    fWidth  = NSWidth( cellFrame ) - 14;
+
+    fBitmap = [[NSBitmapImageRep alloc]
+        initWithBitmapDataPlanes: nil pixelsWide: fWidth + 4
+        pixelsHigh: 18 bitsPerSample: 8 samplesPerPixel: 4
+        hasAlpha: YES isPlanar: NO colorSpaceName:
+        NSCalibratedRGBColorSpace bytesPerRow: 0 bitsPerPixel: 0];
+    [self buildBar];
+
     /* Init an NSImage with our bitmap in order to draw it. We need to
        do this every time, or for some reason it won't draw if the
        display is set to thousands of colors when Transmission was
        started */
-    img = [[NSImage alloc] initWithSize: [fProgressBmp size]];
-    [img addRepresentation: fProgressBmp];
+    img = [[NSImage alloc] initWithSize: [fBitmap size]];
+    [img addRepresentation: fBitmap];
     [img setFlipped: YES];
 
     /* Actually draw the bar */
     pen.x += 5; pen.y += 5;
     [img drawAtPoint: pen fromRect: NSMakeRect( 0, 0,
-            [fProgressBmp size].width, [fProgressBmp size].height )
+            [img size].width, [img size].height )
         operation: NSCompositeSourceOver fraction: 1.0];
 
     [img release];
+    [fBitmap release];
 
     /* Draw the strings with font 10 */
     attributes = [NSDictionary dictionaryWithObjectsAndKeys:
-        [NSFont messageFontOfSize: 10.0],
-        NSFontAttributeName,
-        fWhiteText ? [NSColor whiteColor] : [NSColor blackColor],
-        NSForegroundColorAttributeName,
-        NULL];
+        [NSFont messageFontOfSize: 10.0], NSFontAttributeName,
+        fTextColor, NSForegroundColorAttributeName, nil];
     pen.x += 5; pen.y += 20;
-    [fDlString drawAtPoint: pen withAttributes: attributes];
+    [[fTorrent downloadString] drawAtPoint: pen withAttributes: attributes];
     pen.x += 0; pen.y += 15;
-    [fUlString drawAtPoint: pen withAttributes: attributes];
+    [[fTorrent uploadString] drawAtPoint: pen withAttributes: attributes];
 
     [view unlockFocus];
-#endif
 }
 
 @end

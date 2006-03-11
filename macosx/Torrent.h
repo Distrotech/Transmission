@@ -29,17 +29,19 @@
     tr_torrent_t * fHandle;
     tr_info_t    * fInfo;
     tr_stat_t    * fStat;
-    int8_t         fPieces[120];
     BOOL           fResumeOnWake;
 
     NSImage         * fIcon;
     NSMutableString * fStatusString;
     NSMutableString * fInfoString;
+    NSMutableString * fDownloadString;
+    NSMutableString * fUploadString;
 }
 
 - (id)         initWithPath: (NSString *) path lib: (tr_handle_t *) lib;
 - (void)       setFolder: (NSString *) path;
 - (NSString *) getFolder;
+- (void)       getAvailability: (int8_t *) tab size: (int) size;
 
 - (void)       update;
 - (void)       start;
@@ -57,5 +59,7 @@
 - (BOOL)       justFinished;
 - (NSString *) statusString;
 - (NSString *) infoString;
+- (NSString *) downloadString;
+- (NSString *) uploadString;
 
 @end
