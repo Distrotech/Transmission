@@ -219,6 +219,11 @@
     return fInfo->totalSize;
 }
 
+- (float) progress
+{
+    return fStat->progress;
+}
+
 - (BOOL) isActive
 {
     return ( fStat->status & TR_STATUS_ACTIVE );

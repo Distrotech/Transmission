@@ -54,6 +54,7 @@
 - (NSString *) name;
 - (uint64_t)   size;
 
+- (float)      progress;
 - (BOOL)       isActive;
 - (BOOL)       isPaused;
 - (BOOL)       justFinished;

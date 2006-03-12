@@ -130,7 +130,7 @@ static uint32_t kBack[] =
        two columns and the last four lines contain the shadow. */
 
     p   = (uint32_t *) [fBitmap bitmapData] + 2;
-    end = lrintf( floor( 0.5 /*fStat->progress*/ * fWidth ) );
+    end = lrintf( floor( [fTorrent progress] * fWidth ) );
 
     /*
     if( fStat->status & TR_STATUS_SEED )
@@ -183,7 +183,7 @@ static uint32_t kBack[] =
     /* First two lines: dark blue to show progression */
     p    = (uint32_t *) [fBitmap bitmapData];
     p   += 2;
-    end  = lrintf( floor( /*fStat->progress*/ 0.5 * fWidth ) );
+    end  = lrintf( floor( [fTorrent progress] * fWidth ) );
     for( h = 0; h < 2; h++ )
     {
         for( w = 0; w < end; w++ )
@@ -309,24 +309,18 @@ static uint32_t kBack[] =
     pen = cellFrame.origin;
 
     fWidth  = NSWidth( cellFrame ) - 14;
-
     fBitmap = [[NSBitmapImageRep alloc]
         initWithBitmapDataPlanes: nil pixelsWide: fWidth + 4
         pixelsHigh: 18 bitsPerSample: 8 samplesPerPixel: 4
         hasAlpha: YES isPlanar: NO colorSpaceName:
         NSCalibratedRGBColorSpace bytesPerRow: 0 bitsPerPixel: 0];
-    [self buildBar];
-
-    /* Init an NSImage with our bitmap in order to draw it. We need to
-       do this every time, or for some reason it won't draw if the
-       display is set to thousands of colors when Transmission was
-       started */
     img = [[NSImage alloc] initWithSize: [fBitmap size]];
     [img addRepresentation: fBitmap];
     [img setFlipped: YES];
 
-    /* Actually draw the bar */
+    /* Draw the progress bar */
     pen.x += 5; pen.y += 5;
+    [self buildBar];
     [img drawAtPoint: pen fromRect: NSMakeRect( 0, 0,
             [img size].width, [img size].height )
         operation: NSCompositeSourceOver fraction: 1.0];
