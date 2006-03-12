@@ -20,16 +20,20 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef NAMECELL_H
-#define NAMECELL_H
+#ifndef TORRENTCELL_H
+#define TORRENTCELL_H
 
 #import <Cocoa/Cocoa.h>
 #import "Torrent.h"
 
-@interface NameCell : NSCell
+@interface TorrentCell : NSCell
 {
-    Torrent * fTorrent;
-    NSColor * fTextColor;
+    Torrent          * fTorrent;
+    NSColor          * fTextColor;
+
+    NSBitmapImageRep * fBitmap;
+    int                fWidth;
+    int8_t           * fPieces;
 }
 - (void) setTorrent:   (Torrent *) torrent;
 - (void) setTextColor: (NSColor *) color;

@@ -24,8 +24,7 @@
 
 #import "Controller.h"
 #import "Torrent.h"
-#import "NameCell.h"
-#import "ProgressCell.h"
+#import "TorrentCell.h"
 #import "StringAdditions.h"
 #import "Utils.h"
 #import "TorrentTableView.h"
@@ -88,17 +87,8 @@ static void sleepCallBack( void * controller, io_service_t y,
     [fWindow setToolbar: fToolbar];
     [fWindow setDelegate: self];
 
-    NSTableColumn * tableColumn;
-    NameCell * nameCell = [[NameCell alloc] init];
-    ProgressCell * progressCell = [[ProgressCell alloc] init];
-
-    tableColumn  = [fTableView tableColumnWithIdentifier: @"Name"];
-    [tableColumn setDataCell: nameCell];
-
-    tableColumn  = [fTableView tableColumnWithIdentifier: @"Progress"];
-    [tableColumn setDataCell: progressCell];
-
-    [fTableView setAutosaveTableColumns: YES];
+    [[fTableView tableColumnWithIdentifier: @"Torrent"] setDataCell:
+        [[TorrentCell alloc] init]];
 
     [fTableView registerForDraggedTypes: [NSArray arrayWithObjects:
         NSFilenamesPboardType, NULL]];

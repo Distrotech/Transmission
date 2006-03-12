@@ -56,6 +56,7 @@
 
 - (float)      progress;
 - (BOOL)       isActive;
+- (BOOL)       isSeeding;
 - (BOOL)       isPaused;
 - (BOOL)       justFinished;
 - (NSString *) statusString;

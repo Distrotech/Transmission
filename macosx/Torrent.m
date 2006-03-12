@@ -229,6 +229,11 @@
     return ( fStat->status & TR_STATUS_ACTIVE );
 }
 
+- (BOOL) isSeeding
+{
+    return ( fStat->status == TR_STATUS_SEED );
+}
+
 - (BOOL) isPaused
 {
     return ( fStat->status == TR_STATUS_PAUSE );
