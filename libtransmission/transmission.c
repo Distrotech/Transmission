@@ -333,6 +333,16 @@ int tr_torrentCount( tr_handle_t * h )
     return h->torrentCount;
 }
 
+void tr_torrentIterate( tr_handle_t * h, tr_callback_t func, void * d )
+{
+    tr_torrent_t * tor;
+
+    for( tor = h->torrentList; tor; tor = tor->next )
+    {
+        func( tor, d );
+    }
+}
+
 int tr_getFinished( tr_torrent_t * tor )
 {
     if( tor->finished )

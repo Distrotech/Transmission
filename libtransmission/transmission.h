@@ -81,6 +81,15 @@ void tr_setUploadLimit( tr_handle_t *, int );
 int tr_torrentCount( tr_handle_t * h );
 
 /***********************************************************************
+ * tr_torrentIterate
+ ***********************************************************************
+ * Iterates on open torrents
+ **********************************************************************/
+typedef struct tr_torrent_s tr_torrent_t;
+typedef void (*tr_callback_t) ( tr_torrent_t *, void * );
+void tr_torrentIterate( tr_handle_t *, tr_callback_t, void * );
+
+/***********************************************************************
  * tr_torrentRates
  ***********************************************************************
  * Gets the total download and upload rates
@@ -102,7 +111,6 @@ void tr_close( tr_handle_t * );
  * torrents (but doesn't start it). Returns NULL and sets *error
  * otherwise.
  **********************************************************************/
-typedef struct tr_torrent_s tr_torrent_t;
 #define TR_EINVALID     1
 #define TR_EUNSUPPORTED 2
 #define TR_EDUPLICATE   3
