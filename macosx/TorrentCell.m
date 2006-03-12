@@ -235,8 +235,8 @@ static uint32_t kGreen[] =
     p = (uint32_t *) [fBitmap bitmapData];
     for( h = 0; h < BAR_HEIGHT; h++ )
     {
-        p[0] = kBorder[h];
-        p[fWidth - 1] = kBorder[h];
+        p[0]          = htonl( kBorder[h] );
+        p[fWidth - 1] = htonl( kBorder[h] );
         p += [fBitmap bytesPerRow] / 4;
     }
 
