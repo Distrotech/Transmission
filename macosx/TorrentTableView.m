@@ -112,10 +112,9 @@
         [self display];
 #endif
     }
-    else if( row >= 0 && col == [self columnWithIdentifier: @"Progress"]
-             && ( [e modifierFlags] & NSAlternateKeyMask ) )
+    else if( row >= 0 && ( [e modifierFlags] & NSAlternateKeyMask ) )
     {
-        [fController advancedChanged: nil];
+        [fController advancedChanged: self];
     }
     else
     {
