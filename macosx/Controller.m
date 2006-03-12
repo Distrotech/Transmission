@@ -87,6 +87,7 @@ static void sleepCallBack( void * controller, io_service_t y,
     [fWindow setToolbar: fToolbar];
     [fWindow setDelegate: self];
 
+    [fTableView setTorrents: fTorrents];
     [[fTableView tableColumnWithIdentifier: @"Torrent"] setDataCell:
         [[TorrentCell alloc] init]];
 
@@ -1104,35 +1105,9 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (void) revealFromMenu: (id) sender
 {
-#if 0
-    int row = [fTableView selectedRow];
-    if (row >= 0)
-    {
-        [self finderReveal: [NSString stringWithFormat: @"%@/%@",
-            [NSString stringWithUTF8String: fStat[row].folder],
-            [NSString stringWithUTF8String: fStat[row].info.name]]];
-    }
-#endif
-}
-
-- (void) finderReveal: (NSString *) path
-{
-    NSString * string;
-    NSAppleScript * appleScript;
-    NSDictionary * error;
-
-    string = [NSString stringWithFormat:
-        @"tell application \"Finder\"\n"
-         "  activate\n"
-         "  reveal (POSIX file \"%@\")\n"
-         "end tell", path];
-
-    appleScript = [[NSAppleScript alloc] initWithSource: string];
-    if( ![appleScript executeAndReturnError: &error] )
-    {
-        printf( "finderReveal failed\n" );
-    }
-    [appleScript release];
+    Torrent * torrent;
+    torrent = [fTorrents objectAtIndex: [fTableView selectedRow]];
+    [torrent reveal];
 }
 
 - (void) finderTrash: (NSString *) path

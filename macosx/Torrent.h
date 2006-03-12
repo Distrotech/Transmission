@@ -48,6 +48,7 @@
 - (void)       stop;
 - (void)       sleep;
 - (void)       wakeUp;
+- (void)       reveal;
 
 - (NSImage *)  icon;
 - (NSString *) path;

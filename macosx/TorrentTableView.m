@@ -22,8 +22,14 @@
 
 #import "TorrentTableView.h"
 #import "Controller.h"
+#import "Torrent.h"
 
 @implementation TorrentTableView
+
+- (void) setTorrents: (NSArray *) torrents
+{
+    fTorrents = torrents;
+}
 
 - (void) pauseOrResume: (int) row
 {
@@ -88,6 +94,7 @@
 {
     NSPoint point;
     int row, col;
+    Torrent * torrent;
 
     point = [self convertPoint: [e locationInWindow] fromView: NULL];
     row   = [self rowAtPoint: point];
@@ -103,12 +110,9 @@
     }
     else if( [self pointInRevealRect: point] )
     {
-#if 0
-        [fController finderReveal: [NSString stringWithFormat:
-            @"%@/%@", [NSString stringWithUTF8String: fStat[row].folder],
-            [NSString stringWithUTF8String: fStat[row].info.name]]];
+        torrent = [fTorrents objectAtIndex: row];
+        [torrent reveal];
         [self display];
-#endif
     }
     else if( row >= 0 && ( [e modifierFlags] & NSAlternateKeyMask ) )
     {

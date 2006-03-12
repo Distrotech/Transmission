@@ -199,6 +199,16 @@
     }
 }
 
+- (void) reveal
+{
+    NSString * path = [NSString stringWithFormat: @"%@/%@",
+                        [self getFolder], [self name]];
+    NSURL * url = [NSURL fileURLWithPath: path];
+
+    [[NSWorkspace sharedWorkspace] selectFile: [url path]
+        inFileViewerRootedAtPath: nil];
+}
+
 - (NSImage *) icon
 {
     return fIcon;

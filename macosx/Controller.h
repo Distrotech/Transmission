@@ -126,7 +126,6 @@
 - (void) linkForums:        (id) sender;
 - (void) notifyGrowl:       (NSString *) file;
 - (void) revealFromMenu:    (id) sender;
-- (void) finderReveal:      (NSString *) path;
 - (void) finderTrash:       (NSString *) path;
 - (void) growlRegister:     (id) sender;
 
