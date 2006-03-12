@@ -51,11 +51,10 @@
     int col;
     NSRect cellRect, rect;
 
-    col      = [self columnWithIdentifier: @"Name"];
+    col      = [self columnWithIdentifier: @"Torrent"];
     cellRect = [self frameOfCellAtColumn: col row: row];
-    rect     = NSMakeRect( cellRect.origin.x + cellRect.size.width - 19,
-                           cellRect.origin.y + cellRect.size.height - 38,
-                           14, 14 );
+    rect     = NSMakeRect( cellRect.origin.x + cellRect.size.width - 39,
+                           cellRect.origin.y + 3, 14, 14 );
 
     return rect;
 }
@@ -65,11 +64,10 @@
     int col;
     NSRect cellRect, rect;
 
-    col      = [self columnWithIdentifier: @"Name"];
+    col      = [self columnWithIdentifier: @"Torrent"];
     cellRect = [self frameOfCellAtColumn: col row: row];
-    rect     = NSMakeRect( cellRect.origin.x + cellRect.size.width - 19,
-                           cellRect.origin.y + cellRect.size.height - 19,
-                           14, 14 );
+    rect     = NSMakeRect( cellRect.origin.x + cellRect.size.width - 20,
+                           cellRect.origin.y + 3, 14, 14 );
 
     return rect;
 }
@@ -147,16 +145,18 @@
 
     [super drawRect: r];
 
-#if 0
     for( i = 0; i < [self numberOfRows]; i++ )
     {
         rect  = [self pauseRectForRow: i];
         image = NULL;
+#if 0
         if( fStat[i].status & TR_STATUS_PAUSE )
         {
+#endif
             image = NSPointInRect( fClickPoint, rect ) ?
                 [NSImage imageNamed: @"ResumeOn.png"] :
                 [NSImage imageNamed: @"ResumeOff.png"];
+#if 0
         }
         else if( fStat[i].status &
                  ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD | TR_STATUS_SEED ) )
@@ -165,20 +165,24 @@
                 [NSImage imageNamed: @"PauseOn.png"] :
                 [NSImage imageNamed: @"PauseOff.png"];
         }
+#endif
         if( image )
         {
-            point = NSMakePoint( rect.origin.x, rect.origin.y + 14 );
-            [image compositeToPoint: point operation: NSCompositeSourceOver];
+            [image setFlipped: YES];
+            [image drawAtPoint: rect.origin fromRect:
+                NSMakeRect( 0, 0, 14, 14 ) operation:
+                NSCompositeSourceOver fraction: 1.0];
         }
 
         rect  = [self revealRectForRow: i];
         image = NSPointInRect( fClickPoint, rect ) ?
             [NSImage imageNamed: @"RevealOn.png"] :
             [NSImage imageNamed: @"RevealOff.png"];
-        point = NSMakePoint( rect.origin.x, rect.origin.y + 14 );
-        [image compositeToPoint: point operation: NSCompositeSourceOver];
+        [image setFlipped: YES];
+        [image drawAtPoint: rect.origin fromRect:
+            NSMakeRect( 0, 0, 14, 14 ) operation:
+            NSCompositeSourceOver fraction: 1.0];
     }
-#endif
 }
 
 @end

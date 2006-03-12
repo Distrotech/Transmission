@@ -124,7 +124,7 @@ static uint32_t kGreen[] =
     pixelsPerRow = [fBitmap bytesPerRow] / 4;
 
     p   = (uint32_t *) [fBitmap bitmapData] + 1;
-    end = lrintf( floor( [fTorrent progress] * fWidth ) );
+    end = lrintf( floor( [fTorrent progress] * ( fWidth - 2 ) ) );
 
     if( [fTorrent isSeeding] )
         colors = kGreen;
@@ -228,18 +228,14 @@ static uint32_t kGreen[] =
 
 - (void) buildBar
 {
-    int h, w;
+    int h;
     uint32_t * p;
 
-    /* Background */
+    /* Left and right borders */
     p = (uint32_t *) [fBitmap bitmapData];
     for( h = 0; h < BAR_HEIGHT; h++ )
     {
         p[0] = kBorder[h];
-        for( w = 1; w < fWidth - 1; w++ )
-        {
-            p[w] = kBack[h];
-        }
         p[fWidth - 1] = kBorder[h];
         p += [fBitmap bytesPerRow] / 4;
     }
@@ -292,7 +288,7 @@ static uint32_t kGreen[] =
         forKey: NSFontAttributeName];
     NSString * sizeString = [NSString stringWithFormat: @" (%@)",
         [NSString stringForFileSize: [fTorrent size]]]; 
-    string = [[[fTorrent name] stringFittingInWidth: fWidth -
+    string = [[[fTorrent name] stringFittingInWidth: fWidth - 40 -
         [sizeString sizeWithAttributes: attributes].width 
         withAttributes: attributes] stringByAppendingString: sizeString];
     [string drawAtPoint: pen withAttributes: attributes];
