@@ -99,7 +99,6 @@ static void sleepCallBack( void * controller, io_service_t y,
     [tableColumn setDataCell: progressCell];
 
     [fTableView setAutosaveTableColumns: YES];
-    //[fTableView sizeToFit];
 
     [fTableView registerForDraggedTypes: [NSArray arrayWithObjects:
         NSFilenamesPboardType, NULL]];
@@ -199,7 +198,17 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (NSApplicationTerminateReply)applicationShouldTerminate:(NSApplication *)sender
 {
-    int active = fDownloading + fSeeding;
+    int active = 0;
+    Torrent * torrent;
+    NSEnumerator * enumerator = [fTorrents objectEnumerator];
+    while( ( torrent = [enumerator nextObject] ) )
+    {
+        if( [torrent isActive] )
+        {
+            active++;
+        }
+    }
+
     if (active > 0 && [fDefaults boolForKey: @"CheckQuit"])
     {
         NSString * message = active == 1
@@ -410,17 +419,20 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (void) resumeAllTorrents: (id) sender
 {
-    NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent;
+    NSEnumerator * enumerator = [fTorrents objectEnumerator];
     while( ( torrent = [enumerator nextObject] ) )
     {
-        [torrent stop];
+        [torrent start];
     }
+    [self updateUI: nil];
+    [self updateTorrentHistory];
 }
 
 - (void) resumeTorrentWithIndex: (int) idx
 {
-    [[fTorrents objectAtIndex: idx] start];
+    Torrent * torrent = [fTorrents objectAtIndex: idx];
+    [torrent start];
     [self updateUI: nil];
     [self updateTorrentHistory];
 }
@@ -432,12 +444,14 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (void) stopAllTorrents: (id) sender
 {
-    NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent;
+    NSEnumerator * enumerator = [fTorrents objectEnumerator];
     while( ( torrent = [enumerator nextObject] ) )
     {
-        [torrent start];
+        [torrent stop];
     }
+    [self updateUI: nil];
+    [self updateTorrentHistory];
 }
 
 - (void) stopTorrentWithIndex: (int) idx
@@ -831,21 +845,34 @@ static void sleepCallBack( void * controller, io_service_t y,
     if (action == @selector(removeTorrent:))
         return [fTableView selectedRow] >= 0;
 
+    Torrent * torrent;
+    NSEnumerator * enumerator;
 
     //enable resume all item
     if (action == @selector(resumeAllTorrents:))
-        return fCount > fDownloading + fSeeding;
+    {
+        enumerator = [fTorrents objectEnumerator];
+        while( ( torrent = [enumerator nextObject] ) )
+            if( [torrent isPaused] )
+                return YES;
+        return NO;
+    }
 
     //enable pause all item
     if (action == @selector(stopAllTorrents:))
-        return fDownloading > 0 || fSeeding > 0;
+    {
+        enumerator = [fTorrents objectEnumerator];
+        while( ( torrent = [enumerator nextObject] ) )
+            if( [torrent isActive] )
+                return YES;
+        return NO;
+    }
 
     return YES;
 }
 
 - (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
-#if 0
     SEL action = [menuItem action];
 
     //disable menus if customize sheet is active
@@ -866,15 +893,36 @@ static void sleepCallBack( void * controller, io_service_t y,
         return YES;
     }
 
+    Torrent * torrent;
+    NSEnumerator * enumerator;
+
     //enable resume all item
     if (action == @selector(resumeAllTorrents:))
-        return fCount > fDownloading + fSeeding;
+    {
+        enumerator = [fTorrents objectEnumerator];
+        while( ( torrent = [enumerator nextObject] ) )
+            if( [torrent isPaused] )
+                return YES;
+        return NO;
+    }
 
     //enable pause all item
     if (action == @selector(stopAllTorrents:))
-        return fDownloading > 0 || fSeeding > 0;
+    {
+        enumerator = [fTorrents objectEnumerator];
+        while( ( torrent = [enumerator nextObject] ) )
+            if( [torrent isActive] )
+                return YES;
+        return NO;
+    }
 
     int row = [fTableView selectedRow];
+    torrent = ( row < 0 ) ? nil : [fTorrents objectAtIndex: row];
+
+    if (action == @selector(revealFromMenu:))
+    {
+        return ( torrent != nil );
+    }
 
     //enable remove items
     if (action == @selector(removeTorrent:)
@@ -882,9 +930,11 @@ static void sleepCallBack( void * controller, io_service_t y,
         || action == @selector(removeTorrentDeleteData:)
         || action == @selector(removeTorrentDeleteBoth:))
     {
+        if( !torrent )
+            return NO;
+
         //append or remove ellipsis when needed
-        if (row >= 0 && fStat[row].status & ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD)
-                    && [[fDefaults stringForKey: @"CheckRemove"] isEqualToString:@"YES"])
+        if( [torrent isActive] && [fDefaults boolForKey: @"CheckRemove"] )
         {
             if (![[menuItem title] hasSuffix:NS_ELLIPSIS])
                 [menuItem setTitle:[[menuItem title] stringByAppendingString:NS_ELLIPSIS]];
@@ -894,29 +944,28 @@ static void sleepCallBack( void * controller, io_service_t y,
             if ([[menuItem title] hasSuffix:NS_ELLIPSIS])
                 [menuItem setTitle:[[menuItem title] substringToIndex:[[menuItem title] length]-[NS_ELLIPSIS length]]];
         }
-        return row >= 0;
+        return YES;
     }
 
-    //enable reveal in finder item
-    if (action == @selector(revealFromMenu:))
-        return row >= 0;
-
     //enable and change pause / remove item
-    if (action == @selector(resumeTorrent:) || action == @selector(stopTorrent:))
+    if( action == @selector(resumeTorrent:) ||
+        action == @selector(stopTorrent:) )
     {
-        if (row >= 0 && fStat[row].status & TR_STATUS_PAUSE)
-        {
-            [menuItem setTitle: @"Resume"];
-            [menuItem setAction: @selector( resumeTorrent: )];
-        }
-        else
+        if( !torrent )
+            return NO;
+
+        if( [torrent isActive] )
         {
             [menuItem setTitle: @"Pause"];
             [menuItem setAction: @selector( stopTorrent: )];
         }
-        return row >= 0;
+        else
+        {
+            [menuItem setTitle: @"Resume"];
+            [menuItem setAction: @selector( resumeTorrent: )];
+        }
     }
-#endif
+
     return YES;
 }
 
