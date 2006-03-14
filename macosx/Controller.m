@@ -609,9 +609,6 @@ static void sleepCallBack( void * controller, io_service_t y,
 
 - (void) updateTorrentHistory
 {
-    if( [fTorrents count] < 1 )
-        return;
-
     NSMutableArray * history = [NSMutableArray
         arrayWithCapacity: [fTorrents count]];
 
@@ -915,11 +912,9 @@ static void sleepCallBack( void * controller, io_service_t y,
         || action == @selector(removeTorrentDeleteData:)
         || action == @selector(removeTorrentDeleteBoth:))
     {
-        if( !torrent )
-            return NO;
-
         //append or remove ellipsis when needed
-        if( [torrent isActive] && [fDefaults boolForKey: @"CheckRemove"] )
+        if( torrent && [torrent isActive] &&
+            [fDefaults boolForKey: @"CheckRemove"] )
         {
             if (![[menuItem title] hasSuffix:NS_ELLIPSIS])
                 [menuItem setTitle:[[menuItem title] stringByAppendingString:NS_ELLIPSIS]];
@@ -929,17 +924,14 @@ static void sleepCallBack( void * controller, io_service_t y,
             if ([[menuItem title] hasSuffix:NS_ELLIPSIS])
                 [menuItem setTitle:[[menuItem title] substringToIndex:[[menuItem title] length]-[NS_ELLIPSIS length]]];
         }
-        return YES;
+        return ( torrent != nil );
     }
 
     //enable and change pause / remove item
     if( action == @selector(resumeTorrent:) ||
         action == @selector(stopTorrent:) )
     {
-        if( !torrent )
-            return NO;
-
-        if( [torrent isActive] )
+        if( !torrent || [torrent isActive] )
         {
             [menuItem setTitle: @"Pause"];
             [menuItem setAction: @selector( stopTorrent: )];
@@ -949,6 +941,7 @@ static void sleepCallBack( void * controller, io_service_t y,
             [menuItem setTitle: @"Resume"];
             [menuItem setAction: @selector( resumeTorrent: )];
         }
+        return ( torrent != nil );
     }
 
     return YES;
