@@ -459,51 +459,42 @@ static void sleepCallBack( void * controller, io_service_t y,
 {
     Torrent * torrent = [fTorrents objectAtIndex: idx];
 
-    if( [torrent isActive] )
+    if( [torrent isActive] && [fDefaults boolForKey: @"CheckRemove"] )
     {
-        if ([fDefaults boolForKey: @"CheckRemove"])
-        {
-            NSDictionary * dict = [NSDictionary dictionaryWithObjectsAndKeys:
-                        [NSString stringWithFormat: @"%d", idx], @"Index",
-                        [NSString stringWithFormat: @"%d", deleteTorrent], @"DeleteTorrent",
-                        [NSString stringWithFormat: @"%d", deleteData], @"DeleteData",
-                        nil];
-            [dict retain];
+        NSDictionary * dict = [NSDictionary dictionaryWithObjectsAndKeys:
+            [NSString stringWithFormat: @"%d", idx], @"Index",
+            [NSString stringWithFormat: @"%d", deleteTorrent], @"DeleteTorrent",
+            [NSString stringWithFormat: @"%d", deleteData], @"DeleteData",
+            nil];
+        [dict retain];
 
-            NSBeginAlertSheet(@"Confirm Remove",
-                                @"Remove", @"Cancel", nil,
-                                fWindow, self,
-                                @selector(removeSheetDidEnd:returnCode:contextInfo:),
-                                NULL, dict, @"This torrent is active. Do you really want to remove it?");
-            return;
-        }
-        //stop if not stopped
-        else
-            [self stopTorrentWithIndex:idx];
+        NSBeginAlertSheet(@"Confirm Remove",
+            @"Remove", @"Cancel", nil, fWindow, self,
+            @selector(removeSheetDidEnd:returnCode:contextInfo:),  NULL, dict,
+            @"This torrent is active. Do you really want to remove it?");
     }
-
-    [self confirmRemoveTorrentWithIndex: idx
-            deleteTorrent: deleteTorrent
-            deleteData: deleteData];
+    else
+    {
+        [self confirmRemoveTorrentWithIndex: idx
+                deleteTorrent: deleteTorrent
+                deleteData: deleteData];
+    }
 }
 
 - (void) removeSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode
                         contextInfo:(NSDictionary  *)dict
 {
     [NSApp stopModal];
-    if (returnCode != NSAlertDefaultReturn)
+
+    if( returnCode == NSAlertDefaultReturn )
     {
-        [dict release];
-        return;
+        int idx = [[dict objectForKey:@"Index"] intValue];
+
+        [self confirmRemoveTorrentWithIndex: idx
+            deleteTorrent: [[dict objectForKey:@"DeleteTorrent"] intValue]
+            deleteData: [[dict objectForKey:@"DeleteData"] intValue]];
     }
 
-    int idx = [[dict objectForKey:@"Index"] intValue];
-
-    [self stopTorrentWithIndex:idx];
-
-    [self confirmRemoveTorrentWithIndex: idx
-        deleteTorrent: [[dict objectForKey:@"DeleteTorrent"] intValue]
-        deleteData: [[dict objectForKey:@"DeleteData"] intValue]];
     [dict release];
 }
 
@@ -511,6 +502,9 @@ static void sleepCallBack( void * controller, io_service_t y,
             deleteTorrent: (BOOL) deleteTorrent
             deleteData: (BOOL) deleteData
 {
+    /* Pause if not paused already */
+    [self stopTorrentWithIndex:idx];
+
 #if 0
     if( deleteData )
     {
