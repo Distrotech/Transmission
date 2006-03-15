@@ -33,23 +33,17 @@
 
 - (void) pauseOrResume: (int) row
 {
-#if 0
-    if( fStat[row].status & TR_STATUS_PAUSE )
+    Torrent * torrent = [fTorrents objectAtIndex: row];
+
+    if( [torrent isPaused] )
     {
         [fController resumeTorrentWithIndex: row];
     }
-    else if( fStat[row].status & ( TR_STATUS_CHECK |
-              TR_STATUS_DOWNLOAD | TR_STATUS_SEED ) )
+    else if( [torrent isActive] )
     {
         [fController stopTorrentWithIndex: row];
-    }                                                                   
-#endif
-}
-
-- (void) mouseDown: (NSEvent *) e
-{
-    fClickPoint = [self convertPoint: [e locationInWindow] fromView: NULL];
-    [self display];
+    }
+    else;
 }
 
 - (NSRect) pauseRectForRow: (int) row
@@ -90,40 +84,60 @@
                                     [self rowAtPoint: point]] );
 }
 
+
+- (void) mouseDown: (NSEvent *) e
+{
+    fClickPoint = [self convertPoint: [e locationInWindow] fromView: nil];
+    int row = [self rowAtPoint: fClickPoint];
+
+    if( [e modifierFlags] & NSAlternateKeyMask )
+    {
+        [fController advancedChanged: self];
+        fClickPoint = NSMakePoint( 0, 0 );
+    }
+    else if( ![self pointInPauseRect: fClickPoint] &&
+             ![self pointInRevealRect: fClickPoint] )
+    {
+        if( row >= 0 )
+        {
+            [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
+                byExtendingSelection: NO];
+        }
+        else
+        {
+            [self deselectAll: self];
+        }
+    }
+    else;
+
+    [self display];
+}
+
 - (void) mouseUp: (NSEvent *) e
 {
     NSPoint point;
-    int row, col;
+    int row;
+    bool sameRow;
     Torrent * torrent;
 
-    point = [self convertPoint: [e locationInWindow] fromView: NULL];
+    point = [self convertPoint: [e locationInWindow] fromView: nil];
     row   = [self rowAtPoint: point];
-    col   = [self columnAtPoint: point];
-
-    if( row < 0 )
-    {
-        [self deselectAll: NULL];
-    }
-    else if( [self pointInPauseRect: point] )
+    sameRow = row == [self rowAtPoint: fClickPoint];
+    
+    if( sameRow && [self pointInPauseRect: point]
+            && [self pointInPauseRect: fClickPoint] )
     {
         [self pauseOrResume: row];
     }
-    else if( [self pointInRevealRect: point] )
+    else if( sameRow && [self pointInRevealRect: point]
+                && [self pointInRevealRect: fClickPoint] )
     {
         torrent = [fTorrents objectAtIndex: row];
         [torrent reveal];
-        [self display];
     }
-    else if( row >= 0 && ( [e modifierFlags] & NSAlternateKeyMask ) )
-    {
-        [fController advancedChanged: self];
-    }
-    else
-    {
-        [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
-            byExtendingSelection: NO];
-    }
+    else;
 
+    [self display];
     fClickPoint = NSMakePoint( 0, 0 );
 }
 
@@ -132,44 +146,51 @@
     NSPoint point;
     int row;
 
-    point = [self convertPoint: [e locationInWindow] fromView: NULL];
+    point = [self convertPoint: [e locationInWindow] fromView: nil];
     row = [self rowAtPoint: point];
     
-    [self selectRowIndexes:[NSIndexSet indexSetWithIndex:row] byExtendingSelection:NO];
-
-    return row >= 0 ? fContextRow : fContextNoRow;
+    if( row >= 0 )
+    {
+        [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
+            byExtendingSelection: NO];
+        return fContextRow;
+    }
+    else
+    {
+        [self deselectAll: self];
+        return fContextNoRow;
+    }
 }
 
 - (void) drawRect: (NSRect) r
 {
-    int i;
+    unsigned i;
     NSRect rect;
-    NSPoint point;
     NSImage * image;
+    Torrent * torrent;
 
     [super drawRect: r];
 
-    for( i = 0; i < [self numberOfRows]; i++ )
+    for( i = 0; i < [fTorrents count]; i++ )
     {
+        torrent = [fTorrents objectAtIndex: i];
         rect  = [self pauseRectForRow: i];
-        image = NULL;
-#if 0
-        if( fStat[i].status & TR_STATUS_PAUSE )
+        image = nil;
+
+        if( [torrent isPaused] )
         {
-#endif
             image = NSPointInRect( fClickPoint, rect ) ?
                 [NSImage imageNamed: @"ResumeOn.png"] :
                 [NSImage imageNamed: @"ResumeOff.png"];
-#if 0
         }
-        else if( fStat[i].status &
-                 ( TR_STATUS_CHECK | TR_STATUS_DOWNLOAD | TR_STATUS_SEED ) )
+        else if( [torrent isActive] )
         {
             image = NSPointInRect( fClickPoint, rect ) ?
                 [NSImage imageNamed: @"PauseOn.png"] :
                 [NSImage imageNamed: @"PauseOff.png"];
         }
-#endif
+        else;
+
         if( image )
         {
             [image setFlipped: YES];
