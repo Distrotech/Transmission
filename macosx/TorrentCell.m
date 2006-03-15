@@ -152,9 +152,10 @@ static uint32_t kGreen[] =
  **********************************************************************/
 - (void) buildAdvancedBar
 {
-    int        h, w, end, pixelsPerRow;
-    uint32_t * p;
-    uint32_t * colors;
+    int      h, w, end, pixelsPerRow;
+    uint32_t * p, * colors;
+    uint8_t  * bitmapData  = [fBitmap bitmapData];
+    int        bytesPerRow = [fBitmap bytesPerRow];
 
     fPieces = malloc( fWidth );
     [fTorrent getAvailability: fPieces size: fWidth];
@@ -169,11 +170,10 @@ static uint32_t kGreen[] =
     pixelsPerRow = [fBitmap bytesPerRow] / 4;
 
     /* First two lines: dark blue to show progression */
-    p    = (uint32_t *) [fBitmap bitmapData];
-    p   += 1;
     end  = lrintf( floor( [fTorrent progress] * ( fWidth - 2 ) ) );
     for( h = 0; h < 2; h++ )
     {
+        p = (uint32_t *) ( bitmapData + h * bytesPerRow ) + 1;
         for( w = 0; w < end; w++ )
         {
             p[w] = htonl( kBlue4[h] );
@@ -182,7 +182,6 @@ static uint32_t kGreen[] =
         {
             p[w] = htonl( kBack[h] );
         }
-        p += pixelsPerRow;
     }
 
     /* Lines 2 to 14: blue or grey depending on whether
@@ -191,9 +190,7 @@ static uint32_t kGreen[] =
     {
         /* Point to pixel ( 2 + w, 2 ). We will then draw
            "vertically" */
-        p  = (uint32_t *) ( [fBitmap bitmapData] +
-                2 * [fBitmap bytesPerRow] );
-        p += 1 + w;
+        p  = (uint32_t *) ( bitmapData + 2 * bytesPerRow ) + 1 + w;
 
         if( fPieces[w] < 0 )
         {
@@ -218,8 +215,8 @@ static uint32_t kGreen[] =
 
         for( h = 2; h < BAR_HEIGHT; h++ )
         {
-            p[0]  = htonl( colors[h] );
-            p    += pixelsPerRow;
+            p[0] = htonl( colors[h] );
+            p    = (uint32_t *) ( (uint8_t *) p + bytesPerRow );
         }
     }
 
