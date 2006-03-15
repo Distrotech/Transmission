@@ -200,6 +200,7 @@ tr_torrent_t * tr_torrentInit( tr_handle_t * h, const char * path,
     tor->status = TR_STATUS_PAUSE;
     tor->id     = h->id;
     tor->key    = h->key;
+    tor->bindPort = &h->bindPort;
 	tor->finished = 0;
 
 

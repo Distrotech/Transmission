@@ -113,6 +113,7 @@ struct tr_torrent_s
 
     char            * id;
     char            * key;
+    int             * bindPort;
 
     /* An escaped string used to include the hash in HTTP queries */
     char              hashString[3*SHA_DIGEST_LENGTH+1];

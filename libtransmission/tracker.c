@@ -74,8 +74,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc->size     = 1024;
     tc->buf      = malloc( tc->size );
 
-    //tc->bindPort = h->bindPort;
-    tc->bindPort = 9090; /*FIXME*/
+    tc->bindPort = *(tor->bindPort);
     tc->newPort  = -1;
 
     return tc;
