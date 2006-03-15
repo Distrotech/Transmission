@@ -288,7 +288,7 @@ static uint32_t kGreen[] =
         forKey: NSFontAttributeName];
     NSString * sizeString = [NSString stringWithFormat: @" (%@)",
         [NSString stringForFileSize: [fTorrent size]]]; 
-    string = [[[fTorrent name] stringFittingInWidth: fWidth - 40 -
+    string = [[[fTorrent name] stringFittingInWidth: fWidth - 50 -
         [sizeString sizeWithAttributes: attributes].width 
         withAttributes: attributes] stringByAppendingString: sizeString];
     [string drawAtPoint: pen withAttributes: attributes];

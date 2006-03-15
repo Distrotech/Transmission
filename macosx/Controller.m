@@ -462,9 +462,9 @@ static void sleepCallBack( void * controller, io_service_t y,
     if( [torrent isActive] && [fDefaults boolForKey: @"CheckRemove"] )
     {
         NSDictionary * dict = [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSString stringWithFormat: @"%d", idx], @"Index",
-            [NSString stringWithFormat: @"%d", deleteTorrent], @"DeleteTorrent",
-            [NSString stringWithFormat: @"%d", deleteData], @"DeleteData",
+            [NSString stringWithInt: idx], @"Index",
+            [NSString stringWithInt: deleteTorrent], @"DeleteTorrent",
+            [NSString stringWithInt: deleteData], @"DeleteData",
             nil];
         [dict retain];
 
@@ -704,7 +704,7 @@ static void sleepCallBack( void * controller, io_service_t y,
         fStat[row].info.trackerAnnounce]];
     [fInfoSize setStringValue:
         [NSString stringForFileSize: fStat[row].info.totalSize]];
-    [fInfoPieces setStringValue: [NSString stringWithFormat: @"%d",
+    [fInfoPieces setStringValue: [NSString stringWithInt:
         fStat[row].info.pieceCount]];
     [fInfoPieceSize setStringValue:
         [NSString stringForFileSize: fStat[row].info.pieceSize]];
@@ -714,13 +714,13 @@ static void sleepCallBack( void * controller, io_service_t y,
     if ( fStat[row].seeders == -1 ) {
         [fInfoSeeders setStringValue: [NSString stringWithUTF8String: "?"]];
     } else {
-        [fInfoSeeders setStringValue: [NSString stringWithFormat: @"%d",
+        [fInfoSeeders setStringValue: [NSString stringWithInt:
             fStat[row].seeders]];
     }
     if ( fStat[row].leechers == -1 ) {
         [fInfoLeechers setStringValue: [NSString stringWithUTF8String: "?"]];
     } else {
-        [fInfoLeechers setStringValue: [NSString stringWithFormat: @"%d",
+        [fInfoLeechers setStringValue: [NSString stringWithInt:
             fStat[row].leechers]];
     }
 #endif
