@@ -49,6 +49,8 @@
 - (void)       sleep;
 - (void)       wakeUp;
 - (void)       reveal;
+- (void)       trashTorrent;
+- (void)       trashData;
 
 - (NSImage *)  icon;
 - (NSString *) path;

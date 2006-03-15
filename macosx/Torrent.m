@@ -23,6 +23,13 @@
 #import "Torrent.h"
 #import "StringAdditions.h"
 
+@interface Torrent (Private)
+
+- (void) trashPath: (NSString *) path;
+
+@end
+
+
 @implementation Torrent
 
 - (id) initWithPath: (NSString *) path lib: (tr_handle_t *) lib
@@ -209,6 +216,17 @@
         inFileViewerRootedAtPath: nil];
 }
 
+- (void) trashTorrent
+{
+    [self trashPath: [self path]];
+}
+
+- (void) trashData
+{
+    [self trashPath: [NSString stringWithFormat: @"%@/%@",
+        [self getFolder], [self name]]];
+}
+
 - (NSImage *) icon
 {
     return fIcon;
@@ -272,6 +290,30 @@
 - (NSString *) uploadString
 {
     return fUploadString;
+}
+
+@end
+
+
+@implementation Torrent (Private)
+
+- (void) trashPath: (NSString *) path
+{
+    NSString * string;
+    NSAppleScript * appleScript;
+    NSDictionary * error;
+
+    string = [NSString stringWithFormat:
+        @"tell application \"Finder\"\n"
+         "  move (POSIX file \"%@\") to trash\n"
+         "end tell", path];
+    
+    appleScript = [[NSAppleScript alloc] initWithSource: string];
+    if( ![appleScript executeAndReturnError: &error] )
+    {
+        printf( "trashPath failed\n" );
+    }
+    [appleScript release];
 }
 
 @end

@@ -502,26 +502,25 @@ static void sleepCallBack( void * controller, io_service_t y,
             deleteTorrent: (BOOL) deleteTorrent
             deleteData: (BOOL) deleteData
 {
-    /* Pause if not paused already */
-    [self stopTorrentWithIndex:idx];
+    Torrent * torrent = [fTorrents objectAtIndex: idx];
 
-#if 0
+    /* Pause if not paused already */
+    [torrent stop];
+
     if( deleteData )
     {
-        [self finderTrash: [NSString stringWithFormat: @"%@/%@",
-            [NSString stringWithUTF8String: fStat[idx].folder],
-            [NSString stringWithUTF8String: fStat[idx].info.name]]];
+        [torrent trashData];
     }
     if( deleteTorrent )
     {
-        [self finderTrash: [NSString stringWithUTF8String:
-            fStat[idx].info.torrent]];
+        [torrent trashTorrent];
     }
 
-    tr_torrentClose( fHandle, idx );
-    [self updateUI: NULL];
+    [fTorrents removeObject: torrent];
+    [torrent release];
+
+    [self updateUI: nil];
     [self updateTorrentHistory];
-#endif
 }
 
 - (void) removeTorrent: (id) sender
@@ -1095,25 +1094,6 @@ static void sleepCallBack( void * controller, io_service_t y,
     Torrent * torrent;
     torrent = [fTorrents objectAtIndex: [fTableView selectedRow]];
     [torrent reveal];
-}
-
-- (void) finderTrash: (NSString *) path
-{
-    NSString * string;
-    NSAppleScript * appleScript;
-    NSDictionary * error;
-
-    string = [NSString stringWithFormat:
-        @"tell application \"Finder\"\n"
-         "  move (POSIX file \"%@\") to trash\n"
-         "end tell", path];
-
-    appleScript = [[NSAppleScript alloc] initWithSource: string];
-    if( ![appleScript executeAndReturnError: &error] )
-    {
-        printf( "finderTrash failed\n" );
-    }
-    [appleScript release];
 }
 
 - (void) checkForUpdate: (id) sender
