@@ -497,6 +497,10 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     {
         tor->prev->next = tor->next;
     }
+    else
+    {
+        h->torrentList = tor->next;
+    }
     if( tor->next )
     {
         tor->next->prev = tor->prev;
