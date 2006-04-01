@@ -78,9 +78,8 @@
     [[fPrefsWindow standardWindowButton: NSWindowToolbarButton]
         setFrame: NSZeroRect];
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-    [fToolbar setSelectedItemIdentifier: TOOLBAR_GENERAL];
-#endif
+    if( [fToolbar respondsToSelector: @selector(setSelectedItemIdentifier:) ] )
+        [fToolbar setSelectedItemIdentifier: TOOLBAR_GENERAL];
     [self setPrefView: fGeneralView];
 
     fDefaults = [NSUserDefaults standardUserDefaults];
@@ -181,6 +180,7 @@
     return item;
 }
 
+/* Only used on OS X >= 10.3 */
 - (NSArray *) toolbarSelectableItemIdentifiers: (NSToolbar *)toolbar
 {
     return [self toolbarDefaultItemIdentifiers: nil];
@@ -345,9 +345,8 @@
     windowRect.origin.y -= difference;
     windowRect.size.height += difference;
     
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-    [fPrefsWindow setTitle: [fToolbar selectedItemIdentifier]];
-#endif
+    if( [fToolbar respondsToSelector: @selector(selectedItemIdentifier) ] )
+        [fPrefsWindow setTitle: [fToolbar selectedItemIdentifier]];
     [fPrefsWindow setContentView: fBlankView];
     [fPrefsWindow setFrame:windowRect display: YES animate: YES];
     [fPrefsWindow setContentView: view];
