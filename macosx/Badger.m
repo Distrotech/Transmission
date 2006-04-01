@@ -41,16 +41,22 @@
         fUploadBadge = [NSImage imageNamed: @"UploadBadge"];
         fDownloadBadge = [NSImage imageNamed: @"DownloadBadge"];
         
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
         NSShadow * stringShadow = [[NSShadow alloc] init];
         [stringShadow setShadowOffset: NSMakeSize(2, -2)];
         [stringShadow setShadowBlurRadius: 4];
+#endif
         
         fAttributes = [[NSDictionary dictionaryWithObjectsAndKeys:
                             [NSColor whiteColor], NSForegroundColorAttributeName,
                             [NSFont fontWithName: @"Helvetica-Bold" size: 28], NSFontAttributeName,
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
                             stringShadow, NSShadowAttributeName,
+#endif
                             nil] retain];
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
         [stringShadow release];
+#endif
         
         fCompleted = 0;
         fSpeedShown = NO;

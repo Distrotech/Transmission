@@ -100,8 +100,10 @@
     {
         if( row >= 0 )
         {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
             [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
                 byExtendingSelection: NO];
+#endif
         }
         else
         {
@@ -151,8 +153,10 @@
     
     if( row >= 0 )
     {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
         [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row]
             byExtendingSelection: NO];
+#endif
         return fContextRow;
     }
     else

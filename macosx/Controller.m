@@ -328,9 +328,11 @@ static void sleepCallBack( void * controller, io_service_t y,
             NSOpenPanel * panel = [NSOpenPanel openPanel];
 
             [panel setPrompt: @"Select Download Folder"];
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
             [panel setMessage: [NSString stringWithFormat:
                                 @"Select the download folder for %@",
                                 [torrentPath lastPathComponent]]];
+#endif
             [panel setAllowsMultipleSelection: NO];
             [panel setCanChooseFiles: NO];
             [panel setCanChooseDirectories: YES];
@@ -1141,6 +1143,7 @@ static void sleepCallBack( void * controller, io_service_t y,
     {
         if (!fCheckIsAutomatic)
         {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
             NSAlert * dialog = [[NSAlert alloc] init];
             [dialog addButtonWithTitle: @"OK"];
             [dialog setMessageText: @"Error checking for updates."];
@@ -1150,6 +1153,7 @@ static void sleepCallBack( void * controller, io_service_t y,
 
             [dialog runModal];
             [dialog release];
+#endif
         }
         return;
     }
@@ -1171,6 +1175,7 @@ static void sleepCallBack( void * controller, io_service_t y,
             break;
         }
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
         result = [currentSub compare: webSub options: NSNumericSearch];
         if (result != NSOrderedSame)
         {
@@ -1178,10 +1183,12 @@ static void sleepCallBack( void * controller, io_service_t y,
                 webGreater = YES;
             break;
         }
+#endif
     }
 
     if (webGreater)
     {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
         NSAlert * dialog = [[NSAlert alloc] init];
         [dialog addButtonWithTitle: @"Go to Website"];
         [dialog addButtonWithTitle:@"Cancel"];
@@ -1194,9 +1201,11 @@ static void sleepCallBack( void * controller, io_service_t y,
             [self linkHomepage: nil];
 
         [dialog release];
+#endif
     }
     else if (!fCheckIsAutomatic)
     {
+#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
         NSAlert * dialog = [[NSAlert alloc] init];
         [dialog addButtonWithTitle: @"OK"];
         [dialog setMessageText: @"No new versions are available."];
@@ -1206,6 +1215,7 @@ static void sleepCallBack( void * controller, io_service_t y,
 
         [dialog runModal];
         [dialog release];
+#endif
     }
     else;
 }
