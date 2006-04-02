@@ -328,14 +328,15 @@ static void sleepCallBack( void * controller, io_service_t y,
             NSOpenPanel * panel = [NSOpenPanel openPanel];
 
             [panel setPrompt: @"Select Download Folder"];
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-            [panel setMessage: [NSString stringWithFormat:
-                                @"Select the download folder for %@",
-                                [torrentPath lastPathComponent]]];
-#endif
             [panel setAllowsMultipleSelection: NO];
             [panel setCanChooseFiles: NO];
             [panel setCanChooseDirectories: YES];
+
+            if( [panel respondsToSelector: @selector(setMessage:)] )
+                /* >= 10.3 */
+                [panel setMessage: [NSString stringWithFormat:
+                                    @"Select the download folder for %@",
+                                    [torrentPath lastPathComponent]]];
 
             [panel beginSheetForDirectory: NULL file: NULL types: NULL
                 modalForWindow: fWindow modalDelegate: self didEndSelector:
@@ -1143,17 +1144,20 @@ static void sleepCallBack( void * controller, io_service_t y,
     {
         if (!fCheckIsAutomatic)
         {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
-            NSAlert * dialog = [[NSAlert alloc] init];
-            [dialog addButtonWithTitle: @"OK"];
-            [dialog setMessageText: @"Error checking for updates."];
-            [dialog setInformativeText:
-                    @"Transmission was not able to check the latest version available."];
-            [dialog setAlertStyle: NSInformationalAlertStyle];
+            if( OSX_VERSION >= 10.3 )
+            {
+                NSAlert * dialog = [[NSAlert alloc] init];
+                [dialog addButtonWithTitle: @"OK"];
+                [dialog setMessageText: @"Error checking for updates."];
+                [dialog setInformativeText:
+                        @"Transmission was not able to check the latest version available."];
+                [dialog setAlertStyle: NSInformationalAlertStyle];
 
-            [dialog runModal];
-            [dialog release];
-#endif
+                [dialog runModal];
+                [dialog release];
+            }
+            else
+                /* XXX */;
         }
         return;
     }
@@ -1175,47 +1179,56 @@ static void sleepCallBack( void * controller, io_service_t y,
             break;
         }
 
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030
-        result = [currentSub compare: webSub options: NSNumericSearch];
-        if (result != NSOrderedSame)
+        if( OSX_VERSION >= 10.3 )
         {
-            if (result == NSOrderedAscending)
-                webGreater = YES;
-            break;
+            result = [currentSub compare: webSub options: NSNumericSearch];
+            if (result != NSOrderedSame)
+            {
+                if (result == NSOrderedAscending)
+                    webGreater = YES;
+                break;
+            }
         }
-#endif
+        else
+            /* XXX */;
     }
 
     if (webGreater)
     {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
-        NSAlert * dialog = [[NSAlert alloc] init];
-        [dialog addButtonWithTitle: @"Go to Website"];
-        [dialog addButtonWithTitle:@"Cancel"];
-        [dialog setMessageText: @"New version is available!"];
-        [dialog setInformativeText: [NSString stringWithFormat:
-            @"A newer version (%@) is available for download from the Transmission website.", webVersion]];
-        [dialog setAlertStyle: NSInformationalAlertStyle];
+        if( OSX_VERSION >= 10.3 )
+        {
+            NSAlert * dialog = [[NSAlert alloc] init];
+            [dialog addButtonWithTitle: @"Go to Website"];
+            [dialog addButtonWithTitle:@"Cancel"];
+            [dialog setMessageText: @"New version is available!"];
+            [dialog setInformativeText: [NSString stringWithFormat:
+                @"A newer version (%@) is available for download from the Transmission website.", webVersion]];
+            [dialog setAlertStyle: NSInformationalAlertStyle];
 
-        if ([dialog runModal] == NSAlertFirstButtonReturn)
-            [self linkHomepage: nil];
+            if ([dialog runModal] == NSAlertFirstButtonReturn)
+                [self linkHomepage: nil];
 
-        [dialog release];
-#endif
+            [dialog release];
+        }
+        else
+            /* XXX */;
     }
     else if (!fCheckIsAutomatic)
     {
-#if MAC_OS_X_VERSION_MAX_ALLOWED >= 1030 /* FIXME */
-        NSAlert * dialog = [[NSAlert alloc] init];
-        [dialog addButtonWithTitle: @"OK"];
-        [dialog setMessageText: @"No new versions are available."];
-        [dialog setInformativeText: [NSString stringWithFormat:
-            @"You are running the most current version of Transmission (%@).", currentVersion]];
-        [dialog setAlertStyle: NSInformationalAlertStyle];
+        if( OSX_VERSION >= 10.3 )
+        {
+            NSAlert * dialog = [[NSAlert alloc] init];
+            [dialog addButtonWithTitle: @"OK"];
+            [dialog setMessageText: @"No new versions are available."];
+            [dialog setInformativeText: [NSString stringWithFormat:
+                @"You are running the most current version of Transmission (%@).", currentVersion]];
+            [dialog setAlertStyle: NSInformationalAlertStyle];
 
-        [dialog runModal];
-        [dialog release];
-#endif
+            [dialog runModal];
+            [dialog release];
+        }
+        else
+            /* XXX */;
     }
     else;
 }
