@@ -17,7 +17,9 @@ transmissioncli: lib $(OBJS)
 	$(CC) -o $@ $(OBJS) libtransmission/libtransmission.a $(LDFLAGS)
 
 transmission-gtk:
+ifeq ($(GTK),yes)
 	$(MAKE) -C gtk
+endif
 
 %.o: %.c Makefile.config Makefile.common Makefile
 	$(CC) $(CFLAGS) -o $@ -c $<
@@ -25,7 +27,9 @@ transmission-gtk:
 clean:
 	$(RM) transmissioncli $(OBJS)
 	$(MAKE) -C libtransmission clean
+ifeq ($(GTK),yes)
 	$(MAKE) -C gtk clean
+endif
 
 .depend: $(SRCS) Makefile
 	$(RM) .depend
