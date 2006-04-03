@@ -12,6 +12,8 @@ GTK=
 PREFIX=/usr/local
 CC="${CC-cc}"
 CFLAGS="${CFLAGS}"
+CXX="${CXX-c++}"
+CXXFLAGS="${CXXFLAGS}"
 LDFLAGS="${LDFLAGS}"
 
 
@@ -30,6 +32,8 @@ Options:
 Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
+  CXX         C++ compiler command
+  CXXFLAGS    C++ compiler flags
   LDFLAGS     linker flags
 
 EOF
@@ -274,6 +278,8 @@ OPENSSL        = $OPENSSL
 GTK            = $GTK
 CC             = $CC
 CFLAGS         = $CFLAGS
+CXX            = $CXX
+CXXFLAGS       = $CXXFLAGS
 LDFLAGS        = $LDFLAGS
 CFLAGS_GTK     = $CFLAGS_GTK
 LDFLAGS_GTK    = $LDFLAGS_GTK
