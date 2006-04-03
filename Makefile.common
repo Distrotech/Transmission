@@ -13,6 +13,7 @@ CFLAGS   += $(MOREFLAGS)
 CXXFLAGS += $(MOREFLAGS)
 
 ifeq ($(SYSTEM),BeOS)
+CXXFLAGS += -Wno-multichar
 ifeq ($(BEOS_NETSERVER),yes)
 CFLAGS  += -DBEOS_NETSERVER
 LDFLAGS += -lnet

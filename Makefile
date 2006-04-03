@@ -8,7 +8,7 @@ OBJS = $(SRCS:%.c=%.o)
 
 CFLAGS += -Ilibtransmission
 
-all: transmissioncli transmission-gtk
+all: transmissioncli transmission-gtk transmission-beos
 
 lib:
 	$(MAKE) -C libtransmission
@@ -21,6 +21,11 @@ ifeq ($(GTK),yes)
 	$(MAKE) -C gtk
 endif
 
+transmission-beos:
+ifeq ($(SYSTEM),BeOS)
+	$(MAKE) -C beos
+endif
+
 %.o: %.c Makefile.config Makefile.common Makefile
 	$(CC) $(CFLAGS) -o $@ -c $<
 
@@ -29,6 +34,9 @@ clean:
 	$(MAKE) -C libtransmission clean
 ifeq ($(GTK),yes)
 	$(MAKE) -C gtk clean
+endif
+ifeq ($(SYSTEM),BeOS)
+	$(MAKE) -C beos clean
 endif
 
 .depend: $(SRCS) Makefile
