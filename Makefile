@@ -8,13 +8,16 @@ OBJS = $(SRCS:%.c=%.o)
 
 CFLAGS += -Ilibtransmission
 
-all: transmissioncli
+all: transmissioncli transmission-gtk
+
+lib:
+	$(MAKE) -C libtransmission
 
 transmissioncli: lib $(OBJS)
 	$(CC) -o $@ $(OBJS) libtransmission/libtransmission.a $(LDFLAGS)
 
-lib:
-	$(MAKE) -C libtransmission
+transmission-gtk:
+	$(MAKE) -C gtk
 
 %.o: %.c Makefile.config Makefile.common Makefile
 	$(CC) $(CFLAGS) -o $@ -c $<
@@ -22,6 +25,7 @@ lib:
 clean:
 	$(RM) transmissioncli $(OBJS)
 	$(MAKE) -C libtransmission clean
+	$(MAKE) -C gtk clean
 
 .depend: $(SRCS) Makefile
 	$(RM) .depend

@@ -22,10 +22,6 @@ ifeq ($(SYSTEM),Darwin)
 CFLAGS += -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch ppc -arch i386
 endif
 
-ifeq ($(MATH),yes)
-LDFLAGS += -lm
-endif
-
 ifeq ($(PTHREAD),yes)
 ifeq ($(SYSTEM),FreeBSD)
 LDFLAGS += -pthread
