@@ -421,18 +421,16 @@ static void recvAnswer( tr_tracker_t * tc )
     bodylen = tc->pos - (body - tc->buf);
 
     /* Find the beginning of the dictionary */
-    for( i = 0; i < bodylen - 18; i++ )
+    for( i = 0; i < bodylen; i++ )
     {
-        /* Hem */
-        if( !memcmp( &body[i], "d8:interval", 11 ) ||
-            !memcmp( &body[i], "d8:complete", 11 ) ||
-            !memcmp( &body[i], "d14:failure reason", 18 ) )
+        if( body[i] == 'd' )
         {
+            /* This must be it */
             break;
         }
     }
 
-    if( i >= bodylen - 18 )
+    if( i >= bodylen )
     {
         if( tc->stopped || 0 < tc->newPort )
         {
