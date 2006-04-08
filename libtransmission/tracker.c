@@ -435,7 +435,7 @@ static void recvAnswer( tr_tracker_t * tc )
     else
     {
         tr_err( "Tracker: could not find end of HTTP headers" );
-        tc->lastAttempt = TC_ATTEMPT_ERROR;
+        tc->lastAttempt = TC_ATTEMPT_NOREACH;
         return;
     }
     bodylen = tc->pos - (body - tc->buf);
