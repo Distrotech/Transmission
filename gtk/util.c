@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2005 Joshua Elsasser. All rights reserved.
+  Copyright (c) 2005-2006 Joshua Elsasser. All rights reserved.
    
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -32,11 +32,12 @@
 #include <string.h>
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 
 #include "util.h"
 
-static void
-sigexithandler(int sig);
+#define BESTDECIMAL(d)          (10.0 > (d) ? 2 : (100.0 > (d) ? 1 : 0))
+
 static void
 errcb(GtkWidget *wind, int resp, gpointer data);
 
@@ -58,13 +59,16 @@ strbool(const char *str) {
   return FALSE;
 }
 
+static const char *sizestrs[] = {
+  N_("B"), N_("KiB"), N_("MiB"), N_("GiB"), N_("TiB"), N_("PiB"), N_("EiB"),
+};
+
 char *
-readablesize(guint64 size, int decimals) {
-  const char *sizes[] = {"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"};
+readablesize(guint64 size) {
   unsigned int ii;
   double small = size;
 
-  for(ii = 0; ii + 1 < ALEN(sizes) && 1024.0 <= small / 1024.0; ii++)
+  for(ii = 0; ii + 1 < ALEN(sizestrs) && 1024.0 <= small / 1024.0; ii++)
     small /= 1024.0;
 
   if(1024.0 <= small) {
@@ -72,7 +76,25 @@ readablesize(guint64 size, int decimals) {
     ii++;
   }
 
-  return g_strdup_printf("%.*f %s", decimals, small, sizes[ii]);
+  return g_strdup_printf("%.*f %s", BESTDECIMAL(small), small,
+                         gettext(sizestrs[ii]));
+}
+
+char *
+ratiostr(guint64 down, guint64 up) {
+  double ratio;
+
+  if(0 == up && 0 == down)
+    return g_strdup(_("N/A"));
+
+  if(0 == down)
+    /* this is a UTF-8 infinity symbol */
+    return g_strdup(_("\xE2\x88\x9E"));
+
+  ratio = (double)up / (double)down;
+
+  return g_strdup_printf("%.*f", (10.0 > ratio ? 2 : (100.0 > ratio ? 1 : 0)),
+                         ratio);
 }
 
 gboolean
@@ -101,69 +123,64 @@ mkdir_p(const char *name, mode_t mode) {
   return TRUE;
 }
 
-static int exit_sigs[] = {SIGHUP, SIGINT, SIGQUIT, SIGTERM, SIGUSR1, SIGUSR2};
-static callbackfunc_t exit_func = NULL;
-static void *exit_data = NULL;
-static int exit_block_level = 0;
+char *
+joinstrlist(GList *list, char *sep) {
+  GList *ii;
+  int len;
+  char *ret, *dest;
 
-void
-setuphandlers(callbackfunc_t func, void *data) {
-  struct sigaction sa;
-  unsigned int ii;
+  if(0 > (len = strlen(sep) * (g_list_length(list) - 1)))
+    return NULL;
 
-  exit_data = data;
-  exit_func = func;
+  for(ii = g_list_first(list); NULL != ii; ii = ii->next)
+    len += strlen(ii->data);
 
-  bzero(&sa, sizeof(sa));
-  sa.sa_handler = sigexithandler;
-  for(ii = 0; ii < ALEN(exit_sigs); ii++)
-    sigaction(exit_sigs[ii], &sa, NULL);
+  dest = ret = g_new(char, len + 1);
+
+  for(ii = g_list_first(list); NULL != ii; ii = ii->next) {
+    dest = g_stpcpy(dest, ii->data);
+    if(NULL != ii->next)
+      dest = g_stpcpy(dest, sep);
+  }
+
+  return ret;
 }
 
-void
-clearhandlers(void) {
-  struct sigaction sa;
-  unsigned int ii;
+char *
+urldecode(const char *str, int len) {
+  int ii, jj;
+  char *ret;
+  char buf[3];
 
-  bzero(&sa, sizeof(sa));
-  sa.sa_handler = SIG_DFL;
-  for(ii = 0; ii < ALEN(exit_sigs); ii++)
-    sigaction(exit_sigs[ii], &sa, NULL);
-}
+  if(0 >= len)
+    len = strlen(str);
 
-static void
-sigexithandler(int sig) {
-  exit_func(exit_data);
-  clearhandlers();
-  raise(sig);
-}
+  for(ii = jj = 0; ii < len; ii++, jj++)
+    if('%' == str[ii])
+      ii += 2;
 
-void
-blocksigs(void) {
-  sigset_t mask;
-  unsigned int ii;
+  ret = g_new(char, jj + 1);
 
-  if(0 < (exit_block_level++))
-    return;
+  buf[2] = '\0';
+  for(ii = jj = 0; ii < len; ii++, jj++) {
+    switch(str[ii]) {
+      case '%':
+        if(ii + 2 < len) {
+          buf[0] = str[ii+1];
+          buf[1] = str[ii+2];
+          ret[jj] = g_ascii_strtoull(buf, NULL, 16);
+        }
+        ii += 2;
+        break;
+      case '+':
+        ret[jj] = ' ';
+      default:
+        ret[jj] = str[ii];
+    }
+  }
+  ret[jj] = '\0';
 
-  sigemptyset(&mask);
-  for(ii = 0; ii < ALEN(exit_sigs); ii++)
-    sigaddset(&mask, exit_sigs[ii]);
-  sigprocmask(SIG_BLOCK, &mask, NULL);
-}
-
-void
-unblocksigs(void) {
-  sigset_t mask;
-  unsigned int ii;
-
-  if(0 < (--exit_block_level))
-    return;
-
-  sigemptyset(&mask);
-  for(ii = 0; ii < ALEN(exit_sigs); ii++)
-    sigaddset(&mask, exit_sigs[ii]);
-  sigprocmask(SIG_UNBLOCK, &mask, NULL);
+  return ret;
 }
 
 GtkWidget *

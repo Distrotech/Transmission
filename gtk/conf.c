@@ -36,16 +36,21 @@
 #include <unistd.h>
 
 #include <gtk/gtk.h>
+#include <glib/gi18n.h>
 
 #include "conf.h"
 #include "transmission.h"
 #include "util.h"
 
-#define FILE_LOCK               "gtk_lock"
-#define FILE_PREFS              "gtk_prefs"
-#define FILE_PREFS_TMP          "gtk_prefs.tmp"
-#define FILE_STATE              "gtk_state"
-#define FILE_STATE_TMP          "gtk_state.tmp"
+#define CONF_SUBDIR             "gtk"
+#define FILE_LOCK               "lock"
+#define FILE_PREFS              "prefs"
+#define FILE_PREFS_TMP          "prefs.tmp"
+#define FILE_STATE              "state"
+#define FILE_STATE_TMP          "state.tmp"
+#define OLD_FILE_LOCK           "gtk_lock" /* remove this after next release */
+#define OLD_FILE_PREFS          "gtk_prefs"
+#define OLD_FILE_STATE          "gtk_state"
 #define PREF_SEP_KEYVAL         '\t'
 #define PREF_SEP_LINE           '\n'
 #define STATE_SEP               '\n'
@@ -58,6 +63,7 @@ static char *
 getstateval(struct cf_torrentstate *state, char *line);
 
 static char *confdir = NULL;
+static char *old_confdir = NULL;
 static GTree *prefs = NULL;
 
 static int
@@ -69,8 +75,8 @@ lockfile(const char *file, char **errstr) {
 
   if(0 > (fd = open(file, O_RDWR | O_CREAT, 0666))) {
     savederr = errno;
-    *errstr = g_strdup_printf("Error opening file %s for writing:\n%s",
-                              file, strerror(errno));
+    *errstr = g_strdup_printf(_("Failed to open the file %s for writing:\n%s"),
+      file, strerror(errno));
     errno = savederr;
     return -1;
   }
@@ -83,11 +89,11 @@ lockfile(const char *file, char **errstr) {
   if(-1 == fcntl(fd, F_SETLK, &lk)) {
     savederr = errno;
     if(EAGAIN == errno)
-      *errstr = g_strdup_printf("Another copy of %s is already running.",
+      *errstr = g_strdup_printf(_("Another copy of %s is already running."),
                                 g_get_application_name());
     else
-      *errstr = g_strdup_printf("Error obtaining lock on file %s:\n%s",
-                                file, strerror(errno));
+      *errstr = g_strdup_printf(_("Failed to lock the file %s:\n%s"),
+        file, strerror(errno));
     close(fd);
     errno = savederr;
     return -1;
@@ -98,36 +104,28 @@ lockfile(const char *file, char **errstr) {
 
 gboolean
 cf_init(const char *dir, char **errstr) {
-  struct stat sb;
-
   *errstr = NULL;
-  confdir = g_strdup(dir);
+  old_confdir = g_strdup(dir);
+  confdir = g_build_filename(dir, CONF_SUBDIR, NULL);
 
-  if(0 > stat(dir, &sb)) {
-    if(ENOENT != errno)
-      *errstr = g_strdup_printf("Failed to check directory %s:\n%s",
-                                dir, strerror(errno));
-    else {
-      if(0 == mkdir(dir, 0777))
-        return TRUE;
-      else
-        *errstr = g_strdup_printf("Failed to create directory %s:\n%s",
-                                  dir, strerror(errno));
-    }
-    return FALSE;
-  }
-
-  if(S_IFDIR & sb.st_mode)
+  if(mkdir_p(confdir, 0777))
     return TRUE;
 
-  *errstr = g_strdup_printf("%s is not a directory", dir);
+  *errstr = g_strdup_printf(_("Failed to create the directory %s:\n%s"),
+                            confdir, strerror(errno));
   return FALSE;
 }
 
 gboolean
 cf_lock(char **errstr) {
-  char *path = g_build_filename(confdir, FILE_LOCK, NULL);
+  char *path = g_build_filename(old_confdir, OLD_FILE_LOCK, NULL);
   int fd = lockfile(path, errstr);
+
+  if(0 <= fd) {
+    g_free(path);
+    path = g_build_filename(confdir, FILE_LOCK, NULL);
+    fd = lockfile(path, errstr);
+  }
 
   g_free(path);
   return 0 <= fd;
@@ -136,6 +134,7 @@ cf_lock(char **errstr) {
 gboolean
 cf_loadprefs(char **errstr) {
   char *path = g_build_filename(confdir, FILE_PREFS, NULL);
+  char *oldpath;
   GIOChannel *io;
   GError *err;
   char *line, *sep;
@@ -154,9 +153,17 @@ cf_loadprefs(char **errstr) {
   io = g_io_channel_new_file(path, "r", &err);
   if(NULL != err) {
     if(!g_error_matches(err, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-      *errstr = g_strdup_printf("Error opening file %s for reading:\n%s",
-                                path, err->message);
-    goto done;
+      *errstr = g_strdup_printf(
+        _("Failed to open the file %s for reading:\n%s"), path, err->message);
+    else {
+      g_error_free(err);
+      err = NULL;
+      oldpath = g_build_filename(old_confdir, OLD_FILE_PREFS, NULL);
+      io = g_io_channel_new_file(oldpath, "r", &err);
+      g_free(oldpath);
+    }
+    if(NULL != err)
+      goto done;
   }
   g_io_channel_set_line_term(io, &term, 1);
 
@@ -165,8 +172,8 @@ cf_loadprefs(char **errstr) {
     assert(NULL == err) ;
     switch(g_io_channel_read_line(io, &line, &len, &termpos, &err)) {
       case G_IO_STATUS_ERROR:
-        *errstr = g_strdup_printf("Error reading file %s:\n%s",
-                                  path, err->message);
+        *errstr = g_strdup_printf(
+          _("Error while reading from the file %s:\n%s"), path, err->message);
         goto done;
       case G_IO_STATUS_NORMAL:
         if(NULL != line) {
@@ -192,6 +199,7 @@ cf_loadprefs(char **errstr) {
     g_error_free(err);
   if(NULL != io)  
     g_io_channel_unref(io);
+  g_free(path);
   return NULL == *errstr;
 }
 
@@ -229,7 +237,7 @@ cf_saveprefs(char **errstr) {
 
   if(0 > (fd = lockfile(tmpfile, errstr))) {
     g_free(errstr);
-    *errstr = g_strdup_printf("Error opening or locking file %s:\n%s",
+    *errstr = g_strdup_printf(_("Failed to open or lock the file %s:\n%s"),
                               tmpfile, strerror(errno));
     goto done;
   }
@@ -249,14 +257,14 @@ cf_saveprefs(char **errstr) {
   g_tree_foreach(prefs, writefile_traverse, &info);
   if(NULL != info.err ||
      G_IO_STATUS_ERROR == g_io_channel_shutdown(io, TRUE, &info.err)) {
-    *errstr = g_strdup_printf("Error writing to file %s:\n%s",
+    *errstr = g_strdup_printf(_("Error while writing to the file %s:\n%s"),
                               tmpfile, info.err->message);
     g_error_free(info.err);
     goto done;
   }
 
   if(0 > rename(tmpfile, file)) {
-    *errstr = g_strdup_printf("Error renaming %s to %s:\n%s",
+    *errstr = g_strdup_printf(_("Failed to rename the file %s to %s:\n%s"),
                               tmpfile, file, strerror(errno));
     goto done;
   }
@@ -305,6 +313,7 @@ writefile_traverse(gpointer key, gpointer value, gpointer data) {
 GList *
 cf_loadstate(char **errstr) {
   char *path = g_build_filename(confdir, FILE_STATE, NULL);
+  char *oldpath;
   GIOChannel *io;
   GError *err;
   char term = STATE_SEP;
@@ -317,9 +326,17 @@ cf_loadstate(char **errstr) {
   io = g_io_channel_new_file(path, "r", &err);
   if(NULL != err) {
     if(!g_error_matches(err, G_FILE_ERROR, G_FILE_ERROR_NOENT))
-      *errstr = g_strdup_printf("Error opening file %s for reading:\n%s",
-                                path, err->message);
-    goto done;
+      *errstr = g_strdup_printf(
+        _("Failed to open the file %s for reading:\n%s"), path, err->message);
+    else {
+      g_error_free(err);
+      err = NULL;
+      oldpath = g_build_filename(old_confdir, OLD_FILE_STATE, NULL);
+      io = g_io_channel_new_file(oldpath, "r", &err);
+      g_free(oldpath);
+    }
+    if(NULL != err)
+      goto done;
   }
   g_io_channel_set_line_term(io, &term, 1);
 
@@ -328,8 +345,8 @@ cf_loadstate(char **errstr) {
     assert(NULL == err);
     switch(g_io_channel_read_line(io, &line, &len, &termpos, &err)) {
       case G_IO_STATUS_ERROR:
-        *errstr = g_strdup_printf("Error reading file %s:\n%s",
-                                  path, err->message);
+        *errstr = g_strdup_printf(
+          _("Error while reading from the file %s:\n%s"), path, err->message);
         goto done;
       case G_IO_STATUS_NORMAL:
         if(NULL != line) {
@@ -364,6 +381,7 @@ cf_loadstate(char **errstr) {
     g_list_free(ret);
     ret = NULL;
   }
+  g_free(path);
   return ret;
 }
 
@@ -372,11 +390,12 @@ getstateval(struct cf_torrentstate *state, char *line) {
   char *start, *end;
 
   /* skip any leading whitespace */
-  while(isspace(*line))
+  while(g_ascii_isspace(*line))
     line++;
 
   /* walk over the key, which may be alphanumerics as well as - or _ */
-  for(start = line; isalnum(*start) || '_' == *start || '-' == *start; start++)
+  for(start = line; g_ascii_isalnum(*start)
+        || '_' == *start || '-' == *start; start++)
     ;
 
   /* they key must be immediately followed by an = */
@@ -412,22 +431,24 @@ getstateval(struct cf_torrentstate *state, char *line) {
 }
 
 gboolean
-cf_savestate(int count, tr_stat_t *torrents, char **errstr) {
+cf_savestate(GList *torrents, char **errstr) {
   char *file = g_build_filename(confdir, FILE_STATE, NULL);
   char *tmpfile = g_build_filename(confdir, FILE_STATE_TMP, NULL);
   GIOChannel *io = NULL;
   GError *err;
-  int fd, ii;
+  int fd;
   char *torrentfile, *torrentdir, *line;
   gsize written;
   gboolean paused;
   GIOStatus res;
+  tr_stat_t *sb;
+  tr_info_t *in;
 
   *errstr = NULL;
 
   if(0 > (fd = lockfile(tmpfile, errstr))) {
     g_free(errstr);
-    *errstr = g_strdup_printf("Error opening or locking file %s:\n%s",
+    *errstr = g_strdup_printf(_("Failed to open or lock the file %s:\n%s"),
                               tmpfile, strerror(errno));
     goto done;
   }
@@ -442,11 +463,12 @@ cf_savestate(int count, tr_stat_t *torrents, char **errstr) {
   g_io_channel_set_close_on_unref(io, TRUE);
 
   err = NULL;
-  for(ii = 0; ii < count; ii++) {
-    /* XXX need a better way to query running/stopped state */
-    paused = ((TR_STATUS_STOPPING | TR_STATUS_PAUSE) & torrents[ii].status);
-    torrentfile = g_strescape(torrents[ii].info.torrent, "");
-    torrentdir = g_strescape(torrents[ii].folder, "");
+  while(NULL != torrents) {
+    sb = tr_torrentStat(torrents->data);
+    in = tr_torrentInfo(torrents->data);
+    paused = (TR_STATUS_INACTIVE & sb->status);
+    torrentfile = g_strescape(in->torrent, "");
+    torrentdir = g_strescape(tr_torrentGetFolder(torrents->data), "");
     /* g_strcompress */
     line = g_strdup_printf("torrent=\"%s\" dir=\"%s\" paused=\"%s\"%c",
                            torrentfile, torrentdir, (paused ? "yes" : "no"),
@@ -464,17 +486,18 @@ cf_savestate(int count, tr_stat_t *torrents, char **errstr) {
         assert(!"unknown return code");
         goto done;
     }
+    torrents = torrents->next;
   }
   if(NULL != err ||
      G_IO_STATUS_ERROR == g_io_channel_shutdown(io, TRUE, &err)) {
-    *errstr = g_strdup_printf("Error writing to file %s:\n%s",
+    *errstr = g_strdup_printf(_("Error while writing to the file %s:\n%s"),
                               tmpfile, err->message);
     g_error_free(err);
     goto done;
   }
 
   if(0 > rename(tmpfile, file)) {
-    *errstr = g_strdup_printf("Error renaming %s to %s:\n%s",
+    *errstr = g_strdup_printf(_("Failed to rename the file %s to %s:\n%s"),
                               tmpfile, file, strerror(errno));
     goto done;
   }

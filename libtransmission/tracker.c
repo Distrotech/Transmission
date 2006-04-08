@@ -41,10 +41,12 @@ struct tr_tracker_s
     uint64_t       dateOk;
 
 #define TC_STATUS_IDLE    1
-#define TC_STATUS_CONNECT 2
-#define TC_STATUS_RECV    4
+#define TC_STATUS_RESOLVE 2
+#define TC_STATUS_CONNECT 4
+#define TC_STATUS_RECV    8
     char           status;
 
+    tr_resolve_t * resolve;
     int            socket;
     uint8_t      * buf;
     int            size;
@@ -52,18 +54,21 @@ struct tr_tracker_s
 
     int            bindPort;
     int            newPort;
+
+    uint64_t       download;
+    uint64_t       upload;
 };
 
 static void sendQuery  ( tr_tracker_t * tc );
 static void recvAnswer ( tr_tracker_t * tc );
 
-tr_tracker_t * tr_trackerInit( tr_handle_t * h, tr_torrent_t * tor )
+tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
     tr_tracker_t * tc;
 
     tc           = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor      = tor;
-    tc->id       = h->id;
+    tc->id       = tor->id;
 
     tc->started  = 1;
 
@@ -74,8 +79,11 @@ tr_tracker_t * tr_trackerInit( tr_handle_t * h, tr_torrent_t * tor )
     tc->size     = 1024;
     tc->buf      = malloc( tc->size );
 
-    tc->bindPort = h->bindPort;
+    tc->bindPort = *(tor->bindPort);
     tc->newPort  = -1;
+
+    tc->download = tor->downloaded;
+    tc->upload   = tor->uploaded;
 
     return tc;
 }
@@ -136,25 +144,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
 
     if( ( tc->status & TC_STATUS_IDLE ) && shouldConnect( tc ) )
     {
-        struct in_addr addr;
-
-        if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
-        {
-            return 0;
-        }
-
-        if( tr_netResolve( inf->trackerAddress, &addr ) )
-        {
-            tr_fdSocketClosed( tor->fdlimit, 1 );
-            return 0;
-        }
-
-        tc->socket = tr_netOpen( addr, htons( inf->trackerPort ) );
-        if( tc->socket < 0 )
-        {
-            tr_fdSocketClosed( tor->fdlimit, 1 );
-            return 0;
-        }
+        tc->resolve = tr_netResolveInit( inf->trackerAddress );
 
         tr_inf( "Tracker: connecting to %s:%d (%s)",
                 inf->trackerAddress, inf->trackerPort,
@@ -164,8 +154,46 @@ int tr_trackerPulse( tr_tracker_t * tc )
                     ( 0 < tc->newPort ? "sending 'stopped' to change port" :
                       "getting peers" ) ) ) );
 
-        tc->status  = TC_STATUS_CONNECT;
+        tc->status  = TC_STATUS_RESOLVE;
         tc->dateTry = tr_date();
+    }
+
+    if( tc->status & TC_STATUS_RESOLVE )
+    {
+        int ret;
+        struct in_addr addr;
+
+        ret = tr_netResolvePulse( tc->resolve, &addr );
+        if( ret == TR_RESOLVE_WAIT )
+        {
+            return 0;
+        }
+        else
+        {
+            tr_netResolveClose( tc->resolve );
+        }
+        
+        if( ret == TR_RESOLVE_ERROR )
+        {
+            tc->status = TC_STATUS_IDLE;
+            return 0;
+        }
+
+        if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
+        {
+            tc->status = TC_STATUS_IDLE;
+            return 0;
+        }
+
+        tc->socket = tr_netOpen( addr, htons( inf->trackerPort ) );
+        if( tc->socket < 0 )
+        {
+            tr_fdSocketClosed( tor->fdlimit, 1 );
+            tc->status = TC_STATUS_IDLE;
+            return 0;
+        }
+
+        tc->status = TC_STATUS_CONNECT;
     }
 
     if( tc->status & TC_STATUS_CONNECT )
@@ -230,7 +258,11 @@ void tr_trackerClose( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
 
-    if( tc->status > TC_STATUS_IDLE )
+    if( tc->status == TC_STATUS_RESOLVE )
+    {
+        tr_netResolveClose( tc->resolve );
+    }
+    else if( tc->status > TC_STATUS_RESOLVE )
     {
         tr_netClose( tc->socket );
         tr_fdSocketClosed( tor->fdlimit, 1 );
@@ -247,21 +279,34 @@ static void sendQuery( tr_tracker_t * tc )
     char     * event;
     uint64_t   left;
     int        ret;
+    uint64_t   down;
+    uint64_t   up;
 
-    if( tc->started && 0 < tc->newPort )
-    {
-        tc->bindPort = tc->newPort;
-        tc->newPort = -1;
-    }
-
+    down = tor->downloaded - tc->download;
+    up = tor->uploaded - tc->upload;
     if( tc->started )
+    {
         event = "&event=started";
+        down = up = 0;
+        
+        if( 0 < tc->newPort )
+        {
+            tc->bindPort = tc->newPort;
+            tc->newPort = -1;
+        }
+    }
     else if( tc->completed )
+    {
         event = "&event=completed";
+    }
     else if( tc->stopped || 0 < tc->newPort )
+    {
         event = "&event=stopped";
+    }
     else
+    {
         event = "";
+    }
 
     left = tr_cpLeftBytes( tor->completion );
 
@@ -282,7 +327,7 @@ static void sendQuery( tr_tracker_t * tc )
             "User-Agent: Transmission/%d.%d\r\n"
             "Connection: close\r\n\r\n",
             inf->trackerAnnounce, tor->hashString, tc->id,
-            tc->bindPort, tor->uploaded, tor->downloaded,
+            tc->bindPort, up, down,
             left, tor->key, event, inf->trackerAddress,
             VERSION_MAJOR, VERSION_MINOR );
 
@@ -409,13 +454,12 @@ static void recvAnswer( tr_tracker_t * tc )
     if( ( bePeers = tr_bencDictFind( &beAll, "failure reason" ) ) )
     {
         tr_err( "Tracker: %s", bePeers->val.s.s );
-        tor->status |= TR_TRACKER_ERROR;
-        snprintf( tor->error, sizeof( tor->error ),
+        tor->error |= TR_ETRACKER;
+        snprintf( tor->trackerError, sizeof( tor->trackerError ),
                   "%s", bePeers->val.s.s );
         goto cleanup;
     }
-
-    tor->status &= ~TR_TRACKER_ERROR;
+    tor->error &= ~TR_ETRACKER;
 
     if( !tc->interval )
     {
@@ -665,20 +709,20 @@ int tr_trackerScrape( tr_torrent_t * tor, int * seeders, int * leechers )
     return 0;
 }
 
-int tr_trackerSeeders( tr_torrent_t * tor)
+int tr_trackerSeeders( tr_tracker_t * tc )
 {
-	if (tor->status != TR_STATUS_PAUSE)
-	{
-		return (tor->tracker)->seeders;
-	}
-	return 0;
+    if( !tc )
+    {
+        return -1;
+    }
+    return tc->seeders;
 }
 
-int tr_trackerLeechers( tr_torrent_t * tor)
+int tr_trackerLeechers( tr_tracker_t * tc )
 {
-	if (tor->status != TR_STATUS_PAUSE) 
-	{
-		return (tor->tracker)->leechers;
-	}
-	return 0;
+    if( !tc )
+    {
+        return -1;
+    }
+    return tc->leechers;
 }

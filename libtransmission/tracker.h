@@ -25,7 +25,7 @@
 
 typedef struct tr_tracker_s tr_tracker_t;
 
-tr_tracker_t * tr_trackerInit      ( tr_handle_t *, tr_torrent_t * );
+tr_tracker_t * tr_trackerInit      ( tr_torrent_t * );
 void           tr_trackerChangePort( tr_tracker_t *, int );
 int            tr_trackerPulse     ( tr_tracker_t * );
 void           tr_trackerCompleted ( tr_tracker_t * );
@@ -37,14 +37,14 @@ void           tr_trackerClose     ( tr_tracker_t * );
  ***********************************************************************
  * Looks for the seeders/leechers as returned by the tracker.
  **********************************************************************/
-int			    tr_trackerSeeders  ( tr_torrent_t * );
+int			    tr_trackerSeeders  ( tr_tracker_t * );
 
 /***********************************************************************
  * tr_trackerLeechers
  ***********************************************************************
  * Looks for the seeders/leechers as returned by the tracker.
  **********************************************************************/
-int			    tr_trackerLeechers ( tr_torrent_t * );
+int			    tr_trackerLeechers ( tr_tracker_t * );
 
 int            tr_trackerScrape    ( tr_torrent_t *, int *, int * );
 

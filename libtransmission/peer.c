@@ -53,6 +53,7 @@ struct tr_peer_s
     char           peerChoking;
     char           peerInterested;
 
+    int            optimistic;
     uint64_t       lastChoke;
 
     uint8_t        id[20];
@@ -218,6 +219,11 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
     /* Try to read */
     for( ;; )
     {
+        if( tor && !tr_rcCanTransfer( tor->globalDownload ) )
+        {
+            break;
+        }
+
         if( peer->size < 1 )
         {
             peer->size = 1024;
@@ -228,8 +234,10 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
             peer->size *= 2;
             peer->buf   = realloc( peer->buf, peer->size );
         }
+        /* Never read more than 1K each time, otherwise the rate
+           control is no use */
         ret = tr_netRecv( peer->socket, &peer->buf[peer->pos],
-                          peer->size - peer->pos );
+                          MIN( 1024, peer->size - peer->pos ) );
         if( ret & TR_NET_CLOSE )
         {
             peer_dbg( "connection closed" );
@@ -261,6 +269,11 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
     }
 
     return 0;
+}
+
+uint64_t tr_peerDate( tr_peer_t * peer )
+{
+    return peer->date;
 }
 
 /***********************************************************************
@@ -488,4 +501,14 @@ void tr_peerUnchoke( tr_peer_t * peer )
 uint64_t tr_peerLastChoke( tr_peer_t * peer )
 {
     return peer->lastChoke;
+}
+
+void tr_peerSetOptimistic( tr_peer_t * peer, int o )
+{
+    peer->optimistic = o;
+}
+
+int tr_peerIsOptimistic( tr_peer_t * peer )
+{
+    return peer->optimistic;
 }

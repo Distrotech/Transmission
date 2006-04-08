@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -32,10 +32,9 @@
 
 @interface Controller : NSObject
 {
-    tr_handle_t                 * fHandle;
-    int                         fCount, fSeeding, fDownloading, fCompleted;
-    tr_stat_t                   * fStat;
-    int                         fResumeOnWake[TR_MAX_TORRENT_COUNT];
+    tr_handle_t                 * fLib;
+    int                         fCompleted;
+    NSMutableArray              * fTorrents;
 
     NSToolbar                   * fToolbar;
 
@@ -49,25 +48,28 @@
     IBOutlet NSMenuItem         * fShowHideToolbar;
 
     IBOutlet NSWindow           * fWindow;
+    IBOutlet NSScrollView       * fScrollView;
     IBOutlet TorrentTableView   * fTableView;
     IBOutlet NSTextField        * fTotalDLField;
     IBOutlet NSTextField        * fTotalULField;
 
     IBOutlet NSPanel            * fInfoPanel;
-    IBOutlet NSTextField        * fInfoTitle;
+    IBOutlet NSImageView        * fInfoImageView;
+    IBOutlet NSTextField        * fInfoName;
+    IBOutlet NSTextField        * fInfoSize;
     IBOutlet NSTextField        * fInfoTracker;
     IBOutlet NSTextField        * fInfoAnnounce;
-    IBOutlet NSTextField        * fInfoSize;
-    IBOutlet NSTextField        * fInfoPieces;
     IBOutlet NSTextField        * fInfoPieceSize;
+    IBOutlet NSTextField        * fInfoPieces;
+    IBOutlet NSTextField        * fInfoHash1;
+    IBOutlet NSTextField        * fInfoHash2;
     IBOutlet NSTextField        * fInfoSeeders;
     IBOutlet NSTextField        * fInfoLeechers;
-    IBOutlet NSTextField        * fInfoFolder;
     IBOutlet NSTextField        * fInfoDownloaded;
     IBOutlet NSTextField        * fInfoUploaded;
+    NSImage                     * fAppIcon;
 
     io_connect_t                fRootPort;
-    NSArray                     * fFilenames;
     NSTimer                     * fTimer;
     NSTimer                     * fUpdateTimer;
     
@@ -86,32 +88,33 @@
                         contextInfo: (void *) info;
 
 - (void) quitSheetDidEnd:   (NSWindow *)sheet returnCode:(int)returnCode
-                            contextInfo:(void  *)contextInfo;
+                            contextInfo:(void *)contextInfo;
                         
-- (void) stopTorrent:               (id) sender;
-- (void) stopAllTorrents:           (id) sender;
-- (void) stopTorrentWithIndex:      (int) index;
 - (void) resumeTorrent:             (id) sender;
 - (void) resumeAllTorrents:         (id) sender;
-- (void) resumeTorrentWithIndex:    (int) index;
+- (void) resumeTorrentWithIndex:    (NSIndexSet *) indexSet;
+- (void) stopTorrent:               (id) sender;
+- (void) stopAllTorrents:           (id) sender;
+- (void) stopTorrentWithIndex:      (NSIndexSet *) indexSet;
 
 - (void) removeTorrent:             (id) sender;
 - (void) removeTorrentDeleteFile:   (id) sender;
 - (void) removeTorrentDeleteData:   (id) sender;
 - (void) removeTorrentDeleteBoth:   (id) sender;
-- (void) removeTorrentWithIndex:    (int) idx
+- (void) removeTorrentWithIndex:    (NSIndexSet *) indexSet
                 deleteTorrent:      (BOOL) deleteTorrent
                 deleteData:         (BOOL) deleteData;
                 
 - (void) removeSheetDidEnd:(NSWindow *)sheet returnCode:(int)returnCode
-                        contextInfo:(NSDictionary  *)dict;
-- (void) confirmRemoveTorrentWithIndex: (int) idx
+                        contextInfo:(NSDictionary *)dict;
+- (void) confirmRemoveTorrentWithIndex: (NSIndexSet *) indexSet
             deleteTorrent: (BOOL) deleteTorrent
             deleteData: (BOOL) deleteData;
                      
 - (void) showInfo:        (id) sender;
 
 - (void) updateUI:        (NSTimer *) timer;
+- (void) updateTorrentHistory;
 - (void) sleepCallBack:   (natural_t) messageType argument:
                         (void *) messageArgument;
 
@@ -125,8 +128,6 @@
 - (void) linkForums:        (id) sender;
 - (void) notifyGrowl:       (NSString *) file;
 - (void) revealFromMenu:    (id) sender;
-- (void) finderReveal:      (NSString *) path;
-- (void) finderTrash:       (NSString *) path;
 - (void) growlRegister:     (id) sender;
 
 - (void) checkForUpdate:      (id) sender;

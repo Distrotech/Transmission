@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -21,6 +21,8 @@
  *****************************************************************************/
 
 #import "PrefsController.h"
+#import "StringAdditions.h"
+#import "Utils.h"
 
 #define MIN_PORT            1
 #define MAX_PORT            65535
@@ -73,9 +75,11 @@
     [fPrefsWindow setToolbar: fToolbar];
     [fToolbar setDisplayMode: NSToolbarDisplayModeIconAndLabel];
     [fToolbar setSizeMode: NSToolbarSizeModeRegular];
-    [fPrefsWindow setShowsToolbarButton: NO];
-    
-    [fToolbar setSelectedItemIdentifier: TOOLBAR_GENERAL];
+    [[fPrefsWindow standardWindowButton: NSWindowToolbarButton]
+        setFrame: NSZeroRect];
+
+    if( [fToolbar respondsToSelector: @selector(setSelectedItemIdentifier:) ] )
+        [fToolbar setSelectedItemIdentifier: TOOLBAR_GENERAL];
     [self setPrefView: fGeneralView];
 
     fDefaults = [NSUserDefaults standardUserDefaults];
@@ -121,6 +125,16 @@
     [fUploadField setEnabled: checkUpload];
     
     tr_setUploadLimit( fHandle, checkUpload ? uploadLimit : -1 );
+
+    //set download limit
+    BOOL checkDownload = [fDefaults boolForKey: @"CheckDownload"];
+    int downloadLimit = [fDefaults integerForKey: @"DownloadLimit"];
+    
+    [fDownloadCheck setState: checkDownload ? NSOnState : NSOffState];
+    [fDownloadField setIntValue: downloadLimit];
+    [fDownloadField setEnabled: checkDownload];
+    
+    tr_setDownloadLimit( fHandle, checkDownload ? downloadLimit : -1 );
     
     //set remove and quit prompts
     [fQuitCheck setState: [fDefaults boolForKey: @"CheckQuit"] ?
@@ -129,7 +143,6 @@
         NSOnState : NSOffState];
 
     //set dock badging
-    [fBadgeCompletedCheck setState: [fDefaults boolForKey: @"BadgeCompleted"]];
     [fBadgeDownloadRateCheck setState: [fDefaults boolForKey: @"BadgeDownloadRate"]];
     [fBadgeUploadRateCheck setState: [fDefaults boolForKey: @"BadgeUploadRate"]];
 
@@ -177,6 +190,7 @@
     return item;
 }
 
+/* Only used on OS X >= 10.3 */
 - (NSArray *) toolbarSelectableItemIdentifiers: (NSToolbar *)toolbar
 {
     return [self toolbarDefaultItemIdentifiers: nil];
@@ -201,7 +215,7 @@
     
     //if value entered is not an int or is not in range do not change
     if (![[fPortField stringValue] isEqualToString:
-            [NSString stringWithFormat: @"%d", bindPort]] 
+            [NSString stringWithInt: bindPort]] 
             || bindPort < MIN_PORT
             || bindPort > MAX_PORT)
     {
@@ -216,37 +230,53 @@
     }
 }
 
-- (void) setLimitUploadCheck: (id) sender
+- (void) setLimitCheck: (id) sender
 {
-    BOOL checkUpload = [fUploadCheck state] == NSOnState;
-
-    [fDefaults setBool: checkUpload forKey: @"CheckUpload"];
-    
-    [self setUploadLimit: nil];
-    [fUploadField setEnabled: checkUpload];
-}
-
-- (void) setUploadLimit: (id) sender
-{
-    int uploadLimit = [fUploadField intValue];
-    
-    //if value entered is not an int or is less than 0 do not change
-    if (![[fUploadField stringValue] isEqualToString:
-            [NSString stringWithFormat: @"%d", uploadLimit]]
-            || uploadLimit < 0)
+    NSString * key;
+    NSTextField * field;
+    if( sender == fUploadCheck )
     {
-        NSBeep();
-        uploadLimit = [fDefaults integerForKey: @"UploadLimit"];
-        [fUploadField setIntValue: uploadLimit];
+        key = @"CheckUpload";
+        field = fUploadField;
     }
     else
     {
-        [fDefaults setInteger: uploadLimit forKey: @"UploadLimit"];
+        key = @"CheckDownload";
+        field = fDownloadField;
     }
-    
-    if ([fUploadCheck state] == NSOffState || uploadLimit == 0)
-        uploadLimit = -1;
-    tr_setUploadLimit( fHandle, uploadLimit );
+
+    BOOL check = [sender state] == NSOnState;
+    [fDefaults setBool: check forKey: key];
+
+    [self setLimit: field];
+    [field setEnabled: check];
+}
+
+- (void) setLimit: (id) sender
+{
+    int limit = [sender intValue];
+    NSString * key = ( sender == fUploadField ) ?
+                        @"UploadLimit" : @"DownloadLimit";
+
+    //if value entered is not an int or is less than 0 do not change
+    if (![[sender stringValue] isEqualToString:
+            [NSString stringWithInt: limit]] || limit < 0)
+    {
+        NSBeep();
+        limit = [fDefaults integerForKey: key];
+        [sender setIntValue: limit];
+    }
+    else
+    {
+        [fDefaults setInteger: limit forKey: key];
+    }
+
+    if( sender == fUploadField )
+        tr_setUploadLimit( fHandle,
+            ( [fUploadCheck state] == NSOffState ) ? -1 : limit );
+    else
+        tr_setDownloadLimit( fHandle,
+            ( [fDownloadCheck state] == NSOffState ) ? -1 : limit );
 }
 
 - (void) setQuitMessage: (id) sender
@@ -265,9 +295,7 @@
 {   
     BOOL state = [sender state];
     
-    if (sender == fBadgeCompletedCheck)
-        [fDefaults setBool: state forKey: @"BadgeCompleted"];
-    else if (sender == fBadgeDownloadRateCheck)
+    if (sender == fBadgeDownloadRateCheck)
         [fDefaults setBool: state forKey: @"BadgeDownloadRate"];
     else if (sender == fBadgeUploadRateCheck)
         [fDefaults setBool: state forKey: @"BadgeUploadRate"];
@@ -344,7 +372,8 @@
     windowRect.origin.y -= difference;
     windowRect.size.height += difference;
     
-    [fPrefsWindow setTitle: [fToolbar selectedItemIdentifier]];
+    if( [fToolbar respondsToSelector: @selector(selectedItemIdentifier) ] )
+        [fPrefsWindow setTitle: [fToolbar selectedItemIdentifier]];
     [fPrefsWindow setContentView: fBlankView];
     [fPrefsWindow setFrame:windowRect display: YES animate: YES];
     [fPrefsWindow setContentView: view];

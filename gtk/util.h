@@ -1,5 +1,5 @@
 /*
-  Copyright (c) 2005 Joshua Elsasser. All rights reserved.
+  Copyright (c) 2005-2006 Joshua Elsasser. All rights reserved.
    
   Redistribution and use in source and binary forms, with or without
   modification, are permitted provided that the following conditions
@@ -44,34 +44,31 @@
 typedef void (*callbackfunc_t)(void*);
 
 /* try to interpret a string as a textual representation of a boolean */
+/* note that this isn't localized */
 gboolean
 strbool(const char *str);
 
-/* return a human-readable string for the size given in bytes with the
-   requested number of decimal places.  the string must be g_free()d */
+/* return a human-readable string for the size given in bytes.
+   the string must be g_free()d */
 char *
-readablesize(guint64 size, int decimals);
+readablesize(guint64 size);
+
+/* returns a string representing the download ratio.
+   the string must be g_free()d */
+char *
+ratiostr(guint64 down, guint64 up);
 
 /* create a directory and any missing parent directories */
 gboolean
 mkdir_p(const char *name, mode_t mode);
 
-/* set up a handler for various fatal signals */
-void
-setuphandlers(callbackfunc_t func, void *data);
+/* joins a GList of strings into one string using an optional separator */
+char *
+joinstrlist(GList *list, char *sep);
 
-/* clear the handlers for fatal signals */
-void
-clearhandlers(void);
-
-/* blocks and unblocks delivery of fatal signals. calls to these
-   functions can be nested as long as unblocksigs() is called exactly
-   as many times as blocksigs().  only the first blocksigs() will
-   block signals and only the last unblocksigs() will unblock them. */
-void
-blocksigs(void);
-void
-unblocksigs(void);
+/* decodes a string that has been urlencoded */
+char *
+urldecode(const char *str, int len);
 
 /* if wind is NULL then you must call gtk_widget_show on the returned widget */
 

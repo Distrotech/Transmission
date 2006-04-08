@@ -1,5 +1,5 @@
 /******************************************************************************
- * Copyright (c) 2005 Eric Petit
+ * Copyright (c) 2005-2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -20,25 +20,23 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef NAMECELL_H
-#define NAMECELL_H
+#ifndef TORRENTCELL_H
+#define TORRENTCELL_H
 
 #import <Cocoa/Cocoa.h>
-#import <transmission.h>
-#import "Controller.h"
+#import "Torrent.h"
 
-@interface NameCell : NSCell
+@interface TorrentCell : NSCell
 {
-    BOOL       fWhiteText;
+    Torrent          * fTorrent;
+    NSColor          * fTextColor;
 
-    NSString * fNameString;
-    NSString * fSizeString;
-    NSString * fTimeString;
-    NSString * fPeersString;
-
-    NSImage * fIcon;
+    NSBitmapImageRep * fBitmap;
+    int                fWidth;
+    int8_t           * fPieces;
 }
-- (void) setStat: (tr_stat_t *) stat whiteText: (BOOL) w;
+- (void) setTorrent:   (Torrent *) torrent;
+- (void) setTextColor: (NSColor *) color;
 @end
 
 #endif
