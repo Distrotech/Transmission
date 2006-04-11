@@ -519,6 +519,10 @@ static void recvAnswer( tr_tracker_t * tc )
 
     if( !( bePeers = tr_bencDictFind( &beAll, "peers" ) ) )
     {
+        if( tc->stopped || 0 < tc->newPort )
+        {
+            goto nodict;
+        }
         tr_err( "Tracker: no \"peers\" field" );
         goto cleanup;
     }
