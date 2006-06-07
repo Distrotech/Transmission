@@ -488,7 +488,7 @@
     fLib = lib;
 
     int error;
-    if (!path || !(fHandle = tr_torrentInit(fLib, [path UTF8String], &error)))
+    if (!path || !(fHandle = tr_torrentInit(fLib, [path UTF8String], 0, &error)))
     {
         [self release];
         return nil;
