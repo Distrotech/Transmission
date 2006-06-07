@@ -34,7 +34,8 @@ static void strcatUTF8( char *, char * );
  ***********************************************************************
  *
  **********************************************************************/
-int tr_metainfoParse( tr_info_t * inf, const char * path )
+int tr_metainfoParse( tr_info_t * inf, const char * path,
+                      const char * savedHash, int saveCopy )
 {
     FILE       * file;
     char       * buf;
@@ -43,7 +44,16 @@ int tr_metainfoParse( tr_info_t * inf, const char * path )
     int          i;
     struct stat sb;
 
-    snprintf( inf->torrent, MAX_PATH_LENGTH, "%s", path );
+    assert( NULL == path || NULL == savedHash );
+    /* if savedHash isn't null, saveCopy should be false */
+    assert( NULL == savedHash || !saveCopy );
+
+    if ( NULL != savedHash )
+    {
+        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/torrents/%s",
+                  tr_getPrefsDirectory(), savedHash );
+        path = inf->torrent;
+    }
 
     if( stat( path, &sb ) )
     {
@@ -97,8 +107,53 @@ int tr_metainfoParse( tr_info_t * inf, const char * path )
     }
     SHA1( (uint8_t *) beInfo->begin,
           (long) beInfo->end - (long) beInfo->begin, inf->hash );
+    for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
+    {
+        sprintf( inf->hashString + i * 2, "%02x", inf->hash[i] );
+    }
 
-    /* No that we got the hash, we won't need this anymore */
+    if( saveCopy )
+    {
+        /* Create ~/.transmission/torrents/ directory */
+        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/torrents/%s",
+                  tr_getPrefsDirectory(), inf->hashString );
+        s = strrchr( inf->torrent, '/' );
+        *s = '\0';
+        if( mkdir( inf->torrent, 0777 ) && EEXIST != errno )
+        {
+            fprintf( stderr, "Could not create directory (%s)\n", inf->torrent );
+            tr_bencFree( &meta );
+            free( buf );
+            return 1;
+        }
+        *s = '/';
+
+        /* Save a copy of the torrent file in ~/.transmission/torrents */
+        file = fopen( inf->torrent, "wb" );
+        if( !file )
+        {
+            fprintf( stderr, "Could not open file (%s)\n", inf->torrent );
+            tr_bencFree( &meta );
+            free( buf );
+            return 1;
+        }
+        fseek( file, 0, SEEK_SET );
+        if( fwrite( buf, sb.st_size, 1, file ) != 1 )
+        {
+            fprintf( stderr, "Write error (%s)\n", inf->torrent );
+            tr_bencFree( &meta );
+            free( buf );
+            fclose( file );
+            return 1;
+        }
+        fclose( file );
+    }
+    else
+    {
+        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s", path );
+    }
+
+    /* We won't need this anymore */
     free( buf );
 
     if( !( val = tr_bencDictFind( &meta, "announce" ) ) )
@@ -222,6 +277,15 @@ int tr_metainfoParse( tr_info_t * inf, const char * path )
 
     tr_bencFree( &meta );
     return 0;
+}
+
+void tr_metainfoRemoveSaved( const char * hashString )
+{
+    char file[MAX_PATH_LENGTH];
+
+    snprintf( file, MAX_PATH_LENGTH, "%s/torrents/%s",
+              tr_getPrefsDirectory(), hashString );
+    unlink(file);
 }
 
 /***********************************************************************
