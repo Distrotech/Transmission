@@ -96,13 +96,14 @@ void * tr_memmem( const void *vbig, size_t big_len,
 
 int tr_mkdir( char * path )
 {
-    char      * p;
+    char      * p, * pp;
     struct stat sb;
 
     p = path;
     while( '/' == *p )
       p++;
-    while( ( p = strchr( p, '/' ) ) )
+    pp = p;
+    while( ( p = strchr( pp, '/' ) ) || ( p = strchr( pp, '\0' ) ) )
     {
         *p = '\0';
         if( stat( path, &sb ) )
@@ -124,6 +125,7 @@ int tr_mkdir( char * path )
             return 1;
         }
         *p = '/';
+        pp = p;
         p++;
     }
 
