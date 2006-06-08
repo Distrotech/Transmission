@@ -65,7 +65,7 @@ static char * fastResumeFileName( tr_io_t * io )
 {
     char * ret;
 
-    asprintf( &ret, "%s/resume.%s", tr_getPrefsDirectory(),
+    asprintf( &ret, "%s/resume.%s", tr_getCacheDirectory(),
               io->tor->info.hashString );
 
     return ret;

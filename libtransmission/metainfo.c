@@ -50,8 +50,8 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
 
     if ( NULL != savedHash )
     {
-        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/torrents/%s",
-                  tr_getPrefsDirectory(), savedHash );
+        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/%s",
+                  tr_getTorrentsDirectory(), savedHash );
         path = inf->torrent;
     }
 
@@ -114,21 +114,19 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
 
     if( saveCopy )
     {
-        /* Create ~/.transmission/torrents/ directory */
-        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/torrents/%s",
-                  tr_getPrefsDirectory(), inf->hashString );
-        s = strrchr( inf->torrent, '/' );
-        *s = '\0';
-        if( mkdir( inf->torrent, 0777 ) && EEXIST != errno )
+        /* Create the private torrents directory */
+        if( mkdir( tr_getTorrentsDirectory(), 0777 ) && EEXIST != errno )
         {
-            fprintf( stderr, "Could not create directory (%s)\n", inf->torrent );
+            fprintf( stderr, "Could not create directory (%s)\n",
+                     tr_getTorrentsDirectory() );
             tr_bencFree( &meta );
             free( buf );
             return 1;
         }
-        *s = '/';
 
-        /* Save a copy of the torrent file in ~/.transmission/torrents */
+        /* Save a copy of the torrent file in the private torrent directory */
+        snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/%s",
+                  tr_getTorrentsDirectory(), inf->hashString );
         file = fopen( inf->torrent, "wb" );
         if( !file )
         {
@@ -283,8 +281,8 @@ void tr_metainfoRemoveSaved( const char * hashString )
 {
     char file[MAX_PATH_LENGTH];
 
-    snprintf( file, MAX_PATH_LENGTH, "%s/torrents/%s",
-              tr_getPrefsDirectory(), hashString );
+    snprintf( file, MAX_PATH_LENGTH, "%s/%s",
+              tr_getTorrentsDirectory(), hashString );
     unlink(file);
 }
 
