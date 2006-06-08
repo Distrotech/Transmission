@@ -43,11 +43,13 @@
 @implementation Torrent
 
 - (id) initWithPath: (NSString *) path lib: (tr_handle_t *) lib
-{
-    id torrent = [self initWithPath: path lib: lib
-                    date: nil stopRatioSetting: nil
-                    ratioLimit: nil];
-    NSLog(path);
+{NSLog(path);
+    id torrent = [self initWithPath: path lib: lib date: nil
+                    stopRatioSetting: nil ratioLimit: nil];
+                    
+    if (!torrent)
+        return nil;
+
     if (fPrivateSaved && [fDefaults boolForKey: @"DeleteOriginalTorrent"])
         [self trashPath: path];
     
@@ -337,15 +339,6 @@
 
 - (NSString *) hashString
 {
-    /*NSMutableString * string = [NSMutableString
-        stringWithCapacity: SHA_DIGEST_LENGTH];
-    int i;
-    for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
-    {
-        [string appendFormat: @"%02x", fInfo->hash[i]];
-    }
-    return string;*/
-    
     return [NSString stringWithUTF8String: fInfo->hashString];
 }
 
@@ -518,12 +511,12 @@
 
     int error;
     if (!path || !(fHandle = tr_torrentInit(fLib, [path UTF8String],
-                    fPrivateSaved ? TR_FSAVEPRIVATE : 0, &error)))
+                    fPrivateSaved ? TR_FSAVEPRIVATE : 0, & error)))
     {
         [self release];
         return nil;
     }
-    
+
     return [self initForSuccessWithDate: date stopRatioSetting: stopRatioSetting ratioLimit: ratioLimit];
 }
 
@@ -539,7 +532,7 @@
     fPrivateSaved = YES;
 
     int error;
-    if (!hashString || !(fHandle = tr_torrentInitSaved(fLib, [hashString UTF8String], TR_FSAVEPRIVATE, &error)))
+    if (!hashString || !(fHandle = tr_torrentInitSaved(fLib, [hashString UTF8String], TR_FSAVEPRIVATE, & error)))
     {
         [self release];
         return nil;
