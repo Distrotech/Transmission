@@ -142,7 +142,7 @@ char * tr_getTorrentsDirectory()
     snprintf( torrentsDirectory, MAX_PATH_LENGTH, "%s/Torrents",
               tr_getPrefsDirectory() );
 #elif defined( SYS_DARWIN )
-    snprintf( torrentDirectory, MAX_PATH_LENGTH,
+    snprintf( torrentsDirectory, MAX_PATH_LENGTH,
               "%s/Library/Application Support/Transmission/Torrents",
               getenv( "HOME" ) );
 #else
