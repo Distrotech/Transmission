@@ -100,6 +100,8 @@ int tr_mkdir( char * path )
     struct stat sb;
 
     p = path;
+    while( '/' == *p )
+      p++;
     while( ( p = strchr( p, '/' ) ) )
     {
         *p = '\0';
