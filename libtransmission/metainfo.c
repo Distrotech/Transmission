@@ -120,7 +120,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         file = fopen( inf->torrent, "wb" );
         if( !file )
         {
-            fprintf( stderr, "Could not open file (%s)\n", inf->torrent );
+            fprintf( stderr, "Could not open file (%s) (%s)\n", inf->torrent, strerror(errno) );
             tr_bencFree( &meta );
             free( buf );
             return 1;

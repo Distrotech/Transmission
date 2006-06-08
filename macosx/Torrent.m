@@ -43,14 +43,14 @@
 @implementation Torrent
 
 - (id) initWithPath: (NSString *) path lib: (tr_handle_t *) lib
-{NSLog(path);
+{
     id torrent = [self initWithPath: path lib: lib date: nil
                     stopRatioSetting: nil ratioLimit: nil];
                     
     if (!torrent)
         return nil;
 
-    if (fPrivateSaved && [fDefaults boolForKey: @"DeleteOriginalTorrent"])
+    if (fPrivateTorrent && [fDefaults boolForKey: @"DeleteOriginalTorrent"])
         [self trashPath: path];
     
     return torrent;
@@ -58,6 +58,7 @@
 
 - (id) initWithHistory: (NSDictionary *) history lib: (tr_handle_t *) lib
 {
+    //load from saved torrent file if set to, otherwise try to load from where torrent file should be
     NSNumber * privateCopy;
     if ((privateCopy = [history objectForKey: @"PrivateCopy"]) && [privateCopy boolValue])
         self = [self initWithHash: [history objectForKey: @"TorrentHash"]
@@ -88,17 +89,17 @@
 - (NSDictionary *) history
 {
     NSMutableDictionary * history = [NSMutableDictionary dictionaryWithObjectsAndKeys:
-                    [NSNumber numberWithBool: fPrivateSaved], @"PrivateCopy",
+                    [NSNumber numberWithBool: fPrivateTorrent], @"PrivateCopy",
                     [self downloadFolder], @"DownloadFolder",
                     [self isActive] ? @"NO" : @"YES", @"Paused",
                     [self date], @"Date",
                     [NSNumber numberWithInt: fStopRatioSetting], @"StopRatioSetting",
                     [NSNumber numberWithFloat: fRatioLimit], @"RatioLimit", nil];
             
-    if (fPrivateSaved)
-        [history setObject: [self torrentLocation] forKey: @"TorrentPath"];
-    else
+    if (fPrivateTorrent)
         [history setObject: [self hashString] forKey: @"TorrentHash"];
+    else
+        [history setObject: [self torrentLocation] forKey: @"TorrentPath"];
     
     return history;
 }
@@ -239,7 +240,8 @@
 
 - (void) removeForever
 {
-    tr_torrentRemoveSaved(fHandle);
+    if (fInfo->flags & TR_FSAVEPRIVATE)
+        tr_torrentRemoveSaved(fHandle);
 }
 
 - (void) sleep
@@ -507,11 +509,11 @@
     fLib = lib;
     fDefaults = [NSUserDefaults standardUserDefaults];
 
-    fPrivateSaved = [fDefaults boolForKey: @"SavePrivateTorrent"];
+    fPrivateTorrent = [fDefaults boolForKey: @"SavePrivateTorrent"];
 
     int error;
     if (!path || !(fHandle = tr_torrentInit(fLib, [path UTF8String],
-                    fPrivateSaved ? TR_FSAVEPRIVATE : 0, & error)))
+                    fPrivateTorrent ? TR_FSAVEPRIVATE : 0, & error)))
     {
         [self release];
         return nil;
@@ -529,7 +531,7 @@
     fLib = lib;
     fDefaults = [NSUserDefaults standardUserDefaults];
     
-    fPrivateSaved = YES;
+    fPrivateTorrent = YES;
 
     int error;
     if (!hashString || !(fHandle = tr_torrentInitSaved(fLib, [hashString UTF8String], TR_FSAVEPRIVATE, & error)))

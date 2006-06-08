@@ -39,7 +39,7 @@
     BOOL         fResumeOnWake;
     NSDate       * fDate;
     
-    BOOL        fPrivateSaved;
+    BOOL        fPrivateTorrent;
 
     NSUserDefaults  * fDefaults;
 
