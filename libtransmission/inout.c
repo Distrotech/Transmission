@@ -205,7 +205,7 @@ static int createFiles( tr_io_t * io )
     tr_info_t    * inf = &tor->info;
 
     int           i;
-    char        * path;
+    char        * path, * p;
     struct stat   sb;
     int           file;
 
@@ -216,10 +216,15 @@ static int createFiles( tr_io_t * io )
         asprintf( &path, "%s/%s", tor->destination, inf->files[i].name );
 
         /* Create folders */
-        if( tr_mkdir( path ) )
+        if( NULL != ( p = strrchr( path, '/' ) ) )
         {
-            free( path );
-            return 1;
+            *p = '\0';
+            if( tr_mkdir( path ) )
+            {
+                free( path );
+                return 1;
+            }
+            *p = '/';
         }
 
         if( stat( path, &sb ) )
