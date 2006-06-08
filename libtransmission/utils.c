@@ -98,14 +98,23 @@ int tr_mkdir( char * path )
 {
     char      * p, * pp;
     struct stat sb;
+    int done;
 
     p = path;
     while( '/' == *p )
       p++;
     pp = p;
+    done = 0;
     while( ( p = strchr( pp, '/' ) ) || ( p = strchr( pp, '\0' ) ) )
     {
-        *p = '\0';
+        if( '\0' == *p)
+        {
+            done = 1;
+        }
+        else
+        {
+            *p = '\0';
+        }
         if( stat( path, &sb ) )
         {
             /* Folder doesn't exist yet */
@@ -124,9 +133,13 @@ int tr_mkdir( char * path )
             *p = '/';
             return 1;
         }
+        if( done )
+        {
+            break;
+        }
         *p = '/';
-        pp = p;
         p++;
+        pp = p;
     }
 
     return 0;
