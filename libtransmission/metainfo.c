@@ -114,16 +114,6 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
 
     if( saveCopy )
     {
-        /* Create the private torrents directory */
-        if( mkdir( tr_getTorrentsDirectory(), 0777 ) && EEXIST != errno )
-        {
-            fprintf( stderr, "Could not create directory (%s)\n",
-                     tr_getTorrentsDirectory() );
-            tr_bencFree( &meta );
-            free( buf );
-            return 1;
-        }
-
         /* Save a copy of the torrent file in the private torrent directory */
         snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/%s",
                   tr_getTorrentsDirectory(), inf->hashString );

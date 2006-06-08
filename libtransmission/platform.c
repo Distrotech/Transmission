@@ -80,7 +80,7 @@ char * tr_getPrefsDirectory()
               getenv( "HOME" ) );
 #endif
 
-    mkdir( prefsDirectory, 0777 );
+    tr_mkdir( prefsDirectory );
     init = 1;
 
 #ifdef SYS_DARWIN
@@ -116,7 +116,7 @@ char * tr_getCacheDirectory()
               tr_getPrefsDirectory() );
 #endif
 
-    mkdir( cacheDirectory, 0777 );
+    tr_mkdir( cacheDirectory );
     init = 1;
 
     if( strcmp( tr_getPrefsDirectory(), cacheDirectory ) )
@@ -150,7 +150,7 @@ char * tr_getTorrentsDirectory()
               tr_getPrefsDirectory() );
 #endif
 
-    mkdir( torrentsDirectory, 0777 );
+    tr_mkdir( torrentsDirectory );
     init = 1;
 
     return torrentsDirectory;

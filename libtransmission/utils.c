@@ -93,3 +93,37 @@ void * tr_memmem( const void *vbig, size_t big_len,
 
     return NULL;
 }
+
+int tr_mkdir( char * path )
+{
+    char      * p;
+    struct stat sb;
+
+    p = path;
+    while( ( p = strchr( p, '/' ) ) )
+    {
+        *p = '\0';
+        if( stat( path, &sb ) )
+        {
+            /* Folder doesn't exist yet */
+            if( mkdir( path, 0777 ) )
+            {
+                tr_err( "Could not create directory %s (%s)", path,
+                        strerror( errno ) );
+                *p = '/';
+                return 1;
+            }
+        }
+        else if( ( sb.st_mode & S_IFMT ) != S_IFDIR )
+        {
+            /* Node exists but isn't a folder */
+            tr_err( "Remove %s, it's in the way.", path );
+            *p = '/';
+            return 1;
+        }
+        *p = '/';
+        p++;
+    }
+
+    return 0;
+}
