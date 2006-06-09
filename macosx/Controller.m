@@ -549,17 +549,22 @@ static void sleepCallBack( void * controller, io_service_t y,
         {
             title = [NSString stringWithFormat: @"Comfirm Removal of \"%@\"",
                         [[fTorrents objectAtIndex: [fTableView selectedRow]] name]];
-            message = @"This torrent is active. Do you really want to remove it?";
+            message = @"This transfer is active."
+                        " Onced removed, continuing the transfer will require the torrent file."
+                        " Do you really want to remove it?";
         }
         else
         {
             title = [NSString stringWithFormat: @"Comfirm Removal of %d Torrents", selected];
             if (selected == active)
                 message = [NSString stringWithFormat:
-                    @"There are %d active torrents. Do you really want to remove them?", active];
+                    @"There are %d active transfers.", active];
             else
                 message = [NSString stringWithFormat:
-                    @"There are %d torrents (%d active). Do you really want to remove them?", selected, active];
+                    @"There are %d transfers (%d active).", selected, active];
+            message = [message stringByAppendingString:
+                @" Onced removed, continuing the transfers will require the torrent files."
+                " Do you really want to remove them?"];
         }
 
         NSBeginAlertSheet(title,
