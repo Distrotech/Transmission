@@ -1,7 +1,7 @@
 /******************************************************************************
  * $Id$
  *
- * Copyright (c) 2005-2006 Transmission authors and contributors
+ * Copyright (c) 2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,26 +22,17 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TG_PREFS_H
-#define TG_PREFS_H
+#ifndef TR_UPNP_H
+#define TR_UPNP_H 1
 
-#include "tr_backend.h"
-#include "tr_torrent.h"
-#include "util.h"
+typedef struct tr_upnp_s tr_upnp_t; 
 
-GtkWidget *
-makeprefwindow(GtkWindow *parent, TrBackend *back);
+tr_upnp_t * tr_upnpInit( tr_fd_t * );
+void        tr_upnpStart( tr_upnp_t * );
+void        tr_upnpStop( tr_upnp_t * );
+int         tr_upnpStatus( tr_upnp_t * );
+void        tr_upnpForwardPort( tr_upnp_t *, int );
+void        tr_upnpPulse( tr_upnp_t * );
+void        tr_upnpClose( tr_upnp_t * );
 
-/* set various things based on saved prefs */
-void
-applyprefs(TrBackend *back);
-
-/* show the "add a torrent" dialog */
-void
-makeaddwind(GtkWindow *parent, add_torrents_func_t addfunc, void *cbdata);
-
-/* show the info window for a torrent */
-void
-makeinfowind(GtkWindow *parent, TrTorrent *tor);
-
-#endif /* TG_PREFS_H */
+#endif

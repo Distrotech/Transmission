@@ -1,7 +1,7 @@
 /******************************************************************************
  * $Id$
  *
- * Copyright (c) 2005-2006 Transmission authors and contributors
+ * Copyright (c) 2006 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,26 +22,36 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TG_PREFS_H
-#define TG_PREFS_H
+#ifndef TR_XML_H
+#define TR_XML_H 1
 
-#include "tr_backend.h"
-#include "tr_torrent.h"
-#include "util.h"
+const char *
+tr_xmlFindTag( const char * begin, const char * end, const char * tag );
 
-GtkWidget *
-makeprefwindow(GtkWindow *parent, TrBackend *back);
+const char *
+tr_xmlTagName( const char * begin, const char * end, int * len );
 
-/* set various things based on saved prefs */
-void
-applyprefs(TrBackend *back);
+const char *
+tr_xmlTagContents( const char * begin, const char * end );
 
-/* show the "add a torrent" dialog */
-void
-makeaddwind(GtkWindow *parent, add_torrents_func_t addfunc, void *cbdata);
+#define tr_xmlFindTagContents( bb, ee, tt ) \
+    ( tr_xmlTagContents( tr_xmlFindTag( (bb), (ee), (tt) ), (ee) ) )
 
-/* show the info window for a torrent */
-void
-makeinfowind(GtkWindow *parent, TrTorrent *tor);
+int
+tr_xmlVerifyContents( const char * begin, const char * end, const char * data,
+                      int ignorecase );
 
-#endif /* TG_PREFS_H */
+#define tr_xmlFindTagVerifyContents( bb, ee, tt, dd, ic ) \
+    ( tr_xmlVerifyContents( tr_xmlFindTagContents( (bb), (ee), (tt) ), \
+                            (ee), (dd), (ic) ) )
+
+const char *
+tr_xmlSkipTag( const char * begin, const char * end );
+
+char *
+tr_xmlDupContents( const char * begin, const char * end );
+
+#define tr_xmlDupTagContents( bb, ee, tt ) \
+  ( tr_xmlDupContents( tr_xmlFindTagContents( (bb), (ee), (tt) ), (ee) ) )
+
+#endif
