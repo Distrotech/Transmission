@@ -126,6 +126,12 @@
     [fPortField setIntValue: bindPort];
     tr_setBindPort(fHandle, bindPort);
     
+    //set NAT
+    BOOL natShouldEnable = [fDefaults boolForKey: @"NatTraversal"];
+    if (natShouldEnable)
+        tr_natTraversalEnable(fHandle);
+    [fNatCheck setState: natShouldEnable];
+    
     //checks for old version upload speed of -1
     if ([fDefaults integerForKey: @"UploadLimit"] < 0)
     {
@@ -355,6 +361,13 @@
         tr_setBindPort(fHandle, bindPort);
         [fDefaults setInteger: bindPort forKey: @"BindPort"];
     }
+}
+
+- (void) setNat: (id) sender
+{
+    BOOL enable = [sender state] == NSOnState;
+    enable ? tr_natTraversalEnable(fHandle) : tr_natTraversalDisable(fHandle);
+    [fDefaults setBool: enable forKey: @"NatTraversal"];
 }
 
 - (void) setLimit: (id) sender

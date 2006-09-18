@@ -17,6 +17,7 @@
                 setLimit = id; 
                 setLimitCheck = id; 
                 setMoveTorrent = id; 
+                setNat = id; 
                 setPlaySound = id; 
                 setPort = id; 
                 setRatio = id; 
@@ -44,6 +45,7 @@
                 fFolderPopUp = NSPopUpButton; 
                 fGeneralView = NSView; 
                 fImportFolderPopUp = NSPopUpButton; 
+                fNatCheck = NSButton; 
                 fNetworkView = NSView; 
                 fPlayDownloadSoundCheck = NSButton; 
                 fPlaySeedingSoundCheck = NSButton; 

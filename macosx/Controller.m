@@ -425,6 +425,9 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [self updateTorrentHistory];
     [fTorrents makeObjectsPerformSelector: @selector(stopTransferForQuit)];
     
+    //disable NAT traversal
+    tr_natTraversalDisable(fLib);
+    
     //remember window states and close all windows
     [fDefaults setBool: [[fInfoController window] isVisible] forKey: @"InfoVisible"];
     [[NSApp windows] makeObjectsPerformSelector: @selector(close)];
@@ -438,13 +441,13 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     if (fUpdateInProgress)
         return;
 
-    //wait for running transfers to stop (5 second timeout)
+    //wait for running transfers to stop (5 second timeout) and for NAT to be disabled
     NSDate * start = [NSDate date];
     BOOL timeUp = NO;
     
     NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent;
-    while (!timeUp && (torrent = [enumerator nextObject]))
+    while (!timeUp && ((torrent = [enumerator nextObject]) || tr_natTraversalStatus(fLib) != TR_NAT_TRAVERSAL_DISABLED))
         while (![torrent isPaused] && !(timeUp = [start timeIntervalSinceNow] < -5.0))
         {
             usleep(100000);

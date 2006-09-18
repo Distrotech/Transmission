@@ -51,6 +51,7 @@
                             * fSpeedLimitAutoCheck;
 
     IBOutlet NSTextField    * fPortField;
+    IBOutlet NSButton       * fNatCheck;
     
     IBOutlet NSButton       * fRatioCheck;
     IBOutlet NSTextField    * fRatioField;
@@ -80,7 +81,9 @@
 - (void) setDownloadLocation:   (id) sender;
 - (void) folderSheetShow:       (id) sender;
 
-- (void) setPort:       (id) sender;
+- (void) setPort:   (id) sender;
+- (void) setNat:    (id) sender;
+
 - (void) setSpeedLimit: (id) sender;
 
 - (void) setAutoSpeedLimitCheck: (id) sender;
