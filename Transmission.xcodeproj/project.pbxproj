@@ -56,6 +56,14 @@
 		4DA6FDBB0911233800450CB1 /* PauseOff.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DA6FDB90911233800450CB1 /* PauseOff.png */; };
 		4DA6FDC5091141AD00450CB1 /* ResumeOff.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DA6FDC3091141AD00450CB1 /* ResumeOff.png */; };
 		4DA6FDC6091141AD00450CB1 /* ResumeOn.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DA6FDC4091141AD00450CB1 /* ResumeOn.png */; };
+		4DAB87C50ABE1F730081CF7E /* xml.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DAB87BD0ABE1F730081CF7E /* xml.h */; };
+		4DAB87C60ABE1F730081CF7E /* xml.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DAB87BE0ABE1F730081CF7E /* xml.c */; };
+		4DAB87C70ABE1F730081CF7E /* upnp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DAB87BF0ABE1F730081CF7E /* upnp.h */; };
+		4DAB87C80ABE1F730081CF7E /* upnp.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DAB87C00ABE1F730081CF7E /* upnp.c */; };
+		4DAB87C90ABE1F730081CF7E /* natpmp.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DAB87C10ABE1F730081CF7E /* natpmp.h */; };
+		4DAB87CA0ABE1F730081CF7E /* natpmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DAB87C20ABE1F730081CF7E /* natpmp.c */; };
+		4DAB87CB0ABE1F730081CF7E /* http.h in Headers */ = {isa = PBXBuildFile; fileRef = 4DAB87C30ABE1F730081CF7E /* http.h */; };
+		4DAB87CC0ABE1F730081CF7E /* http.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DAB87C40ABE1F730081CF7E /* http.c */; };
 		4DCCBB3E09C3D71100D3CABF /* TorrentCell.m in Sources */ = {isa = PBXBuildFile; fileRef = 4DCCBB3C09C3D71100D3CABF /* TorrentCell.m */; };
 		4DDBB71C09E16BF100284745 /* transmissioncli.c in Sources */ = {isa = PBXBuildFile; fileRef = 4DDBB71B09E16BF100284745 /* transmissioncli.c */; };
 		4DDFDD22099A5D8E00189D81 /* DownloadBadge.png in Resources */ = {isa = PBXBuildFile; fileRef = 4DDFDD20099A5D8E00189D81 /* DownloadBadge.png */; };
@@ -262,6 +270,14 @@
 		4DA6FDB90911233800450CB1 /* PauseOff.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = PauseOff.png; path = macosx/Images/PauseOff.png; sourceTree = "<group>"; };
 		4DA6FDC3091141AD00450CB1 /* ResumeOff.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ResumeOff.png; path = macosx/Images/ResumeOff.png; sourceTree = "<group>"; };
 		4DA6FDC4091141AD00450CB1 /* ResumeOn.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ResumeOn.png; path = macosx/Images/ResumeOn.png; sourceTree = "<group>"; };
+		4DAB87BD0ABE1F730081CF7E /* xml.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = xml.h; path = libtransmission/xml.h; sourceTree = "<group>"; };
+		4DAB87BE0ABE1F730081CF7E /* xml.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = xml.c; path = libtransmission/xml.c; sourceTree = "<group>"; };
+		4DAB87BF0ABE1F730081CF7E /* upnp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = upnp.h; path = libtransmission/upnp.h; sourceTree = "<group>"; };
+		4DAB87C00ABE1F730081CF7E /* upnp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = upnp.c; path = libtransmission/upnp.c; sourceTree = "<group>"; };
+		4DAB87C10ABE1F730081CF7E /* natpmp.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = natpmp.h; path = libtransmission/natpmp.h; sourceTree = "<group>"; };
+		4DAB87C20ABE1F730081CF7E /* natpmp.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = natpmp.c; path = libtransmission/natpmp.c; sourceTree = "<group>"; };
+		4DAB87C30ABE1F730081CF7E /* http.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = http.h; path = libtransmission/http.h; sourceTree = "<group>"; };
+		4DAB87C40ABE1F730081CF7E /* http.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = http.c; path = libtransmission/http.c; sourceTree = "<group>"; };
 		4DCCBB3C09C3D71100D3CABF /* TorrentCell.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = TorrentCell.m; path = macosx/TorrentCell.m; sourceTree = "<group>"; };
 		4DCCBB3D09C3D71100D3CABF /* TorrentCell.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = TorrentCell.h; path = macosx/TorrentCell.h; sourceTree = "<group>"; };
 		4DDBB71909E16BAE00284745 /* transmissioncli */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = transmissioncli; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -583,6 +599,14 @@
 				4D1838B909DEC0430047D688 /* completion.h */,
 				4D1838BA09DEC0430047D688 /* completion.c */,
 				4D1838BB09DEC0430047D688 /* clients.h */,
+				4DAB87BD0ABE1F730081CF7E /* xml.h */,
+				4DAB87BE0ABE1F730081CF7E /* xml.c */,
+				4DAB87BF0ABE1F730081CF7E /* upnp.h */,
+				4DAB87C00ABE1F730081CF7E /* upnp.c */,
+				4DAB87C10ABE1F730081CF7E /* natpmp.h */,
+				4DAB87C20ABE1F730081CF7E /* natpmp.c */,
+				4DAB87C30ABE1F730081CF7E /* http.h */,
+				4DAB87C40ABE1F730081CF7E /* http.c */,
 			);
 			name = libtransmission;
 			sourceTree = "<group>";
@@ -649,6 +673,10 @@
 				4D1838FC09DEC4380047D688 /* transmission.h in Headers */,
 				A26D450B0A0503AC00A10BB3 /* peermessages.h in Headers */,
 				A2BD40070A09BBEA008CCE96 /* bencode.h in Headers */,
+				4DAB87C50ABE1F730081CF7E /* xml.h in Headers */,
+				4DAB87C70ABE1F730081CF7E /* upnp.h in Headers */,
+				4DAB87C90ABE1F730081CF7E /* natpmp.h in Headers */,
+				4DAB87CB0ABE1F730081CF7E /* http.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -824,6 +852,10 @@
 				4D1838D909DEC0430047D688 /* completion.c in Sources */,
 				4D1838FB09DEC4380047D688 /* utils.c in Sources */,
 				4D1838FD09DEC4380047D688 /* transmission.c in Sources */,
+				4DAB87C60ABE1F730081CF7E /* xml.c in Sources */,
+				4DAB87C80ABE1F730081CF7E /* upnp.c in Sources */,
+				4DAB87CA0ABE1F730081CF7E /* natpmp.c in Sources */,
+				4DAB87CC0ABE1F730081CF7E /* http.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
