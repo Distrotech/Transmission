@@ -356,7 +356,7 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
                 if( NULL == pmp->req )
                 {
                     assert( 0 < pmp->mappedport );
-                    pmp->req = newreq( 0, pmp->dest, pmp->newport,
+                    pmp->req = newreq( 0, pmp->dest, pmp->mappedport,
                                        pmp->fdlimit, &pmp->uptime );
                     if( NULL == pmp->req )
                     {
