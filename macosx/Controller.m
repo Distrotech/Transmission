@@ -629,6 +629,26 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [self resumeTorrents: fTorrents];
 }
 
+- (void) resumeTorrents: (NSArray *) torrents
+{
+    NSEnumerator * enumerator = [torrents objectEnumerator];
+    Torrent * torrent;
+    while ((torrent = [enumerator nextObject]))
+        [torrent setWaitToStart: YES];
+    
+    [self attemptToStartMultipleAuto: torrents];
+    
+    [self updateUI: nil];
+    [self applyFilter: nil];
+    [fInfoController updateInfoStatsAndSettings];
+    [self updateTorrentHistory];
+}
+
+- (void) resumeSelectedTorrentsNoWait:  (id) sender
+{
+    [self resumeTorrentsNoWait: [self torrentsAtIndexes: [fTableView selectedRowIndexes]]];
+}
+
 - (void) resumeWaitingTorrents: (id) sender
 {
     NSMutableArray * torrents = [NSMutableArray arrayWithCapacity: [fTorrents count]];
@@ -639,10 +659,10 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         if ([torrent waitingToStart])
             [torrents addObject: torrent];
     
-    [self resumeTorrents: torrents];
+    [self resumeTorrentsNoWait: torrents];
 }
 
-- (void) resumeTorrents: (NSArray *) torrents
+- (void) resumeTorrentsNoWait: (NSArray *) torrents
 {
     [torrents makeObjectsPerformSelector: @selector(startTransfer)];
     
@@ -1995,7 +2015,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         Torrent * torrent;
         NSEnumerator * enumerator = [fTorrents objectEnumerator];
         while ((torrent = [enumerator nextObject]))
-            if ([torrent isPaused])
+            if ([torrent isPaused] && ![torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -2016,12 +2036,16 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //enable resume item
     if ([ident isEqualToString: TOOLBAR_RESUME_SELECTED])
     {
+        Torrent * torrent;
         NSIndexSet * indexSet = [fTableView selectedRowIndexes];
         unsigned int i;
         
         for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
-            if ([[fDisplayedTorrents objectAtIndex: i] isPaused])
+        {
+            torrent = [fDisplayedTorrents objectAtIndex: i];
+            if ([torrent isPaused] && ![torrent waitingToStart])
                 return YES;
+        }
         return NO;
     }
 
@@ -2146,7 +2170,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         Torrent * torrent;
         NSEnumerator * enumerator = [fTorrents objectEnumerator];
         while ((torrent = [enumerator nextObject]))
-            if ([torrent isPaused])
+            if ([torrent isPaused] && ![torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -2162,6 +2186,25 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         while ((torrent = [enumerator nextObject]))
             if ([torrent waitingToStart])
                 return YES;
+        return NO;
+    }
+    
+    //enable resume waiting item
+    if (action == @selector(resumeSelectedTorrentsNoWait:))
+    {
+        if (![[fDefaults stringForKey: @"StartSetting"] isEqualToString: @"Wait"])
+            return NO;
+    
+        Torrent * torrent;
+        NSIndexSet * indexSet = [fTableView selectedRowIndexes];
+        unsigned int i;
+        
+        for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
+        {
+            torrent = [fDisplayedTorrents objectAtIndex: i];
+            if ([torrent waitingToStart])
+                return YES;
+        }
         return NO;
     }
 
@@ -2197,7 +2240,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
         {
             torrent = [fDisplayedTorrents objectAtIndex: i];
-            if ([torrent isPaused])
+            if ([torrent isPaused] && ![torrent waitingToStart])
                 return YES;
         }
         return NO;

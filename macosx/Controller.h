@@ -105,8 +105,11 @@
 
 - (void) resumeSelectedTorrents:    (id) sender;
 - (void) resumeAllTorrents:         (id) sender;
-- (void) resumeWaitingTorrents:     (id) sender;
 - (void) resumeTorrents:            (NSArray *) torrents;
+
+- (void) resumeSelectedTorrentsNoWait:  (id) sender;
+- (void) resumeWaitingTorrents:         (id) sender;
+- (void) resumeTorrentsNoWait:          (NSArray *) torrents;
 
 - (void) stopSelectedTorrents:      (id) sender;
 - (void) stopAllTorrents:           (id) sender;
