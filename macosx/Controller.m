@@ -2004,7 +2004,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         Torrent * torrent;
         NSEnumerator * enumerator = [fTorrents objectEnumerator];
         while ((torrent = [enumerator nextObject]))
-            if ([torrent isActive])
+            if ([torrent isActive] || [torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -2028,7 +2028,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         unsigned int i;
         
         for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
-            if ([[fDisplayedTorrents objectAtIndex: i] isActive])
+            if ([[fDisplayedTorrents objectAtIndex: i] isActive] || [torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -2159,7 +2159,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         Torrent * torrent;
         NSEnumerator * enumerator = [fTorrents objectEnumerator];
         while ((torrent = [enumerator nextObject]))
-            if ([torrent isActive])
+            if ([torrent isActive] || [torrent waitingToStart])
                 return YES;
         return NO;
     }
@@ -2221,7 +2221,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
         {
             torrent = [fDisplayedTorrents objectAtIndex: i];
-            if ([torrent isActive])
+            if ([torrent isActive] || [torrent waitingToStart])
                 return YES;
         }
         return NO;
