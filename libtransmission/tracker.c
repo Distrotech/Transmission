@@ -155,6 +155,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         {
             return 0;
         }
+        tc->dateTry = tr_date();
         tc->http = getQuery( tc );
 
         tr_inf( "Tracker: connecting to %s:%d (%s)",
@@ -176,7 +177,8 @@ int tr_trackerPulse( tr_tracker_t * tc )
             case TR_ERROR:
                 tr_httpClose( tc->http );
                 tr_fdSocketClosed( tor->fdlimit, 1 );
-                tc->http = NULL;
+                tc->http    = NULL;
+                tc->dateTry = tr_date();
                 return 0;
 
             case TR_OK:
