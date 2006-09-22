@@ -337,10 +337,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [nc addObserver: self selector: @selector(torrentStoppedForRatio:)
                     name: @"TorrentStoppedForRatio" object: nil];
     
-    //change that just impacts the inspector
-    [nc addObserver: self selector: @selector(reloadInspectorSettings:)
-                    name: @"TorrentSettingChange" object: nil];
-    
     //change that just impacts the dock badge
     [nc addObserver: self selector: @selector(resetDockBadge:)
                     name: @"DockBadgeChange" object: nil];
@@ -635,7 +631,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
@@ -663,7 +658,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
@@ -689,7 +683,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
@@ -1405,7 +1398,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
@@ -1450,7 +1442,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         
         [self updateUI: nil];
         [self applyFilter: nil];
-        [fInfoController updateInfoStatsAndSettings];
         [self updateTorrentHistory];
     }
 }
@@ -1461,7 +1452,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
@@ -1471,14 +1461,14 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI: nil];
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
     [self updateTorrentHistory];
 }
 
 - (void) torrentStoppedForRatio: (NSNotification *) notification
 {
     [self applyFilter: nil];
-    [fInfoController updateInfoStatsAndSettings];
+    [fInfoController updateInfoStats];
+    [fInfoController updateInfoSettings];
     
     if ([fDefaults boolForKey: @"PlaySeedingSound"])
     {
@@ -1555,11 +1545,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
             [torrent update];
         }
     }
-}
-
-- (void) reloadInspectorSettings: (NSNotification *) notification
-{
-    [fInfoController updateInfoStatsAndSettings];
 }
 
 -(void) watcher: (id<UKFileWatcher>) watcher receivedNotification: (NSString *) notification forPath: (NSString *) path

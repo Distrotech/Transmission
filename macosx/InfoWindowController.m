@@ -209,7 +209,8 @@
     }
     
     //update stats and settings
-    [self updateInfoStatsAndSettings];
+    [self updateInfoStats];
+    [self updateInfoSettings];
 
     //set file table
     [fFiles removeAllObjects];
@@ -282,7 +283,7 @@
     }
 }
 
-- (void) updateInfoStatsAndSettings
+- (void) updateInfoSettings
 {
     int numberSelected = [fTorrents count];
 

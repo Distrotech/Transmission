@@ -175,8 +175,6 @@
 - (void) attemptToStartAuto: (Torrent *) torrent;
 - (void) attemptToStartMultipleAuto: (NSArray *) torrents;
 
-- (void) reloadInspectorSettings: (NSNotification *) notification;
-
 - (void) checkAutoImportDirectory;
 
 - (void) sleepCallBack: (natural_t) messageType argument: (void *) messageArgument;
