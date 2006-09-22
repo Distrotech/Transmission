@@ -2019,8 +2019,11 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         unsigned int i;
         
         for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
-            if ([[fDisplayedTorrents objectAtIndex: i] isActive] || [torrent waitingToStart])
+        {
+            torrent = [fDisplayedTorrents objectAtIndex: i];
+            if ([torrent isActive] || [torrent waitingToStart])
                 return YES;
+        }
         return NO;
     }
     
@@ -2166,7 +2169,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         return NO;
     }
     
-    //enable resume waiting item
+    //enable resume all waiting item
     if (action == @selector(resumeWaitingTorrents:))
     {
         if (![fDefaults boolForKey: @"Queue"])
@@ -2180,7 +2183,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         return NO;
     }
     
-    //enable resume waiting item
+    //enable resume selected waiting item
     if (action == @selector(resumeSelectedTorrentsNoWait:))
     {
         if (![fDefaults boolForKey: @"Queue"])
