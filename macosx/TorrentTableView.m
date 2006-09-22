@@ -121,10 +121,10 @@
     {
         Torrent * torrent = [fTorrents objectAtIndex: row];
 
-		if ([torrent isPaused])
-			[fController resumeTorrents: [NSArray arrayWithObject: torrent]];
-		else if ([torrent isActive])
+        if ([torrent isActive] || ([torrent isPaused] && [torrent waitingToStart]))
             [fController stopTorrents: [NSArray arrayWithObject: torrent]];
+		else if ([torrent isPaused])
+			[fController resumeTorrents: [NSArray arrayWithObject: torrent]];
 		else;
     }
     else if (sameRow && [self pointInRevealRect: point] && [self pointInRevealRect: fClickPoint])
@@ -223,10 +223,10 @@
         torrent = [fTorrents objectAtIndex: i];
         rect  = [self pauseRectForRow: i];
 
-        if ([torrent isPaused])
-            image = NSPointInRect(fClickPoint, rect) ? fResumeOnIcon : fResumeOffIcon;
-        else if ([torrent isActive])
+        if ([torrent isActive] || ([torrent isPaused] && [torrent waitingToStart]))
             image = NSPointInRect(fClickPoint, rect) ? fPauseOnIcon : fPauseOffIcon;
+        else if ([torrent isPaused])
+            image = NSPointInRect(fClickPoint, rect) ? fResumeOnIcon : fResumeOffIcon;
         else
             image = nil;
 
