@@ -50,8 +50,9 @@
     IBOutlet NSButton       * fUploadCheck, * fDownloadCheck,
                             * fSpeedLimitAutoCheck;
 
-    IBOutlet NSTextField    * fPortField;
+    IBOutlet NSTextField    * fPortField, * fNatStatusField;
     IBOutlet NSButton       * fNatCheck;
+    NSTimer                 * fNatStatusTimer;
     
     IBOutlet NSButton       * fRatioCheck;
     IBOutlet NSTextField    * fRatioField;
@@ -85,6 +86,7 @@
 
 - (void) setPort:   (id) sender;
 - (void) setNat:    (id) sender;
+- (void) updateNatStatus;
 
 - (void) setSpeedLimit: (id) sender;
 

@@ -75,6 +75,8 @@
 
 - (void) dealloc
 {
+    [fNatStatusTimer invalidate];
+
     [fDownloadFolder release];
     [fImportFolder release];
     [super dealloc];
@@ -127,6 +129,11 @@
     if (natShouldEnable)
         tr_natTraversalEnable(fHandle);
     [fNatCheck setState: natShouldEnable];
+    
+    [fNatStatusField setHidden: !natShouldEnable];
+    [self updateNatStatus];
+    fNatStatusTimer = [NSTimer scheduledTimerWithTimeInterval: 5.0 target: self
+                        selector: @selector(updateNatStatus) userInfo: nil repeats: YES];
     
     //checks for old version upload speed of -1
     if ([fDefaults integerForKey: @"UploadLimit"] < 0)
@@ -350,6 +357,8 @@
     {
         tr_setBindPort(fHandle, bindPort);
         [fDefaults setInteger: bindPort forKey: @"BindPort"];
+        
+        [self updateNatStatus];
     }
 }
 
@@ -358,6 +367,23 @@
     BOOL enable = [sender state] == NSOnState;
     enable ? tr_natTraversalEnable(fHandle) : tr_natTraversalDisable(fHandle);
     [fDefaults setBool: enable forKey: @"NatTraversal"];
+    
+    [fNatStatusField setHidden: !enable];
+    [self updateNatStatus];
+}
+
+- (void) updateNatStatus
+{
+    if ([fNatStatusField isHidden])
+        return;
+    
+    int status = tr_natTraversalStatus(fHandle);
+    if (status == 2)
+        [fNatStatusField setStringValue: @"Ports have been successfully mapped."];
+    else if (status == 3 || status == 4)
+        [fNatStatusField setStringValue: @"Error mapping ports."];
+    else
+        [fNatStatusField setStringValue: @""];
 }
 
 - (void) setLimit: (id) sender
