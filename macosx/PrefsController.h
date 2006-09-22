@@ -56,8 +56,8 @@
     IBOutlet NSButton       * fRatioCheck;
     IBOutlet NSTextField    * fRatioField;
     
-    IBOutlet NSMatrix       * fStartMatrix;
-    IBOutlet NSTextField    * fStartNumberField;
+    IBOutlet NSButton       * fQueueCheck, * fStartAtOpenCheck;
+    IBOutlet NSTextField    * fQueueNumberField;
     
     IBOutlet SUUpdater      * fUpdater;
 
@@ -74,8 +74,10 @@
 - (void) setUpdate:         (id) sender;
 - (void) checkUpdate;
 
-- (void) setStartSetting:   (id) sender;
-- (void) setStartNumber:    (id) sender;
+- (void) setStartAtOpen:    (id) sender;
+
+- (void) setUseQueue:       (id) sender;
+- (void) setQueueNumber:    (id) sender;
 
 - (void) setMoveTorrent:        (id) sender;
 - (void) setDownloadLocation:   (id) sender;

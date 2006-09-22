@@ -332,10 +332,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //check all torrents for starting
     [nc addObserver: self selector: @selector(globalStartSettingChange:)
                     name: @"GlobalStartSettingChange" object: nil];
-
-    //check if torrent should now start
-    [nc addObserver: self selector: @selector(torrentStartSettingChange:)
-                    name: @"TorrentStartSettingChange" object: nil];
     
     //check if torrent should now start
     [nc addObserver: self selector: @selector(torrentStoppedForRatio:)
@@ -546,8 +542,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
     [panel setMessage: [NSString stringWithFormat: @"Select the download folder for \"%@\"", [torrent name]]];
     
-    NSDictionary * dictionary = [[NSDictionary alloc] initWithObjectsAndKeys:
-                                    torrent, @"Torrent", files, @"Files", nil];
+    NSDictionary * dictionary = [[NSDictionary alloc] initWithObjectsAndKeys: torrent, @"Torrent", files, @"Files", nil];
 
     [panel beginSheetForDirectory: nil file: nil types: nil modalForWindow: fWindow modalDelegate: self
             didEndSelector: @selector(folderChoiceClosed:returnCode:contextInfo:) contextInfo: dictionary];
@@ -1417,7 +1412,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 - (void) checkToStartWaiting: (Torrent *) finishedTorrent
 {
     //don't try to start a transfer if there should be none waiting
-    if (![[fDefaults stringForKey: @"StartSetting"] isEqualToString: @"Wait"])
+    if (![fDefaults boolForKey: @"Queue"])
         return;
 
     int desiredActive = [fDefaults integerForKey: @"WaitToStartNumber"];
@@ -1504,8 +1499,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 //will try to start, taking into consideration the start preference
 - (void) attemptToStartMultipleAuto: (NSArray *) torrents
 {
-    NSString * startSetting = [fDefaults stringForKey: @"StartSetting"];
-    if ([startSetting isEqualToString: @"Start"])
+    if (![fDefaults boolForKey: @"Queue"])
     {
         NSEnumerator * enumerator = [torrents objectEnumerator];
         Torrent * torrent;
@@ -1515,9 +1509,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         
         return;
     }
-    else if (![startSetting isEqualToString: @"Wait"])
-        return;
-    else;
     
     //determine the number of downloads needed to start
     int desiredActive = [fDefaults integerForKey: @"WaitToStartNumber"];
@@ -2178,7 +2169,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //enable resume waiting item
     if (action == @selector(resumeWaitingTorrents:))
     {
-        if (![[fDefaults stringForKey: @"StartSetting"] isEqualToString: @"Wait"])
+        if (![fDefaults boolForKey: @"Queue"])
             return NO;
     
         Torrent * torrent;
@@ -2192,7 +2183,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //enable resume waiting item
     if (action == @selector(resumeSelectedTorrentsNoWait:))
     {
-        if (![[fDefaults stringForKey: @"StartSetting"] isEqualToString: @"Wait"])
+        if (![fDefaults boolForKey: @"Queue"])
             return NO;
     
         Torrent * torrent;

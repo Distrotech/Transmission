@@ -33,10 +33,6 @@
 #define DOWNLOAD_TORRENT    2
 #define DOWNLOAD_ASK        3
 
-#define START_YES_CHECK_TAG     0
-#define START_WAIT_CHECK_TAG    1
-#define START_NO_CHECK_TAG      2
-
 #define UPDATE_DAILY    0
 #define UPDATE_WEEKLY   1
 #define UPDATE_NEVER    2
@@ -255,19 +251,13 @@
     else
         [fDefaults setObject: [fSeedingSoundPopUp titleOfSelectedItem] forKey: @"SeedingSound"];
     
-    //set start setting
-    NSString * startSetting = [fDefaults stringForKey: @"StartSetting"];
-    int tag;
-    if ([startSetting isEqualToString: @"Start"])
-        tag = START_YES_CHECK_TAG;
-    else if ([startSetting isEqualToString: @"Wait"])
-        tag = START_WAIT_CHECK_TAG;
-    else
-        tag = START_NO_CHECK_TAG;
+    //set start settings
+    BOOL useQueue = [fDefaults boolForKey: @"Queue"];
+    [fQueueCheck setState: useQueue];
+    [fQueueNumberField setEnabled: useQueue];
+    [fQueueNumberField setIntValue: [fDefaults integerForKey: @"WaitToStartNumber"]];
     
-    [fStartMatrix selectCellWithTag: tag];
-    [fStartNumberField setEnabled: tag == START_WAIT_CHECK_TAG];
-    [fStartNumberField setIntValue: [fDefaults integerForKey: @"WaitToStartNumber"]];
+    [fStartAtOpenCheck setState: [fDefaults boolForKey: @"StartAtOpen"]];
     
     //set private torrents
     BOOL copyTorrents = [fDefaults boolForKey: @"SavePrivateTorrent"];
@@ -674,35 +664,31 @@
     [fUpdater scheduleCheckWithInterval: seconds];
 }
 
-- (void) setStartSetting: (id) sender
+- (void) setStartAtOpen: (id) sender
 {
-    NSString * startSetting;
-
-    int tag = [[fStartMatrix selectedCell] tag];
-    if (tag == START_YES_CHECK_TAG)
-        startSetting = @"Start";
-    else if (tag == START_WAIT_CHECK_TAG)
-        startSetting = @"Wait";
-    else
-        startSetting = @"Manual";
-    
-    [fDefaults setObject: startSetting forKey: @"StartSetting"];
-    
-    [self setStartNumber: fStartNumberField];
-    [fStartNumberField setEnabled: tag == START_WAIT_CHECK_TAG];
+    [fDefaults setBool: [sender state] == NSOnState forKey: @"StartAtOpen"];
 }
 
-- (void) setStartNumber: (id) sender
+- (void) setUseQueue: (id) sender
 {
-    int waitNumber = [sender intValue];
-    if (![[sender stringValue] isEqualToString: [NSString stringWithInt: waitNumber]] || waitNumber < 1)
+    BOOL useQueue = [sender state] == NSOnState;
+    
+    [fDefaults setBool: useQueue forKey: @"Queue"];
+    [self setQueueNumber: fQueueNumberField];
+    [fQueueNumberField setEnabled: useQueue];
+}
+
+- (void) setQueueNumber: (id) sender
+{
+    int queueNumber = [sender intValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithInt: queueNumber]] || queueNumber < 1)
     {
         NSBeep();
-        waitNumber = [fDefaults floatForKey: @"WaitToStartNumber"];
-        [sender setIntValue: waitNumber];
+        queueNumber = [fDefaults integerForKey: @"WaitToStartNumber"];
+        [sender setIntValue: queueNumber];
     }
     else
-        [fDefaults setInteger: waitNumber forKey: @"WaitToStartNumber"];
+        [fDefaults setInteger: queueNumber forKey: @"WaitToStartNumber"];
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"GlobalStartSettingChange" object: self];
 }

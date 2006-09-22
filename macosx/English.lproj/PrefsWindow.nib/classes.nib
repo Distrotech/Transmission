@@ -20,14 +20,15 @@
                 setNat = id; 
                 setPlaySound = id; 
                 setPort = id; 
+                setQueueNumber = id; 
                 setRatio = id; 
                 setRatioCheck = id; 
                 setShowMessage = id; 
                 setSound = id; 
                 setSpeedLimit = id; 
-                setStartNumber = id; 
-                setStartSetting = id; 
+                setStartAtOpen = id; 
                 setUpdate = id; 
+                setUseQueue = id; 
             }; 
             CLASS = PrefsController; 
             LANGUAGE = ObjC; 
@@ -50,6 +51,8 @@
                 fPlayDownloadSoundCheck = NSButton; 
                 fPlaySeedingSoundCheck = NSButton; 
                 fPortField = NSTextField; 
+                fQueueCheck = NSButton; 
+                fQueueNumberField = NSTextField; 
                 fQuitCheck = NSButton; 
                 fQuitDownloadingCheck = NSButton; 
                 fRatioCheck = NSButton; 
@@ -62,8 +65,7 @@
                 fSpeedLimitAutoOnField = NSTextField; 
                 fSpeedLimitDownloadField = NSTextField; 
                 fSpeedLimitUploadField = NSTextField; 
-                fStartMatrix = NSMatrix; 
-                fStartNumberField = NSTextField; 
+                fStartAtOpenCheck = NSButton; 
                 fTransfersView = NSView; 
                 fUpdatePopUp = NSPopUpButton; 
                 fUpdater = SUUpdater; 
