@@ -54,6 +54,7 @@
     IBOutlet NSButton       * fNatCheck;
     IBOutlet NSImageView    * fNatStatusImage;
     NSTimer                 * fNatStatusTimer;
+    int                     fNatStatus;
     
     IBOutlet NSButton       * fRatioCheck;
     IBOutlet NSTextField    * fRatioField;

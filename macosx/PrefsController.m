@@ -130,8 +130,7 @@
         tr_natTraversalEnable(fHandle);
     [fNatCheck setState: natShouldEnable];
     
-    [fNatStatusField setHidden: !natShouldEnable];
-    [fNatStatusImage setHidden: !natShouldEnable];
+    fNatStatus = -1;
     [self updateNatStatus];
     fNatStatusTimer = [NSTimer scheduledTimerWithTimeInterval: 5.0 target: self
                         selector: @selector(updateNatStatus) userInfo: nil repeats: YES];
@@ -369,17 +368,15 @@
     enable ? tr_natTraversalEnable(fHandle) : tr_natTraversalDisable(fHandle);
     [fDefaults setBool: enable forKey: @"NatTraversal"];
     
-    [fNatStatusField setHidden: !enable];
-    [fNatStatusImage setHidden: !enable];
     [self updateNatStatus];
 }
 
 - (void) updateNatStatus
 {
-    if ([fNatStatusField isHidden])
+    int status = tr_natTraversalStatus(fHandle);
+    if (fNatStatus == status)
         return;
     
-    int status = tr_natTraversalStatus(fHandle);
     if (status == 2)
     {
         [fNatStatusField setStringValue: @"Ports have been successfully mapped"];
