@@ -131,6 +131,7 @@
     [fNatCheck setState: natShouldEnable];
     
     [fNatStatusField setHidden: !natShouldEnable];
+    [fNatStatusImage setHidden: !natShouldEnable];
     [self updateNatStatus];
     fNatStatusTimer = [NSTimer scheduledTimerWithTimeInterval: 5.0 target: self
                         selector: @selector(updateNatStatus) userInfo: nil repeats: YES];
@@ -369,6 +370,7 @@
     [fDefaults setBool: enable forKey: @"NatTraversal"];
     
     [fNatStatusField setHidden: !enable];
+    [fNatStatusImage setHidden: !enable];
     [self updateNatStatus];
 }
 
@@ -379,11 +381,20 @@
     
     int status = tr_natTraversalStatus(fHandle);
     if (status == 2)
-        [fNatStatusField setStringValue: @"Ports have been successfully mapped."];
+    {
+        [fNatStatusField setStringValue: @"Ports have been successfully mapped"];
+        [fNatStatusImage setImage: nil];
+    }
     else if (status == 3 || status == 4)
-        [fNatStatusField setStringValue: @"Error mapping ports."];
+    {
+        [fNatStatusField setStringValue: @"Error mapping ports"];
+        [fNatStatusImage setImage: [NSImage imageNamed: @"Error.tiff"]];
+    }
     else
+    {
         [fNatStatusField setStringValue: @""];
+        [fNatStatusImage setImage: nil];
+    }
 }
 
 - (void) setLimit: (id) sender

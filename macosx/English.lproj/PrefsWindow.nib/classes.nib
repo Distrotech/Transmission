@@ -48,6 +48,7 @@
                 fImportFolderPopUp = NSPopUpButton; 
                 fNatCheck = NSButton; 
                 fNatStatusField = NSTextField; 
+                fNatStatusImage = NSImageView; 
                 fNetworkView = NSView; 
                 fPlayDownloadSoundCheck = NSButton; 
                 fPlaySeedingSoundCheck = NSButton; 

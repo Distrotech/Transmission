@@ -102,6 +102,7 @@
 		A2305AAD0A3DCCEF00AB2D77 /* ProgressBarEndGray.png in Resources */ = {isa = PBXBuildFile; fileRef = A2305AA80A3DCCEF00AB2D77 /* ProgressBarEndGray.png */; };
 		A232D29E0A70903E00973B12 /* Filter.png in Resources */ = {isa = PBXBuildFile; fileRef = A232D29D0A70903E00973B12 /* Filter.png */; };
 		A23BBEB70A9BBE77003F7274 /* BarButton.m in Sources */ = {isa = PBXBuildFile; fileRef = A27431D90A68538400FA780A /* BarButton.m */; };
+		A24172A20AC4307A0080F7F9 /* Check.tiff in Resources */ = {isa = PBXBuildFile; fileRef = A24172A10AC4307A0080F7F9 /* Check.tiff */; };
 		A246004D0A6DCE4600D19088 /* SpeedLimitButtonPressed.png in Resources */ = {isa = PBXBuildFile; fileRef = A246004C0A6DCE4600D19088 /* SpeedLimitButtonPressed.png */; };
 		A24600510A6DCE6600D19088 /* SpeedLimitButtonBlue.png in Resources */ = {isa = PBXBuildFile; fileRef = A246004F0A6DCE6600D19088 /* SpeedLimitButtonBlue.png */; };
 		A24600520A6DCE6600D19088 /* SpeedLimitButtonGraphite.png in Resources */ = {isa = PBXBuildFile; fileRef = A24600500A6DCE6600D19088 /* SpeedLimitButtonGraphite.png */; };
@@ -321,6 +322,7 @@
 		A2305AA70A3DCCEF00AB2D77 /* ProgressBarEndGreen.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ProgressBarEndGreen.png; path = macosx/Images/ProgressBarEndGreen.png; sourceTree = "<group>"; };
 		A2305AA80A3DCCEF00AB2D77 /* ProgressBarEndGray.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ProgressBarEndGray.png; path = macosx/Images/ProgressBarEndGray.png; sourceTree = "<group>"; };
 		A232D29D0A70903E00973B12 /* Filter.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Filter.png; path = macosx/Images/Filter.png; sourceTree = "<group>"; };
+		A24172A10AC4307A0080F7F9 /* Check.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = Check.tiff; path = macosx/Images/Check.tiff; sourceTree = "<group>"; };
 		A246004C0A6DCE4600D19088 /* SpeedLimitButtonPressed.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = SpeedLimitButtonPressed.png; path = macosx/Images/SpeedLimitButtonPressed.png; sourceTree = "<group>"; };
 		A246004F0A6DCE6600D19088 /* SpeedLimitButtonBlue.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = SpeedLimitButtonBlue.png; path = macosx/Images/SpeedLimitButtonBlue.png; sourceTree = "<group>"; };
 		A24600500A6DCE6600D19088 /* SpeedLimitButtonGraphite.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = SpeedLimitButtonGraphite.png; path = macosx/Images/SpeedLimitButtonGraphite.png; sourceTree = "<group>"; };
@@ -490,6 +492,7 @@
 				A2305A7E0A3DC9E400AB2D77 /* ProgressBarGray.png */,
 				A2305A7F0A3DC9E400AB2D77 /* ProgressBarGreen.png */,
 				A260C9AB0AA3B8D700FDC1B7 /* Error.tiff */,
+				A24172A10AC4307A0080F7F9 /* Check.tiff */,
 				A2D4F0840A915F7200890C32 /* GreenDot.tiff */,
 				A2D4F0820A915F6600890C32 /* RedDot.tiff */,
 				A20AB97A0A5C622A004F81FA /* SmallTurtle.png */,
@@ -827,6 +830,7 @@
 				A2D4F0850A915F7200890C32 /* GreenDot.tiff in Resources */,
 				A21567ED0A9A5034004DECD6 /* MessageWindow.nib in Resources */,
 				A260C9AC0AA3B8D700FDC1B7 /* Error.tiff in Resources */,
+				A24172A20AC4307A0080F7F9 /* Check.tiff in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
