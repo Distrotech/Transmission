@@ -55,8 +55,8 @@
         fResumeOnIcon = [NSImage imageNamed: @"ResumeOn.png"];
         fResumeOffIcon = [NSImage imageNamed: @"ResumeOff.png"];
         fPauseOnIcon = [NSImage imageNamed: @"PauseOn.png"];
-        fResumeNoWaitOnIcon = [NSImage imageNamed: @"ResumeOn.png"];
-        fResumeNoWaitOffIcon = [NSImage imageNamed: @"ResumeOff.png"];
+        fResumeNoWaitOnIcon = [NSImage imageNamed: @"ResumeNoWaitOn.png"];
+        fResumeNoWaitOffIcon = [NSImage imageNamed: @"ResumeNoWaitOff.png"];
         fPauseOffIcon = [NSImage imageNamed: @"PauseOff.png"];
         fRevealOnIcon = [NSImage imageNamed: @"RevealOn.png"];
         fRevealOffIcon = [NSImage imageNamed: @"RevealOff.png"];
@@ -141,7 +141,7 @@
     }
     else if (sameRow && [self pointInRevealRect: point] && [self pointInRevealRect: fClickPoint])
         [[fTorrents objectAtIndex: row] revealData];
-	else if ([event clickCount] == 2)
+    else if ([event clickCount] == 2)
     {
         if ([self pointInIconRect: point])
             [[fTorrents objectAtIndex: row] revealData];
@@ -150,7 +150,7 @@
     }
     else;
     
-	[super mouseUp: event];
+    [super mouseUp: event];
 
     fClickPoint = NSZeroPoint;
     [self display];
