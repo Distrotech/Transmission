@@ -262,7 +262,7 @@
     BOOL useQueue = [fDefaults boolForKey: @"Queue"];
     [fQueueCheck setState: useQueue];
     [fQueueNumberField setEnabled: useQueue];
-    [fQueueNumberField setIntValue: [fDefaults integerForKey: @"WaitToStartNumber"]];
+    [fQueueNumberField setIntValue: [fDefaults integerForKey: @"QueueDownloadNumber"]];
     
     [fStartAtOpenCheck setState: [fDefaults boolForKey: @"StartAtOpen"]];
     
@@ -719,11 +719,11 @@
     if (![[sender stringValue] isEqualToString: [NSString stringWithInt: queueNumber]] || queueNumber < 1)
     {
         NSBeep();
-        queueNumber = [fDefaults integerForKey: @"WaitToStartNumber"];
+        queueNumber = [fDefaults integerForKey: @"QueueDownloadNumber"];
         [sender setIntValue: queueNumber];
     }
     else
-        [fDefaults setInteger: queueNumber forKey: @"WaitToStartNumber"];
+        [fDefaults setInteger: queueNumber forKey: @"QueueDownloadNumber"];
     
     [[NSNotificationCenter defaultCenter] postNotificationName: @"GlobalStartSettingChange" object: self];
 }

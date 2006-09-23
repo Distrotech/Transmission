@@ -1407,7 +1407,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     if (![fDefaults boolForKey: @"Queue"])
         return;
 
-    int desiredActive = [fDefaults integerForKey: @"WaitToStartNumber"];
+    int desiredActive = [fDefaults integerForKey: @"QueueDownloadNumber"];
     
     NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent, * torrentToStart = nil;
@@ -1501,7 +1501,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     }
     
     //determine the number of downloads needed to start
-    int desiredActive = [fDefaults integerForKey: @"WaitToStartNumber"];
+    int desiredActive = [fDefaults integerForKey: @"QueueDownloadNumber"];
             
     NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent;

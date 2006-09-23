@@ -60,6 +60,8 @@
 	<false/>
 	<key>Queue</key>
 	<false/>
+	<key>QueueDownloadNumber</key>
+	<integer>3</integer>
 	<key>RatioCheck</key>
 	<false/>
 	<key>RatioLimit</key>
@@ -100,7 +102,5 @@
 	<integer>20</integer>
 	<key>UseAdvancedBar</key>
 	<false/>
-	<key>WaitToStartNumber</key>
-	<integer>3</integer>
 </dict>
 </plist>
