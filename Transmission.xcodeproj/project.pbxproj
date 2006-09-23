@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		35B037A70AC59BC600A10FDF /* Check.png in CopyFiles */ = {isa = PBXBuildFile; fileRef = 35B037A60AC59BC600A10FDF /* Check.png */; };
 		35B037B60AC59C4000A10FDF /* Check.png in Resources */ = {isa = PBXBuildFile; fileRef = 35B037A60AC59BC600A10FDF /* Check.png */; };
+		35B037FB0AC5B53800A10FDF /* ResumeNoWaitOn.png in CopyFiles */ = {isa = PBXBuildFile; fileRef = 35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */; };
+		35B037FC0AC5B53800A10FDF /* ResumeNoWaitOff.png in CopyFiles */ = {isa = PBXBuildFile; fileRef = 35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */; };
+		35B038130AC5B6EB00A10FDF /* ResumeNoWaitOn.png in Resources */ = {isa = PBXBuildFile; fileRef = 35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */; };
+		35B038140AC5B6EC00A10FDF /* ResumeNoWaitOff.png in Resources */ = {isa = PBXBuildFile; fileRef = 35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */; };
 		4D043A7F090AE979009FEDA8 /* TransmissionDocument.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4D043A7E090AE979009FEDA8 /* TransmissionDocument.icns */; };
 		4D118E1A08CB46B20033958F /* PrefsController.m in Sources */ = {isa = PBXBuildFile; fileRef = 4D118E1908CB46B20033958F /* PrefsController.m */; };
 		4D1838BC09DEC0430047D688 /* internal.h in Headers */ = {isa = PBXBuildFile; fileRef = 4D18389D09DEC0430047D688 /* internal.h */; };
@@ -189,6 +193,8 @@
 				A25FCDDF0A37695F002BCBBE /* PauseSelected.png in CopyFiles */,
 				A25FCDE00A37695F002BCBBE /* ResumeSelected.png in CopyFiles */,
 				35B037A70AC59BC600A10FDF /* Check.png in CopyFiles */,
+				35B037FB0AC5B53800A10FDF /* ResumeNoWaitOn.png in CopyFiles */,
+				35B037FC0AC5B53800A10FDF /* ResumeNoWaitOff.png in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -222,6 +228,8 @@
 		29B97325FDCFA39411CA2CEA /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		32CA4F630368D1EE00C91783 /* Transmission_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Transmission_Prefix.pch; path = macosx/Transmission_Prefix.pch; sourceTree = "<group>"; };
 		35B037A60AC59BC600A10FDF /* Check.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Check.png; path = macosx/Images/Check.png; sourceTree = "<group>"; };
+		35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ResumeNoWaitOn.png; path = macosx/Images/ResumeNoWaitOn.png; sourceTree = "<group>"; };
+		35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = ResumeNoWaitOff.png; path = macosx/Images/ResumeNoWaitOff.png; sourceTree = "<group>"; };
 		4D043A7E090AE979009FEDA8 /* TransmissionDocument.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; name = TransmissionDocument.icns; path = macosx/Images/TransmissionDocument.icns; sourceTree = "<group>"; };
 		4D118E1808CB46B20033958F /* PrefsController.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PrefsController.h; path = macosx/PrefsController.h; sourceTree = "<group>"; };
 		4D118E1908CB46B20033958F /* PrefsController.m */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.objc; name = PrefsController.m; path = macosx/PrefsController.m; sourceTree = "<group>"; };
@@ -507,6 +515,8 @@
 				4DF7500808A103AD007B0D70 /* Info.png */,
 				4DF7500708A103AD007B0D70 /* Open.png */,
 				4DF7500908A103AD007B0D70 /* Remove.png */,
+				35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */,
+				35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */,
 				4D6DAAC4090CE00500F43C22 /* RevealOff.png */,
 				4D6DAAC5090CE00500F43C22 /* RevealOn.png */,
 				4DA6FDB80911233800450CB1 /* PauseOn.png */,
@@ -833,6 +843,8 @@
 				A21567ED0A9A5034004DECD6 /* MessageWindow.nib in Resources */,
 				A260C9AC0AA3B8D700FDC1B7 /* Error.tiff in Resources */,
 				35B037B60AC59C4000A10FDF /* Check.png in Resources */,
+				35B038130AC5B6EB00A10FDF /* ResumeNoWaitOn.png in Resources */,
+				35B038140AC5B6EC00A10FDF /* ResumeNoWaitOff.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
