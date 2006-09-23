@@ -814,7 +814,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         p[w] = kGreen;
         p[w + bytesPerRow / 4] = kGreen;
     }
-    for (; w < width - 2; w++)
+    for (; w < width; w++)
     {
         p[w] = kWhite;
         p[w + bytesPerRow / 4] = kWhite;

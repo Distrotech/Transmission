@@ -376,6 +376,7 @@
     int status = tr_natTraversalStatus(fHandle);
     if (fNatStatus == status)
         return;
+    fNatStatus = status;
     
     if (status == 2)
     {
