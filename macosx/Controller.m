@@ -359,6 +359,9 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     if ([fDefaults boolForKey: @"InfoVisible"])
         [self showInfo: nil];
     
+    if ([fDefaults boolForKey: @"PiecesViewerVisible"])
+        [self showPiecesView: nil];
+    
     //timer to auto toggle speed limit
     [self autoSpeedLimitChange: nil];
     fSpeedLimitTimer = [NSTimer scheduledTimerWithTimeInterval: AUTO_SPEED_LIMIT_SECONDS target: self 
@@ -425,6 +428,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     
     //remember window states and close all windows
     [fDefaults setBool: [[fInfoController window] isVisible] forKey: @"InfoVisible"];
+    [fDefaults setBool: [[fPiecesWindowController window] isVisible] forKey: @"PiecesViewerVisible"];
     [[NSApp windows] makeObjectsPerformSelector: @selector(close)];
     [self showStatusBar: NO animate: NO];
     [self showFilterBar: NO animate: NO];

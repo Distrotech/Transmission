@@ -44,6 +44,17 @@
     return self;
 }
 
+- (void) awakeFromNib
+{
+    //window location and size
+    NSPanel * window = (NSPanel *)[self window];
+    
+    [window setBecomesKeyOnlyIfNeeded: YES];
+    
+    [window setFrameAutosaveName: @"PiecesWindowFrame"];
+    [window setFrameUsingName: @"PiecesWindowFrame"];
+}
+
 - (void) dealloc
 {
     [fTimer invalidate];
