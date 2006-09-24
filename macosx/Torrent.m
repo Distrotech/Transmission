@@ -51,7 +51,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                 kBlue2 = BE(0x78BEFFFF), //120, 190, 255
                 kBlue3 = BE(0x50A0FFFF), //80, 160, 255
                 kBlue4 = BE(0x1E46B4FF), //30, 70, 180
-                kGray  = BE(0x828282FF), //130, 130, 130
+                kGray  = BE(0x969696FF), //150, 150, 150
                 kGreen = BE(0x00FF00FF), //0, 255, 0
                 kWhite = BE(0xFFFFFFFF); //255, 255, 255
 
@@ -824,9 +824,9 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     for( w = 0; w < width; w++ )
     {
         if (pieces[w] < 0)
-            color = kGray;
+            color = kGreen;
         else if (pieces[w] == 0)
-            color = kRed;
+            color = kGray;
         else if (pieces[w] == 1)
             color = kBlue1;
         else if (pieces[w] == 2)
