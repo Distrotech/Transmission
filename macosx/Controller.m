@@ -942,7 +942,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         [fPiecesWindowController close];
     else
     {
-        [fPiecesWindowController updateView: nil];
+        [fPiecesWindowController updateView: NO];
         [[fPiecesWindowController window] orderFront: nil];
     }
 }
@@ -978,7 +978,8 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         [fInfoController updateInfoStats];
     
     //update pieces viewer
-    [fPiecesWindowController updateView: NO];
+    if ([[fPiecesWindowController window] isVisible])
+        [fPiecesWindowController updateView: NO];
 
     //badge dock
     [fBadger updateBadgeWithCompleted: fCompleted uploadRate: uploadRate downloadRate: downloadRate];
