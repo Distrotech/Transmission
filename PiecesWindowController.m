@@ -64,8 +64,6 @@
 
 - (void) setTorrent: (Torrent *) torrent
 {
-    BOOL first = YES;
-    
     if (fTorrent)
     {
         [fTorrent release];
@@ -75,14 +73,12 @@
             fTorrent = nil;
             [fImageView setImage: fBack];
         }
-        else
-            first = NO;
     }
     
     if (torrent)
     {
         fTorrent = [torrent retain];
-        [self updateView: first];
+        [self updateView: YES];
     }
 }
 
@@ -91,7 +87,16 @@
     if (!fTorrent)
         return;
     
+    if (first)
+    {
+        [fExistingImage release];
+        fExistingImage = [fBack copy];
+    }
+    
     int numPieces = ACROSS * DOWN;
+    if (numPieces > [fTorrent pieceCount])
+        numPieces = [fTorrent pieceCount];
+    
     int8_t * pieces = malloc(numPieces);
     [fTorrent getAvailability: pieces size: numPieces];
     
@@ -100,18 +105,19 @@
     NSImage * pieceImage;
     BOOL change = NO;
     
-    [fExistingImage lockFocus];
-    
     for (i = 0; i < DOWN; i++)
         for (j = 0; j < ACROSS; j++)
         {
             pieceImage = nil;
         
             index++;
+            if (index >= numPieces)
+                break;
+            
             piece = pieces[index];
             if (piece < 0)
             {
-                if (fPieces[index] != -1)
+                if (first || fPieces[index] != -1)
                 {
                     fPieces[index] = -1;
                     pieceImage = fGreenPiece;
@@ -119,7 +125,7 @@
             }
             else if (piece == 0)
             {
-                if (fPieces[index] != 0)
+                if (first || fPieces[index] != 0)
                 {
                     fPieces[index] = 0;
                     pieceImage = fWhitePiece;
@@ -127,7 +133,7 @@
             }
             else if (piece == 1)
             {
-                if (fPieces[index] != 1)
+                if (first || fPieces[index] != 1)
                 {
                     fPieces[index] = 1;
                     pieceImage = fBlue1Piece;
@@ -135,7 +141,7 @@
             }
             else if (piece == 2)
             {
-                if (fPieces[index] != 2)
+                if (first || fPieces[index] != 2)
                 {
                     fPieces[index] = 2;
                     pieceImage = fBlue2Piece;
@@ -143,7 +149,7 @@
             }
             else
             {
-                if (fPieces[index] != 3)
+                if (first || fPieces[index] != 3)
                 {
                     fPieces[index] = 3;
                     pieceImage = fBlue3Piece;
@@ -152,16 +158,20 @@
             
             if (pieceImage)
             {
-                point = NSMakePoint(j * (WIDTH + BETWEEN) + BETWEEN, i * (HEIGHT + BETWEEN) + BETWEEN);
+                if (!change)
+                {
+                    [fExistingImage lockFocus];
+                    change = YES;
+                }
+                point = NSMakePoint(j * (WIDTH + BETWEEN) + BETWEEN, (DOWN - i - 1) * (HEIGHT + BETWEEN) + BETWEEN);
                 [pieceImage compositeToPoint: point operation: NSCompositeSourceOver];
-                
-                change = YES;
             }
         }
     
-    [fExistingImage unlockFocus];
+    if (change)
+        [fExistingImage unlockFocus];
     
-    //reload the image regardless if it wasn't called by the timer
+    //reload the image if changes were made or the torrent was loaded after it was blank
     if (change || first)
     {
         [fImageView setImage: nil];
