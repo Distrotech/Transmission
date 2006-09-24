@@ -781,7 +781,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (NSImage *) advancedBar
 {
-    #warning figure out length
     int width = 250; //integers for bars
     
     NSBitmapImageRep * bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: nil

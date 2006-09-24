@@ -86,6 +86,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         
         fMessageController = [[MessageWindowController alloc] initWithWindowNibName: @"MessageWindow"];
         fInfoController = [[InfoWindowController alloc] initWithWindowNibName: @"InfoWindow"];
+        fPiecesWindowController = [[PiecesWindowController alloc] initWithWindowNibName: @"PiecesWindow"];
         fPrefsController = [[PrefsController alloc] initWithWindowNibName: @"PrefsWindow" handle: fLib];
         
         fBadger = [[Badger alloc] init];
@@ -100,13 +101,15 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 - (void) dealloc
 {
     [[NSNotificationCenter defaultCenter] removeObserver: self];
-
-    [fTorrents release];
-    [fDisplayedTorrents release];
+    
+    [fInfoController release];
+    [fMessageController release];
+    [fPiecesWindowController release];
+    [fPrefsController release];
     
     [fToolbar release];
-    [fInfoController release];
-    [fPrefsController release];
+    [fTorrents release];
+    [fDisplayedTorrents release];
     [fBadger release];
     
     [fSortType release];
@@ -929,6 +932,17 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [fMessageController showWindow: nil];
 }
 
+- (void) showPiecesView: (id) sender
+{
+    if ([[fPiecesWindowController window] isVisible])
+        [fPiecesWindowController close];
+    else
+    {
+        [fPiecesWindowController updateView: nil];
+        [[fPiecesWindowController window] orderFront: nil];
+    }
+}
+
 - (void) updateControlTint: (NSNotification *) notification
 {
     if (fSpeedLimitEnabled)
@@ -1585,12 +1599,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     return [fDisplayedTorrents count];
 }
 
-/*- (void) tableView: (NSTableView *) t willDisplayCell: (id) cell
-    forTableColumn: (NSTableColumn *) tableColumn row: (int) row
-{
-    [cell setTorrent: [fDisplayedTorrents objectAtIndex: row]];
-}*/
-
 - (id) tableView: (NSTableView *) tableView objectValueForTableColumn: (NSTableColumn *) tableColumn row: (int) row
 {
     return [[fDisplayedTorrents objectAtIndex: row] infoForCurrentView];
@@ -1711,7 +1719,11 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) tableViewSelectionDidChange: (NSNotification *) notification
 {
-    [fInfoController updateInfoForTorrents: [self torrentsAtIndexes: [fTableView selectedRowIndexes]]];
+    NSArray * torrents = [self torrentsAtIndexes: [fTableView selectedRowIndexes]];
+    [fInfoController updateInfoForTorrents: torrents];
+    
+    Torrent * torrent = [torrents count] == 1 ? [torrents objectAtIndex: 0] : nil;
+    [fPiecesWindowController setTorrent: torrent];
 }
 
 - (void) toggleSmallView: (id) sender
@@ -2050,6 +2062,16 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     if (action == @selector(showInfo:))
     {
         NSString * title = [[fInfoController window] isVisible] ? @"Hide Inspector" : @"Show Inspector";
+        if (![[menuItem title] isEqualToString: title])
+                [menuItem setTitle: title];
+
+        return YES;
+    }
+    
+    //enable show pieces window
+    if (action == @selector(showPiecesView:))
+    {
+        NSString * title = [[fPiecesWindowController window] isVisible] ? @"Hide Pieces Viewer" : @"Show Pieces Viewer";
         if (![[menuItem title] isEqualToString: title])
                 [menuItem setTitle: title];
 

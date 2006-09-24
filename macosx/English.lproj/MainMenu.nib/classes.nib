@@ -28,6 +28,7 @@
                 showInfo = id; 
                 showMainWindow = id; 
                 showMessageWindow = id; 
+                showPiecesView = id; 
                 showPreferenceWindow = id; 
                 stopAllTorrents = id; 
                 stopSelectedTorrents = id; 
