@@ -54,14 +54,11 @@
 
 - (void) dealloc
 {
-    [fTimer invalidate];
-
     free(fPieces);
     
     if (fTorrent)
         [fTorrent release];
-    if (fExistingImage)
-        [fExistingImage release];
+    [fExistingImage release];
     [super dealloc];
 }
 

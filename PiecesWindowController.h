@@ -17,7 +17,6 @@
             * fBlue1Piece, * fBlue2Piece, * fBlue3Piece;
     
     Torrent * fTorrent;
-    NSTimer * fTimer;
     
     IBOutlet NSImageView * fImageView;
 }
