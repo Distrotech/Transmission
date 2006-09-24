@@ -23,8 +23,6 @@
 }
 
 - (void) setTorrent: (Torrent *) torrent;
-
-//- (void) viewFirst;
-- (void) updateView: (NSTimer *) timer;
+- (void) updateView: (BOOL) first;
 
 @end

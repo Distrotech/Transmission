@@ -36,9 +36,6 @@
         fBlue3Piece = [NSImage imageNamed: @"BoxBlue3.tiff"];
         
         fExistingImage = [fBack copy];
-        
-        fTimer = [NSTimer scheduledTimerWithTimeInterval: 2.0 target: self
-                    selector: @selector(updateView:) userInfo: nil repeats: YES];
     }
     
     return self;
@@ -70,6 +67,8 @@
 
 - (void) setTorrent: (Torrent *) torrent
 {
+    BOOL first = YES;
+    
     if (fTorrent)
     {
         [fTorrent release];
@@ -79,16 +78,18 @@
             fTorrent = nil;
             [fImageView setImage: fBack];
         }
+        else
+            first = NO;
     }
     
     if (torrent)
     {
         fTorrent = [torrent retain];
-        [self updateView: nil];
+        [self updateView: first];
     }
 }
 
-- (void) updateView: (NSTimer *) timer
+- (void) updateView: (BOOL) first
 {
     if (!fTorrent)
         return;
@@ -164,7 +165,7 @@
     [fExistingImage unlockFocus];
     
     //reload the image regardless if it wasn't called by the timer
-    if (change || !timer)
+    if (change || first)
     {
         [fImageView setImage: nil];
         [fImageView setImage: fExistingImage];

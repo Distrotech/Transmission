@@ -976,6 +976,9 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //update non-constant parts of info window
     if ([[fInfoController window] isVisible])
         [fInfoController updateInfoStats];
+    
+    //update pieces viewer
+    [fPiecesWindowController updateView: NO];
 
     //badge dock
     [fBadger updateBadgeWithCompleted: fCompleted uploadRate: uploadRate downloadRate: downloadRate];
