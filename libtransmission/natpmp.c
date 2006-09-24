@@ -58,6 +58,7 @@ typedef struct tr_natpmp_req_s
 {
     unsigned int         adding : 1;
     unsigned int         nobodyhome : 1;
+    unsigned int         portused : 1;
     int                  fd;
     int                  delay;
     uint64_t             retry;
@@ -75,6 +76,7 @@ struct tr_natpmp_s
 #define PMP_STATE_MAPPED        4
 #define PMP_STATE_FAILED        5
 #define PMP_STATE_NOBODYHOME    6
+#define PMP_STATE_PORTUSED      7
     char               state;
     unsigned int       active : 1;
     struct in_addr     dest;
@@ -107,7 +109,7 @@ static int
 sendrequest( int adding, int fd, int port );
 static tr_tristate_t
 readrequest( uint8_t * buf, int len, int adding, int port,
-             tr_natpmp_uptime_t * uptime, uint64_t * renew );
+             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * used );
 
 tr_natpmp_t *
 tr_natpmpInit( tr_fd_t * fdlimit )
@@ -197,6 +199,7 @@ tr_natpmpStop( tr_natpmp_t * pmp )
                 break;
             case PMP_STATE_FAILED:
             case PMP_STATE_NOBODYHOME:
+            case PMP_STATE_PORTUSED:
                 break;
             default:
                 assert( 0 );
@@ -234,6 +237,7 @@ tr_natpmpStatus( tr_natpmp_t * pmp )
                 ret = TR_NAT_TRAVERSAL_MAPPING;
                 break;
             case PMP_STATE_FAILED:
+            case PMP_STATE_PORTUSED:
                 ret = TR_NAT_TRAVERSAL_ERROR;
                 break;
             case PMP_STATE_NOBODYHOME:
@@ -289,10 +293,12 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
         switch( pmp->state )
         {
             case PMP_STATE_IDLE:
+            case PMP_STATE_PORTUSED:
                 if( 0 < pmp->newport )
                 {
                     pmp->state = PMP_STATE_ADDING;
-                    tr_dbg( "nat-pmp state idle -> add with port %i",
+                    tr_dbg( "nat-pmp state %s -> add with port %i",
+                            ( PMP_STATE_IDLE == pmp->state ? "idle" : "used" ),
                             pmp->newport );
                 }
                 break;
@@ -330,6 +336,15 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
                             {
                                 pmp->state = PMP_STATE_NOBODYHOME;
                                 tr_dbg( "nat-pmp state add -> nobodyhome on pulse" );
+                            }
+                            else if( pmp->req->portused )
+                            {
+                                pmp->state = PMP_STATE_PORTUSED;
+                                tr_dbg( "nat-pmp state add -> used on pulse" );
+                                if( pmp->req->port == pmp->newport )
+                                {
+                                    pmp->newport = 0;
+                                }
                             }
                             else
                             {
@@ -510,8 +525,9 @@ pulsereq( tr_natpmp_req_t * req, uint64_t * renew )
 {
     struct sockaddr_in sin;
     uint8_t            buf[16];
-    int                res;
+    int                res, used;
     uint64_t           now;
+    tr_tristate_t      ret;
 
     now = tr_date();
 
@@ -553,7 +569,10 @@ pulsereq( tr_natpmp_req_t * req, uint64_t * renew )
 
     tr_dbg( "nat-pmp read %i byte response", res );
 
-    return readrequest( buf, res, req->adding, req->port, req->uptime, renew );
+    ret = readrequest( buf, res, req->adding, req->port, req->uptime, renew,
+                       &used );
+    req->portused = ( used ? 1 : 0 );
+    return ret;
 }
 
 static int
@@ -610,10 +629,10 @@ mcastpulse( tr_natpmp_t * pmp )
         return;
     }
 
-    if( TR_OK == readrequest( buf, res, 0, -1, &pmp->uptime, &pmp->renew ) &&
-        PMP_STATE_FAILED == pmp->state )
+    if( TR_OK == readrequest( buf, res, 0, -1, &pmp->uptime, &pmp->renew, NULL ) &&
+        PMP_STATE_NOBODYHOME == pmp->state )
     {
-        tr_dbg( "nat-pmp state fail -> idle" );
+        tr_dbg( "nat-pmp state notfound -> idle" );
         pmp->state = PMP_STATE_IDLE;
     }
 }
@@ -661,12 +680,17 @@ sendrequest( int adding, int fd, int port )
 
 static tr_tristate_t
 readrequest( uint8_t * buf, int len, int adding, int port,
-             tr_natpmp_uptime_t * uptime, uint64_t * renew )
+             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * used )
 {
     uint8_t            version, opcode, wantedopcode;
     uint16_t           rescode, privport, pubport;
     uint32_t           seconds, lifetime;
 
+    assert( !adding || NULL != used );
+    if( NULL != used )
+    {
+        *used = 0;
+    }
     if( 4 > len )
     {
         tr_err( "read truncated %i byte nat-pmp response packet", len );
@@ -739,6 +763,7 @@ readrequest( uint8_t * buf, int len, int adding, int port,
         {
             if( port != pubport )
             {
+                *used = 1;
                 /* XXX should just start announcing the pub port we're given */
                 return TR_ERROR;
             }
