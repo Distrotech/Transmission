@@ -58,7 +58,7 @@ typedef struct tr_natpmp_req_s
 {
     unsigned int         adding : 1;
     unsigned int         nobodyhome : 1;
-    unsigned int         portused : 1;
+    unsigned int         tmpfail : 1;
     int                  fd;
     int                  delay;
     uint64_t             retry;
@@ -76,7 +76,7 @@ struct tr_natpmp_s
 #define PMP_STATE_MAPPED        4
 #define PMP_STATE_FAILED        5
 #define PMP_STATE_NOBODYHOME    6
-#define PMP_STATE_PORTUSED      7
+#define PMP_STATE_TMPFAIL       7
     char               state;
     unsigned int       active : 1;
     struct in_addr     dest;
@@ -109,7 +109,7 @@ static int
 sendrequest( int adding, int fd, int port );
 static tr_tristate_t
 readrequest( uint8_t * buf, int len, int adding, int port,
-             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * used );
+             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * tmpfail );
 
 tr_natpmp_t *
 tr_natpmpInit( tr_fd_t * fdlimit )
@@ -199,7 +199,7 @@ tr_natpmpStop( tr_natpmp_t * pmp )
                 break;
             case PMP_STATE_FAILED:
             case PMP_STATE_NOBODYHOME:
-            case PMP_STATE_PORTUSED:
+            case PMP_STATE_TMPFAIL:
                 break;
             default:
                 assert( 0 );
@@ -237,7 +237,7 @@ tr_natpmpStatus( tr_natpmp_t * pmp )
                 ret = TR_NAT_TRAVERSAL_MAPPING;
                 break;
             case PMP_STATE_FAILED:
-            case PMP_STATE_PORTUSED:
+            case PMP_STATE_TMPFAIL:
                 ret = TR_NAT_TRAVERSAL_ERROR;
                 break;
             case PMP_STATE_NOBODYHOME:
@@ -293,13 +293,13 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
         switch( pmp->state )
         {
             case PMP_STATE_IDLE:
-            case PMP_STATE_PORTUSED:
+            case PMP_STATE_TMPFAIL:
                 if( 0 < pmp->newport )
                 {
-                    pmp->state = PMP_STATE_ADDING;
                     tr_dbg( "nat-pmp state %s -> add with port %i",
-                            ( PMP_STATE_IDLE == pmp->state ? "idle" : "used" ),
+                            ( PMP_STATE_IDLE == pmp->state ? "idle" : "err" ),
                             pmp->newport );
+                    pmp->state = PMP_STATE_ADDING;
                 }
                 break;
 
@@ -337,10 +337,10 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
                                 pmp->state = PMP_STATE_NOBODYHOME;
                                 tr_dbg( "nat-pmp state add -> nobodyhome on pulse" );
                             }
-                            else if( pmp->req->portused )
+                            else if( pmp->req->tmpfail )
                             {
-                                pmp->state = PMP_STATE_PORTUSED;
-                                tr_dbg( "nat-pmp state add -> used on pulse" );
+                                pmp->state = PMP_STATE_TMPFAIL;
+                                tr_dbg( "nat-pmp state add -> err on pulse" );
                                 if( pmp->req->port == pmp->newport )
                                 {
                                     pmp->newport = 0;
@@ -388,6 +388,12 @@ tr_natpmpPulse( tr_natpmp_t * pmp )
                             {
                                 pmp->state = PMP_STATE_NOBODYHOME;
                                 tr_dbg( "nat-pmp state del -> nobodyhome on pulse" );
+                            }
+                            else if( pmp->req->tmpfail )
+                            {
+                                pmp->state = PMP_STATE_TMPFAIL;
+                                tr_dbg( "nat-pmp state del -> err on pulse" );
+                                pmp->mappedport = -1;
                             }
                             else
                             {
@@ -525,7 +531,7 @@ pulsereq( tr_natpmp_req_t * req, uint64_t * renew )
 {
     struct sockaddr_in sin;
     uint8_t            buf[16];
-    int                res, used;
+    int                res, tmpfail;
     uint64_t           now;
     tr_tristate_t      ret;
 
@@ -570,8 +576,8 @@ pulsereq( tr_natpmp_req_t * req, uint64_t * renew )
     tr_dbg( "nat-pmp read %i byte response", res );
 
     ret = readrequest( buf, res, req->adding, req->port, req->uptime, renew,
-                       &used );
-    req->portused = ( used ? 1 : 0 );
+                       &tmpfail );
+    req->tmpfail = ( tmpfail ? 1 : 0 );
     return ret;
 }
 
@@ -680,16 +686,16 @@ sendrequest( int adding, int fd, int port )
 
 static tr_tristate_t
 readrequest( uint8_t * buf, int len, int adding, int port,
-             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * used )
+             tr_natpmp_uptime_t * uptime, uint64_t * renew, int * tmpfail )
 {
     uint8_t            version, opcode, wantedopcode;
     uint16_t           rescode, privport, pubport;
     uint32_t           seconds, lifetime;
 
-    assert( !adding || NULL != used );
-    if( NULL != used )
+    assert( !adding || NULL != tmpfail );
+    if( NULL != tmpfail )
     {
-        *used = 0;
+        *tmpfail = 0;
     }
     if( 4 > len )
     {
@@ -718,10 +724,21 @@ readrequest( uint8_t * buf, int len, int adding, int port,
         tr_err( "bad nat-pmp opcode %hhu", opcode );
         return TR_ERROR;
     }
-    if( PMP_RESPCODE_OK != rescode )
+    switch( rescode )
     {
-        tr_err( "bad nat-pmp result code %hu", rescode );
-        return TR_ERROR;
+        case PMP_RESPCODE_OK:
+            break;
+        case PMP_RESPCODE_REFUSED:
+        case PMP_RESPCODE_NETDOWN:
+        case PMP_RESPCODE_NOMEM:
+            if( NULL != tmpfail )
+            {
+                *tmpfail = 1;
+            }
+            /* fallthrough */
+        default:
+            tr_err( "bad nat-pmp result code %hu", rescode );
+            return TR_ERROR;
     }
 
     if( 8 > len )
@@ -763,7 +780,7 @@ readrequest( uint8_t * buf, int len, int adding, int port,
         {
             if( port != pubport )
             {
-                *used = 1;
+                *tmpfail = 1;
                 /* XXX should just start announcing the pub port we're given */
                 return TR_ERROR;
             }
