@@ -8,8 +8,8 @@
 
 #import "PiecesWindowController.h"
 
-#define MIN_WIDTH 4.0
 #define MAX_ACROSS 18
+#define BETWEEN 1.0
 
 #define BLANK -99
 
@@ -113,13 +113,10 @@
     
     //determine how many boxes
     int across = MAX_ACROSS;
-    float width = MIN_WIDTH, between;
-    while (numPieces <= (across / 2) * (across / 2))
-    {
-        across /= 2;
-        width *= 2.0;
-    }
-    between = ([fExistingImage size].width - (float)across * width) / (float)(across + 1);
+    while (numPieces <= (across - 1) * (across - 1))
+        across -= 1;
+    
+    float width = ([fExistingImage size].width - (float)((across + 1) * BETWEEN)) / (float)across;
     
     int8_t * pieces = malloc(numPieces);
     [fTorrent getAvailability: pieces size: numPieces];
@@ -189,7 +186,7 @@
                     change = YES;
                 }
                 
-                point = NSMakePoint((float)j * (width + between) + between, (float)(across - i) * (width + between) - width);
+                point = NSMakePoint((float)j * (width + BETWEEN) + BETWEEN, (float)(across - i) * (width + BETWEEN) - width);
                 [pieceImage compositeToPoint: point fromRect: rect operation: NSCompositeSourceOver];
             }
         }
