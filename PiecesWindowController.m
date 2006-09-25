@@ -126,74 +126,78 @@
     int8_t * pieces = malloc(fNumPieces);
     [fTorrent getAvailability: pieces size: fNumPieces];
     
-    int i, j, piece;
+    int i, j, piece, index = -1;
     NSPoint point;
     NSRect rect = NSMakeRect(0, 0, fWidth, fWidth);
     NSImage * pieceImage;
     BOOL change = NO;
         
-    for (i = 0; i < fNumPieces; i++)
-    {
-        pieceImage = nil;
-        
-        piece = pieces[i];
-        if (piece < 0)
+    for (i = 0; i < fAcross; i++)
+        for (j = 0; j < fAcross; j++)
         {
-            if (first || fPieces[i] != -1)
+            index++;
+            if (index >= fNumPieces)
+                break;
+            
+            pieceImage = nil;
+            
+            piece = pieces[index];
+            if (piece < 0)
             {
-                fPieces[i] = -1;
-                pieceImage = fGreenPiece;
+                if (first || fPieces[index] != -1)
+                {
+                    fPieces[index] = -1;
+                    pieceImage = fGreenPiece;
+                }
             }
-        }
-        else if (piece == 0)
-        {
-            if (first || fPieces[i] != 0)
+            else if (piece == 0)
             {
-                fPieces[i] = 0;
-                pieceImage = fWhitePiece;
+                if (first || fPieces[index] != 0)
+                {
+                    fPieces[index] = 0;
+                    pieceImage = fWhitePiece;
+                }
             }
-        }
-        else if (piece == 1)
-        {
-            if (first || fPieces[i] != 1)
+            else if (piece == 1)
             {
-                fPieces[i] = 1;
-                pieceImage = fBlue1Piece;
+                if (first || fPieces[index] != 1)
+                {
+                    fPieces[index] = 1;
+                    pieceImage = fBlue1Piece;
+                }
             }
-        }
-        else if (piece == 2)
-        {
-            if (first || fPieces[i] != 2)
+            else if (piece == 2)
             {
-                fPieces[i] = 2;
-                pieceImage = fBlue2Piece;
+                if (first || fPieces[index] != 2)
+                {
+                    fPieces[index] = 2;
+                    pieceImage = fBlue2Piece;
+                }
             }
-        }
-        else
-        {
-            if (first || fPieces[i] != 3)
+            else
             {
-                fPieces[i] = 3;
-                pieceImage = fBlue3Piece;
-            }
-        }
-        
-        if (pieceImage)
-        {
-            //drawing actually will occur, so figure out values
-            if (!change)
-            {
-                [fExistingImage lockFocus];
-                change = YES;
+                if (first || fPieces[index] != 3)
+                {
+                    fPieces[index] = 3;
+                    pieceImage = fBlue3Piece;
+                }
             }
             
-            int numAcross = i % fAcross, numDown = i / fAcross;
-            point = NSMakePoint((float)numAcross * (fWidth + BETWEEN) + BETWEEN,
-                                (float)(fAcross - numDown) * (fWidth + BETWEEN) - fWidth);
-            
-            [pieceImage compositeToPoint: point fromRect: rect operation: NSCompositeSourceOver];
+            if (pieceImage)
+            {
+                //drawing actually will occur, so figure out values
+                if (!change)
+                {
+                    [fExistingImage lockFocus];
+                    change = YES;
+                }
+                
+                point = NSMakePoint((float)j * (fWidth + BETWEEN) + BETWEEN,
+                                    (float)(fAcross - i) * (fWidth + BETWEEN) - fWidth);
+                
+                [pieceImage compositeToPoint: point fromRect: rect operation: NSCompositeSourceOver];
+            }
         }
-    }
     
     if (change)
     {
