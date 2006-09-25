@@ -8,11 +8,8 @@
 
 #import "PiecesWindowController.h"
 
-#define HEIGHT 4.0
-#define WIDTH 4.0
-#define BETWEEN 1.0
-#define ACROSS 18
-#define DOWN 18
+#define MIN_WIDTH 4.0
+#define MAX_ACROSS 18
 
 #define BLANK -99
 
@@ -23,17 +20,34 @@
     if ((self = [super initWithWindowNibName: name]))
     {
         fTorrent = nil;
-        fPieces = malloc(ACROSS * DOWN);
+        int numPieces = MAX_ACROSS * MAX_ACROSS;
+        fPieces = malloc(numPieces);
         int i;
-        for (i = 0; i < DOWN * ACROSS; i++)
+        for (i = 0; i < numPieces; i++)
             fPieces[i] = BLANK;
         
         fBack = [NSImage imageNamed: @"PiecesBack.tiff"];
+        NSSize size = [fBack size];
+        
         fWhitePiece = [NSImage imageNamed: @"BoxWhite.tiff"];
+        [fWhitePiece setScalesWhenResized: YES];
+        [fWhitePiece setSize: size];
+        
         fGreenPiece = [NSImage imageNamed: @"BoxGreen.tiff"];
+        [fGreenPiece setScalesWhenResized: YES];
+        [fGreenPiece setSize: size];
+        
         fBlue1Piece = [NSImage imageNamed: @"BoxBlue1.tiff"];
+        [fBlue1Piece setScalesWhenResized: YES];
+        [fBlue1Piece setSize: size];
+        
         fBlue2Piece = [NSImage imageNamed: @"BoxBlue2.tiff"];
+        [fBlue2Piece setScalesWhenResized: YES];
+        [fBlue2Piece setSize: size];
+        
         fBlue3Piece = [NSImage imageNamed: @"BoxBlue3.tiff"];
+        [fBlue3Piece setScalesWhenResized: YES];
+        [fBlue3Piece setSize: size];
         
         fExistingImage = [fBack copy];
     }
@@ -93,20 +107,31 @@
         fExistingImage = [fBack copy];
     }
     
-    int numPieces = ACROSS * DOWN;
+    int numPieces = MAX_ACROSS * MAX_ACROSS;
     if (numPieces > [fTorrent pieceCount])
         numPieces = [fTorrent pieceCount];
+    
+    //determine how many boxes
+    int across = MAX_ACROSS;
+    float width = MIN_WIDTH, between;
+    while (numPieces <= (across / 2) * (across / 2))
+    {
+        across /= 2;
+        width *= 2.0;
+    }
+    between = ([fExistingImage size].width - (float)across * width) / (float)(across + 1);
     
     int8_t * pieces = malloc(numPieces);
     [fTorrent getAvailability: pieces size: numPieces];
     
     int i, j, piece, index = -1;
     NSPoint point;
+    NSRect rect = NSMakeRect(0, 0, width, width);
     NSImage * pieceImage;
     BOOL change = NO;
     
-    for (i = 0; i < DOWN; i++)
-        for (j = 0; j < ACROSS; j++)
+    for (i = 0; i < across; i++)
+        for (j = 0; j < across; j++)
         {
             pieceImage = nil;
         
@@ -163,17 +188,16 @@
                     [fExistingImage lockFocus];
                     change = YES;
                 }
-                point = NSMakePoint(j * (WIDTH + BETWEEN) + BETWEEN, (DOWN - i - 1) * (HEIGHT + BETWEEN) + BETWEEN);
-                [pieceImage compositeToPoint: point operation: NSCompositeSourceOver];
+                
+                point = NSMakePoint((float)j * (width + between) + between, (float)(across - i) * (width + between) - width);
+                [pieceImage compositeToPoint: point fromRect: rect operation: NSCompositeSourceOver];
             }
         }
     
     if (change)
-        [fExistingImage unlockFocus];
-    
-    //reload the image if changes were made or the torrent was loaded after it was blank
-    if (change || first)
     {
+        [fExistingImage unlockFocus];
+        
         [fImageView setImage: nil];
         [fImageView setImage: fExistingImage];
     }
