@@ -107,16 +107,20 @@
         fExistingImage = [fBack copy];
     }
     
-    int numPieces = MAX_ACROSS * MAX_ACROSS;
-    if (numPieces > [fTorrent pieceCount])
+    int numPieces = MAX_ACROSS * MAX_ACROSS, across;
+    if ([fTorrent pieceCount] < numPieces)
+    {
         numPieces = [fTorrent pieceCount];
+        
+        //determine how many boxes
+        across = sqrt(numPieces);
+        if (across * across < numPieces)
+            across++;
+    }
+    else
+        across = MAX_ACROSS;
     
-    //determine how many boxes
-    int across = MAX_ACROSS;
-    while (numPieces <= (across - 1) * (across - 1))
-        across -= 1;
-    
-    float width = ([fExistingImage size].width - (float)((across + 1) * BETWEEN)) / (float)across;
+    float width = ([fExistingImage size].width - (float)(across + 1) * BETWEEN) / (float)across;
     
     int8_t * pieces = malloc(numPieces);
     [fTorrent getAvailability: pieces size: numPieces];
