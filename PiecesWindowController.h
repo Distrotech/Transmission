@@ -11,12 +11,14 @@
 
 @interface PiecesWindowController : NSWindowController
 {
-    int8_t * fPieces;
+    int8_t  * fPieces;
     
     NSImage * fExistingImage, * fBack, * fWhitePiece, * fGreenPiece,
             * fBlue1Piece, * fBlue2Piece, * fBlue3Piece;
     
     Torrent * fTorrent;
+    int     fNumPieces, fAcross;
+    float   fWidth;
     
     IBOutlet NSImageView * fImageView;
 }
