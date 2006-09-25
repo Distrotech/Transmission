@@ -17,8 +17,7 @@
             * fBlue1Piece, * fBlue2Piece, * fBlue3Piece;
     
     Torrent * fTorrent;
-    int     fNumPieces, fAcross;
-    float   fWidth;
+    int     fNumPieces, fAcross, fWidth, fExtraBorder;
     
     IBOutlet NSImageView * fImageView;
 }

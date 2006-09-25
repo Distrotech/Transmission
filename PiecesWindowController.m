@@ -8,7 +8,7 @@
 
 #import "PiecesWindowController.h"
 
-#define MAX_ACROSS 18
+#define MAX_ACROSS 20
 #define BETWEEN 1.0
 
 #define BLANK -99
@@ -106,7 +106,8 @@
         else
             fAcross = MAX_ACROSS;
         
-        fWidth = ([fExistingImage size].width - (float)(fAcross + 1) * BETWEEN) / (float)fAcross;
+        fWidth = ([fExistingImage size].width - (fAcross + 1) * BETWEEN) / fAcross;
+        fExtraBorder = ([fExistingImage size].width - ((fWidth + BETWEEN) * fAcross + BETWEEN)) / 2;
         
         [self updateView: YES];
     }
@@ -192,8 +193,8 @@
                     change = YES;
                 }
                 
-                point = NSMakePoint((float)j * (fWidth + BETWEEN) + BETWEEN,
-                                    (float)(fAcross - i) * (fWidth + BETWEEN) - fWidth);
+                point = NSMakePoint(j * (fWidth + BETWEEN) + BETWEEN + fExtraBorder,
+                                    [fExistingImage size].width - (i + 1) * (fWidth + BETWEEN) - fExtraBorder);
                 
                 [pieceImage compositeToPoint: point fromRect: rect operation: NSCompositeSourceOver];
             }
