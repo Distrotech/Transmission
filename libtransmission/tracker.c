@@ -41,13 +41,17 @@ struct tr_tracker_s
 
     uint64_t       dateTry;
     uint64_t       dateOk;
+    uint64_t       dateTryScrape;
+    uint64_t       dateOkScrape;
 
 #define TC_ATTEMPT_NOREACH 1
 #define TC_ATTEMPT_ERROR   2
 #define TC_ATTEMPT_OK      4
     char           lastAttempt;
+    int            scrapeNeeded;
 
     tr_http_t    * http;
+    tr_http_t    * httpScrape;
 
     int            bindPort;
     int            newPort;
@@ -55,6 +59,7 @@ struct tr_tracker_s
 
 static tr_http_t * getQuery   ( tr_tracker_t * tc );
 static void        readAnswer ( tr_tracker_t * tc, const char *, int );
+static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len );
 
 tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
@@ -71,6 +76,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc->leechers = -1;
 
     tc->lastAttempt = TC_ATTEMPT_NOREACH;
+    tc->scrapeNeeded = 0;
 
     tc->bindPort = *(tor->bindPort);
     tc->newPort  = -1;
@@ -81,7 +87,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 static int shouldConnect( tr_tracker_t * tc )
 {
     uint64_t now = tr_date();
-
+    
     /* Unreachable tracker, try 10 seconds before trying again */
     if( tc->lastAttempt == TC_ATTEMPT_NOREACH &&
         now < tc->dateTry + 10000 )
@@ -131,6 +137,23 @@ static int shouldConnect( tr_tracker_t * tc )
     return 0;
 }
 
+static int shouldScrape( tr_tracker_t * tc )
+{
+    // scrape not supported
+    if( !tc->tor->scrape[0] )
+    {
+        return 0;
+    }
+
+    uint64_t now = tr_date();
+    uint64_t interval = 1000 * 300;
+    
+    if (!tc->scrapeNeeded)
+        interval *= 2.0;
+    
+    return now > tc->dateOkScrape + interval;
+}
+
 void tr_trackerChangePort( tr_tracker_t * tc, int port )
 {
     tc->newPort = port;
@@ -160,25 +183,61 @@ int tr_trackerPulse( tr_tracker_t * tc )
                     ( 0 < tc->newPort ? "sending 'stopped' to change port" :
                       "getting peers" ) ) ) );
     }
-
+    
     if( NULL != tc->http )
     {
         switch( tr_httpPulse( tc->http, &data, &len ) )
         {
             case TR_WAIT:
-                return 0;
+                break;
 
             case TR_ERROR:
                 tr_httpClose( tc->http );
                 tr_fdSocketClosed( tor->fdlimit, 1 );
                 tc->http    = NULL;
                 tc->dateTry = tr_date();
-                return 0;
+                break;
 
             case TR_OK:
                 readAnswer( tc, data, len );
                 tr_httpClose( tc->http );
                 tc->http = NULL;
+                tr_fdSocketClosed( tor->fdlimit, 1 );
+                break;
+        }
+    }
+    
+    if( ( NULL == tc->httpScrape ) && shouldScrape( tc ) )
+    {
+        if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
+        {
+            return 0;
+        }
+        tc->dateTryScrape = tr_date();
+        tc->httpScrape = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+                          "%s?info_hash=%s", tor->scrape, tor->hashString );
+        tr_inf( "Scrape: sent http request to %s:%d",
+                    inf->trackerAddress, inf->trackerPort );
+    }
+    
+    if( NULL != tc->httpScrape )
+    {
+        switch( tr_httpPulse( tc->httpScrape, &data, &len ) )
+        {
+            case TR_WAIT:
+                return 0;
+
+            case TR_ERROR:
+                tr_httpClose( tc->httpScrape );
+                tr_fdSocketClosed( tor->fdlimit, 1 );
+                tc->httpScrape    = NULL;
+                tc->dateTryScrape = tr_date();
+                return 0;
+
+            case TR_OK:
+                readScrapeAnswer( tc, data, len );
+                tr_httpClose( tc->httpScrape );
+                tc->httpScrape = NULL;
                 tr_fdSocketClosed( tor->fdlimit, 1 );
                 break;
         }
@@ -206,6 +265,14 @@ void tr_trackerStopped( tr_tracker_t * tc )
         tc->http = NULL;
         tr_fdSocketClosed( tor->fdlimit, 1 );
     }
+    if( NULL != tc->httpScrape )
+    {
+        /* If we are already sendy a query at the moment, we need to
+           reconnect */
+        tr_httpClose( tc->httpScrape );
+        tc->httpScrape = NULL;
+        tr_fdSocketClosed( tor->fdlimit, 1 );
+    }
 
     tc->started   = 0;
     tc->completed = 0;
@@ -213,6 +280,7 @@ void tr_trackerStopped( tr_tracker_t * tc )
 
     /* Even if we have connected recently, reconnect right now */
     tc->dateTry = 0;
+    tc->dateTryScrape = 0;
 }
 
 void tr_trackerClose( tr_tracker_t * tc )
@@ -224,6 +292,12 @@ void tr_trackerClose( tr_tracker_t * tc )
         tr_httpClose( tc->http );
         tr_fdSocketClosed( tor->fdlimit, 1 );
     }
+    if( NULL != tc->httpScrape )
+    {
+        tr_httpClose( tc->httpScrape );
+        tr_fdSocketClosed( tor->fdlimit, 1 );
+    }
+    
     free( tc );
 }
 
@@ -389,16 +463,27 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         tr_inf( "Tracker: interval = %d seconds", tc->interval );
     }
 
+    int scrapeNeeded = 0;
     if( ( beFoo = tr_bencDictFind( &beAll, "complete" ) ) &&
         ( beFoo->type & TYPE_INT ) )
     {
         tc->seeders = beFoo->val.i;
+    }
+    else
+    {
+        scrapeNeeded = 1;
     }
     if( ( beFoo = tr_bencDictFind( &beAll, "incomplete" ) ) &&
         ( beFoo->type & TYPE_INT ) )
     {
         tc->leechers = beFoo->val.i;
     }
+    else
+    {
+        scrapeNeeded = 1;
+    }
+    tc->scrapeNeeded = scrapeNeeded;
+    
     if( tc->seeders + tc->leechers >= 50 )
     {
         tc->hasManyPeers = 1;
@@ -493,62 +578,42 @@ cleanup:
     }
 }
 
-int tr_trackerScrape( tr_torrent_t * tor, int * seeders, int * leechers )
+static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_torrent_t * tor = tc->tor;
+    int i;
+    int code;
+    const uint8_t * body;
+    int bodylen, ii;
+    benc_val_t scrape, * val1, * val2;
 
-    tr_http_t  * http;
-    const char * data, * body;
-    int          datalen, bodylen;
-    int          code, ii;
-    benc_val_t   scrape, * val1, * val2;
-
-    if( !tor->scrape[0] )
+    tc->dateTryScrape = tr_date();
+    code = tr_httpResponseCode( data, len );
+    if( 0 > code )
     {
-        /* scrape not supported */
-        return 1;
+        /* We don't have a valid HTTP status line */
+        tr_inf( "Scrape: invalid HTTP status line" );
+        return;
     }
 
-    http = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
-                          "%s?info_hash=%s", tor->scrape, tor->hashString );
-
-    data = NULL;
-    while( NULL == data )
-    {
-        switch( tr_httpPulse( http, &data, &datalen ) )
-        {
-            case TR_WAIT:
-                break;
-
-            case TR_ERROR:
-                tr_httpClose( http );
-                return 1;
-
-            case TR_OK:
-                if( NULL == data || 0 >= datalen )
-                {
-                    tr_httpClose( http );
-                    return 1;
-                }
-                break;
-        }
-        tr_wait( 10 );
-    }
-
-    code = tr_httpResponseCode( data, datalen );
     if( !TR_HTTP_STATUS_OK( code ) )
     {
-        tr_httpClose( http );
-        return 1;
+        /* we didn't get a 2xx status code */
+        tr_err( "Scrape: invalid HTTP status code: %i", code );
+        return;
     }
 
-    body = tr_httpParse( data, datalen , NULL );
+    /* find the end of the http headers */
+    body = (uint8_t *) tr_httpParse( data, len, NULL );
     if( NULL == body )
     {
-        tr_httpClose( http );
-        return 1;
+        tr_err( "Tracker: could not find end of HTTP headers" );
+        tc->lastAttempt = TC_ATTEMPT_NOREACH;
+        return;
     }
-    bodylen = datalen - ( body - data );
+    tc->dateOkScrape = tr_date();
+    
+    bodylen = len - (body - (const uint8_t*)data);
 
     for( ii = 0; ii < bodylen - 8; ii++ )
     {
@@ -559,49 +624,43 @@ int tr_trackerScrape( tr_torrent_t * tor, int * seeders, int * leechers )
     }
     if( ii >= bodylen - 8 )
     {
-        tr_httpClose( http );
-        return 1;
+        return;
     }
     if( tr_bencLoad( body + ii, bodylen - ii, &scrape, NULL ) )
     {
-        tr_httpClose( http );
-        return 1;
+        return;
     }
 
     val1 = tr_bencDictFind( &scrape, "files" );
     if( !val1 )
     {
         tr_bencFree( &scrape );
-        tr_httpClose( http );
-        return 1;
+        return;
     }
     val1 = &val1->val.l.vals[1];
     if( !val1 )
     {
         tr_bencFree( &scrape );
-        tr_httpClose( http );
-        return 1;
+        return;
     }
     val2 = tr_bencDictFind( val1, "complete" );
     if( !val2 )
     {
         tr_bencFree( &scrape );
-        tr_httpClose( http );
-        return 1;
+        return;
     }
-    *seeders = val2->val.i;
+    tc->seeders = val2->val.i;
     val2 = tr_bencDictFind( val1, "incomplete" );
     if( !val2 )
     {
         tr_bencFree( &scrape );
-        tr_httpClose( http );
-        return 1;
+        return;
     }
-    *leechers = val2->val.i;
+    tc->leechers = val2->val.i;
+    
+    tc->hasManyPeers = tc->seeders + tc->leechers >= 50;
+    
     tr_bencFree( &scrape );
-    tr_httpClose( http );
-
-    return 0;
 }
 
 int tr_trackerSeeders( tr_tracker_t * tc )

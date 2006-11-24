@@ -368,10 +368,10 @@ tr_info_t * tr_torrentInfo( tr_torrent_t * tor )
 /***********************************************************************
  * tr_torrentScrape
  **********************************************************************/
-int tr_torrentScrape( tr_torrent_t * tor, int * s, int * l )
+/*int tr_torrentScrape( tr_torrent_t * tor, int * s, int * l )
 {
     return tr_trackerScrape( tor, s, l );
-}
+}*/
 
 void tr_torrentSetFolder( tr_torrent_t * tor, const char * path )
 {

@@ -48,6 +48,4 @@ int			    tr_trackerSeeders  ( tr_tracker_t * );
  **********************************************************************/
 int			    tr_trackerLeechers ( tr_tracker_t * );
 
-int            tr_trackerScrape    ( tr_torrent_t *, int *, int * );
-
 #endif
