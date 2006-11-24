@@ -218,7 +218,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         tc->dateTryScrape = tr_date();
         tc->httpScrape = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
                             "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
-                            "&" : "?", tor->hashString );
+                            "&" : "?", tor->escapedHashString );
         tr_inf( "Scrape: sent http request to %s:%d",
                     inf->trackerAddress, inf->trackerPort );
     }
@@ -367,7 +367,7 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
                           "numwant=%d&"
                           "key=%s"
                           "%s",
-                          inf->trackerAnnounce, start, tor->hashString, tc->id,
+                          inf->trackerAnnounce, start, tor->escapedHashString, tc->id,
                           tc->bindPort, up, down, left, numwant, tor->key, event );
 }
 
