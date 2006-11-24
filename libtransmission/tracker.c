@@ -149,7 +149,9 @@ static int shouldScrape( tr_tracker_t * tc )
     uint64_t interval = 1000 * 300;
     
     if (!tc->scrapeNeeded)
-        interval *= 2.0;
+    {
+        interval *= 2;
+    }
     
     return now > tc->dateOkScrape + interval;
 }
@@ -215,7 +217,8 @@ int tr_trackerPulse( tr_tracker_t * tc )
         }
         tc->dateTryScrape = tr_date();
         tc->httpScrape = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
-                          "%s?info_hash=%s", tor->scrape, tor->hashString );
+                            "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
+                            "&" : "?", inf->hashString );
         tr_inf( "Scrape: sent http request to %s:%d",
                     inf->trackerAddress, inf->trackerPort );
     }
