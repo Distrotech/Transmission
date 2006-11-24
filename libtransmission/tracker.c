@@ -218,7 +218,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         tc->dateTryScrape = tr_date();
         tc->httpScrape = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
                             "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
-                            "&" : "?", inf->hashString );
+                            "&" : "?", tor->hashString );
         tr_inf( "Scrape: sent http request to %s:%d",
                     inf->trackerAddress, inf->trackerPort );
     }
@@ -610,7 +610,7 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
     body = (uint8_t *) tr_httpParse( data, len, NULL );
     if( NULL == body )
     {
-        tr_err( "Tracker: could not find end of HTTP headers" );
+        tr_err( "Scrape: could not find end of HTTP headers" );
         tc->lastAttempt = TC_ATTEMPT_NOREACH;
         return;
     }
