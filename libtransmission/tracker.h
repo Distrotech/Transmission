@@ -51,7 +51,7 @@ int tr_trackerLeechers ( tr_tracker_t * );
 /***********************************************************************
  * tr_trackerDownloaded
  ***********************************************************************
- * Looks for number of completed trackers as returned by the tracker
+ * Looks for number of completed downloads as returned by the tracker
  * (from scrape).
  **********************************************************************/
 int tr_trackerDownloaded( tr_tracker_t * tc );
