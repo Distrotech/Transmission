@@ -154,6 +154,7 @@ struct tr_torrent_s
     int               finished;
 
     char            * id;
+    char            * trackerid;
     char            * key;
     int             * bindPort;
 

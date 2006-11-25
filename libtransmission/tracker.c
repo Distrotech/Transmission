@@ -316,6 +316,7 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
     tr_info_t    * inf = &tor->info;
 
     char         * event;
+    char         * trackerid;
     uint64_t       left;
     uint64_t       down;
     uint64_t       up;
@@ -359,6 +360,8 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
     }
 
     left = tr_cpLeftBytes( tor->completion );
+    
+    trackerid = tor->trackerid ? ( "&trackerid=%s", tor->trackerid ) : ""; 
 
     return tr_httpClient( TR_HTTP_GET, inf->trackerAddress,
                           inf->trackerPort,
@@ -372,9 +375,10 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
                           "compact=1&"
                           "numwant=%d&"
                           "key=%s"
+                          "%s"
                           "%s",
                           inf->trackerAnnounce, start, tor->escapedHashString, tc->id,
-                          tc->bindPort, up, down, left, numwant, tor->key, event );
+                          tc->bindPort, up, down, left, numwant, tor->key, trackerid, event );
 }
 
 static void readAnswer( tr_tracker_t * tc, const char * data, int len )
@@ -497,7 +501,13 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     {
         tc->hasManyPeers = 1;
     }
-
+    
+    if( beFoo = tr_bencDictFind( &beAll, "tracker id" ) )
+    {
+        tor->trackerid = beFoo->val.s.s;
+        tr_inf( "Tracker: tracker id = %s", tor->trackerid);
+    }
+    
     if( !( bePeers = tr_bencDictFind( &beAll, "peers" ) ) )
     {
         if( tc->stopped || 0 < tc->newPort )
