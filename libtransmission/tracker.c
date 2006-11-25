@@ -307,6 +307,9 @@ void tr_trackerClose( tr_tracker_t * tc )
         tr_fdSocketClosed( tor->fdlimit, 1 );
     }
     
+    if( tor->trackerid )
+        free( tor->trackerid );
+    
     free( tc );
 }
 
@@ -504,7 +507,9 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     
     if( beFoo = tr_bencDictFind( &beAll, "tracker id" ) )
     {
-        tor->trackerid = beFoo->val.s.s;
+        if( tor->trackerid )
+            free( tor->trackerid );
+        tor->trackerid = strdup( beFoo->val.s.s );
         tr_inf( "Tracker: tracker id = %s", tor->trackerid);
     }
     
