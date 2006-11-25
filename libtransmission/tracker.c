@@ -39,6 +39,7 @@ struct tr_tracker_s
     int            seeders;
     int            leechers;
     int            hasManyPeers;
+    int            downloaded;
 
     uint64_t       dateTry;
     uint64_t       dateOk;
@@ -76,6 +77,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc->scrapeInterval = 600;
     tc->seeders  = -1;
     tc->leechers = -1;
+    tc->downloaded  = -1;
 
     tc->lastAttempt = TC_ATTEMPT_NOREACH;
     tc->scrapeNeeded = 0;
@@ -150,7 +152,7 @@ static int shouldScrape( tr_tracker_t * tc )
     }
 
     uint64_t now = tr_date();
-    uint64_t interval = 1000 * tc->scrapeInterval;
+    uint64_t interval = 1000 * MAX(tc->scrapeInterval, 60);
     
     // scrape half as often if there is no need to
     if (!tc->scrapeNeeded && !tc->lastScrapeFailed)
@@ -652,6 +654,7 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         tr_bencFree( &scrape );
         return;
     }
+    
     val2 = tr_bencDictFind( val1, "complete" );
     if( !val2 )
     {
@@ -659,6 +662,7 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         return;
     }
     tc->seeders = val2->val.i;
+    
     val2 = tr_bencDictFind( val1, "incomplete" );
     if( !val2 )
     {
@@ -666,6 +670,14 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         return;
     }
     tc->leechers = val2->val.i;
+    
+    val2 = tr_bencDictFind( val1, "downloaded" );
+    if( !val2 )
+    {
+        tr_bencFree( &scrape );
+        return;
+    }
+    tc->downloaded = val2->val.i;
     
     val2 = tr_bencDictFind( val1, "flags" );
     if (val2)
@@ -698,4 +710,13 @@ int tr_trackerLeechers( tr_tracker_t * tc )
         return -1;
     }
     return tc->leechers;
+}
+
+int tr_trackerDownloaded( tr_tracker_t * tc )
+{
+    if( !tc )
+    {
+        return -1;
+    }
+    return tc->downloaded;
 }

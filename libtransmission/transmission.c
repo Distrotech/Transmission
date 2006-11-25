@@ -365,14 +365,6 @@ tr_info_t * tr_torrentInfo( tr_torrent_t * tor )
     return &tor->info;
 }
 
-/***********************************************************************
- * tr_torrentScrape
- **********************************************************************/
-/*int tr_torrentScrape( tr_torrent_t * tor, int * s, int * l )
-{
-    return tr_trackerScrape( tor, s, l );
-}*/
-
 void tr_torrentSetFolder( tr_torrent_t * tor, const char * path )
 {
     tor->destination = strdup( path );
@@ -539,6 +531,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     
     s->seeders  = tr_trackerSeeders(tor->tracker);
     s->leechers = tr_trackerLeechers(tor->tracker);
+    s->completedFromTracker = tr_trackerDownloaded(tor->tracker);
 
     s->swarmspeed = tr_rcRate( tor->swarmspeed );
 

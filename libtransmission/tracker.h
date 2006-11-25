@@ -37,15 +37,23 @@ void           tr_trackerClose     ( tr_tracker_t * );
 /***********************************************************************
  * tr_trackerSeeders
  ***********************************************************************
- * Looks for the seeders/leechers as returned by the tracker.
+ * Looks for the seeders as returned by the tracker.
  **********************************************************************/
-int			    tr_trackerSeeders  ( tr_tracker_t * );
+int tr_trackerSeeders  ( tr_tracker_t * );
 
 /***********************************************************************
  * tr_trackerLeechers
  ***********************************************************************
- * Looks for the seeders/leechers as returned by the tracker.
+ * Looks for the leechers as returned by the tracker.
  **********************************************************************/
-int			    tr_trackerLeechers ( tr_tracker_t * );
+int tr_trackerLeechers ( tr_tracker_t * );
+
+/***********************************************************************
+ * tr_trackerDownloaded
+ ***********************************************************************
+ * Looks for number of completed trackers as returned by the tracker
+ * (from scrape).
+ **********************************************************************/
+int tr_trackerDownloaded( tr_tracker_t * tc );
 
 #endif
