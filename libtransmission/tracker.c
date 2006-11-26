@@ -124,7 +124,7 @@ static int shouldConnect( tr_tracker_t * tc )
 
     /* If there is quite a lot of people on this torrent, stress
        the tracker a bit until we get a decent number of peers */
-    if( tc->hasManyPeers )
+    if( tc->hasManyPeers && !tc->tor->finished )
     {
         if( tc->tor->peerCount < 5 && now > tc->dateOk + 10000 )
         {
@@ -500,10 +500,8 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     }
     tc->scrapeNeeded = scrapeNeeded;
     
-    if( tc->seeders + tc->leechers >= 50 )
-    {
-        tc->hasManyPeers = 1;
-    }
+    if( !scrapeNeeded )
+        tc->hasManyPeers = tc->seeders + tc->leechers >= 50;
     
     if( beFoo = tr_bencDictFind( &beAll, "tracker id" ) )
     {
