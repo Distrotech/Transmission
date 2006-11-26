@@ -35,6 +35,7 @@ struct tr_tracker_s
     char           stopped;
 
     int            interval;
+    int            minInterval;
     int            scrapeInterval;
     int            seeders;
     int            leechers;
@@ -74,6 +75,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc->started  = 1;
 
     tc->interval = 300;
+    tc->minInterval = 0;
     tc->scrapeInterval = 600;
     tc->seeders  = -1;
     tc->leechers = -1;
@@ -126,17 +128,33 @@ static int shouldConnect( tr_tracker_t * tc )
        the tracker a bit until we get a decent number of peers */
     if( tc->hasManyPeers && !tc->tor->finished )
     {
-        if( tc->tor->peerCount < 5 && now > tc->dateOk + 10000 )
+        if ( tc->min_interval )
         {
-            return 1;
+            if( tc->tor->peerCount < 20 && now > tc->dateOk + 1000 * tc->minInterval )
+            {
+                return 1;
+            }
         }
-        if( tc->tor->peerCount < 10 && now > tc->dateOk + 20000 )
+        else if( tc->tor->peerCount < 5 )
         {
-            return 1;
+            if( now > tc->dateOk + 1000 * 30 )
+            {
+                return 1;
+            }
         }
-        if( tc->tor->peerCount < 15 && now > tc->dateOk + 30000 )
+        else if( tc->tor->peerCount < 10 )
         {
-            return 1;
+            if( now > tc->dateOk + 1000 * 60 )
+            {
+                return 1;
+            }
+        }
+        else if( tc->tor->peerCount < 20 )
+        {
+            if( now > tc->dateOk + 1000 * 90 )
+            {
+                return 1;
+            }
         }
     }
 
@@ -461,22 +479,42 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     tor->error &= ~TR_ETRACKER;
     tc->lastAttempt = TC_ATTEMPT_OK;
 
-    if( !tc->interval )
+    /* Get the tracker interval, force to between
+       10 sec and 5 mins */
+    if( !( beFoo = tr_bencDictFind( &beAll, "interval" ) ) ||
+        !( beFoo->type & TYPE_INT ) )
     {
-        /* Get the tracker interval, ignore it if it is not between
-           10 sec and 5 mins */
-        if( !( beFoo = tr_bencDictFind( &beAll, "interval" ) ) ||
-            !( beFoo->type & TYPE_INT ) )
+        tr_err( "Tracker: no 'interval' field" );
+        goto cleanup;
+    }
+
+    tc->interval = beFoo->val.i;
+    tr_inf( "Tracker: interval = %d seconds", tc->interval );
+    
+    tc->interval = MIN( tc->interval, 300 );
+    tc->interval = MAX( 10, tc->interval );
+    
+    /* Get the tracker minimum interval, force to between
+       10 sec and 5 mins  */
+    if( ( beFoo = tr_bencDictFind( &beAll, "min interval" ) ) &&
+        ( beFoo->type & TYPE_INT ) )
+    {
+        tc->minInterval = beFoo->val.i;
+        tr_inf( "Tracker: min interval = %d seconds", tc->minInterval );
+        
+        tc->minInterval = MIN( tc->minInterval, 300 );
+        tc->minInterval = MAX( 10, tc->minInterval );
+        
+        if( tc->interval < tc->minInterval)
         {
-            tr_err( "Tracker: no 'interval' field" );
-            goto cleanup;
+            tc->interval = tc->minInterval;
+            tr_inf( "Tracker: 'interval' less than 'min interval', use 'min interval'" );
         }
-
-        tc->interval = beFoo->val.i;
-        tc->interval = MIN( tc->interval, 300 );
-        tc->interval = MAX( 10, tc->interval );
-
-        tr_inf( "Tracker: interval = %d seconds", tc->interval );
+    }
+    else
+    {
+        tc->minInterval = 0;
+        tr_inf( "Tracker: no 'min interval' field" );
     }
 
     int scrapeNeeded = 0;
