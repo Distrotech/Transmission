@@ -135,25 +135,28 @@ static int shouldConnect( tr_tracker_t * tc )
                 return 1;
             }
         }
-        else if( tc->tor->peerCount < 5 )
+        else
         {
-            if( now > tc->dateOk + 1000 * 30 )
+            if( tc->tor->peerCount < 5 )
             {
-                return 1;
+                if( now > tc->dateOk + 1000 * 30 )
+                {
+                    return 1;
+                }
             }
-        }
-        else if( tc->tor->peerCount < 10 )
-        {
-            if( now > tc->dateOk + 1000 * 60 )
+            else if( tc->tor->peerCount < 10 )
             {
-                return 1;
+                if( now > tc->dateOk + 1000 * 60 )
+                {
+                    return 1;
+                }
             }
-        }
-        else if( tc->tor->peerCount < 20 )
-        {
-            if( now > tc->dateOk + 1000 * 90 )
+            else if( tc->tor->peerCount < 20 )
             {
-                return 1;
+                if( now > tc->dateOk + 1000 * 90 )
+                {
+                    return 1;
+                }
             }
         }
     }
