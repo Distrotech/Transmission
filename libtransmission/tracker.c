@@ -128,7 +128,7 @@ static int shouldConnect( tr_tracker_t * tc )
        the tracker a bit until we get a decent number of peers */
     if( tc->hasManyPeers && !tc->tor->finished )
     {
-        if ( tc->min_interval )
+        if ( tc->minInterval )
         {
             if( tc->tor->peerCount < 20 && now > tc->dateOk + 1000 * tc->minInterval )
             {
