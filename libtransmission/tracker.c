@@ -60,9 +60,10 @@ struct tr_tracker_s
     int            newPort;
 };
 
-static tr_http_t * getQuery   ( tr_tracker_t * tc );
+static tr_http_t * getQuery ( tr_tracker_t * tc );
+static tr_http_t * getScrapeQuery ( tr_tracker_t * tc );
 static void        readAnswer ( tr_tracker_t * tc, const char *, int );
-static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len );
+static void        readScrapeAnswer( tr_tracker_t * tc, const char * data, int len );
 
 tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
@@ -234,9 +235,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
             return 0;
         }
         tc->dateScrape = tr_date();
-        tc->httpScrape = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
-                            "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
-                            "&" : "?", tor->escapedHashString );
+        tc->httpScrape = getScrapeQuery( tc );
         tr_inf( "Scrape: sent http request to %s:%d",
                     inf->trackerAddress, inf->trackerPort );
     }
@@ -280,7 +279,7 @@ void tr_trackerStopped( tr_tracker_t * tc )
 
     if( NULL != tc->http )
     {
-        /* If we are already sendy a query at the moment, we need to
+        /* If we are already sending a query at the moment, we need to
            reconnect */
         tr_httpClose( tc->http );
         tc->http = NULL;
@@ -385,6 +384,16 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
                           "%s",
                           inf->trackerAnnounce, start, tor->escapedHashString, tc->id,
                           tc->bindPort, up, down, left, numwant, tor->key, trackerid, event );
+}
+
+static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
+{
+    tr_torrent_t * tor = tc->tor;
+    tr_info_t    * inf = &tor->info;
+
+    return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+                          "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
+                          "&" : "?", tor->escapedHashString );
 }
 
 static void readAnswer( tr_tracker_t * tc, const char * data, int len )
@@ -773,9 +782,7 @@ int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
     }
 
     tc = tr_trackerInit( tor );
-    http = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
-                          "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
-                          "&" : "?", tor->escapedHashString );
+    http = getScrapeQuery( tc );
 
     for( data = NULL; !data; tr_wait( 10 ) )
     {
