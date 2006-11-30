@@ -286,14 +286,6 @@ void tr_trackerStopped( tr_tracker_t * tc )
         tc->http = NULL;
         tr_fdSocketClosed( tor->fdlimit, 1 );
     }
-    if( NULL != tc->httpScrape )
-    {
-        /* If we are already sendy a query at the moment, we need to
-           reconnect */
-        tr_httpClose( tc->httpScrape );
-        tc->httpScrape = NULL;
-        tr_fdSocketClosed( tor->fdlimit, 1 );
-    }
 
     tc->started   = 0;
     tc->completed = 0;
