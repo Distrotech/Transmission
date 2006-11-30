@@ -365,6 +365,14 @@ tr_info_t * tr_torrentInfo( tr_torrent_t * tor )
     return &tor->info;
 }
 
+/***********************************************************************
+ * tr_torrentScrape     
+ **********************************************************************/
+int tr_torrentScrape( tr_torrent_t * tor, int * s, int * l, int * d )
+{
+    return tr_trackerScrape( tor, s, l, d );
+}
+
 void tr_torrentSetFolder( tr_torrent_t * tor, const char * path )
 {
     tor->destination = strdup( path );

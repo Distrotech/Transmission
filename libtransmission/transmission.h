@@ -202,6 +202,17 @@ typedef struct tr_info_s tr_info_t;
 tr_info_t * tr_torrentInfo( tr_torrent_t * );
 
 /***********************************************************************
+ * tr_torrentScrape
+ ***********************************************************************
+ * Asks the tracker for the count of seeders and leechers. Returns 0
+ * and fills 's' and 'l' if successful. Otherwise returns 1 if the
+ * tracker doesn't support the scrape protocol, is unreachable or
+ * replied with some error. tr_torrentScrape may block up to 20 seconds
+ * before returning.
+ **********************************************************************/
+int tr_torrentScrape( tr_torrent_t *, int * s, int * l, int * d );
+
+/***********************************************************************
  * tr_torrentStart
  ***********************************************************************
  * Starts downloading. The download is launched in a seperate thread,

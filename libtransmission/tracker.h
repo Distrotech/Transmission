@@ -56,4 +56,7 @@ int tr_trackerLeechers ( tr_tracker_t * );
  **********************************************************************/
 int tr_trackerDownloaded( tr_tracker_t * tc );
 
+
+int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d );
+
 #endif

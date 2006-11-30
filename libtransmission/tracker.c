@@ -764,3 +764,57 @@ int tr_trackerDownloaded( tr_tracker_t * tc )
     }
     return tc->downloaded;
 }
+
+/* Blocking version */
+int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
+{
+    tr_info_t    * inf = &tor->info;
+    tr_tracker_t * tc;
+    tr_http_t    * http;
+    const char   * data;
+    int            len;
+    int            ret;
+
+    if( !tor->scrape[0] )
+    {
+        return 1;
+    }
+
+    tc = tr_trackerInit( tor );
+    http = tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+                          "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
+                          "&" : "?", tor->escapedHashString );
+
+    for( data = NULL; !data; tr_wait( 10 ) )
+    {
+        switch( tr_httpPulse( http, &data, &len ) )
+        {
+            case TR_WAIT:
+                break;
+
+            case TR_ERROR:
+                goto scrapeDone;
+                break;
+
+            case TR_OK:
+                readScrapeAnswer( tc, data, len );
+                goto scrapeDone;
+                break;
+        }
+    }
+
+scrapeDone:
+    tr_httpClose( http );
+
+    ret = 1;
+    if( tc->seeders > -1 && tc->leechers > -1 && tc->downloaded > -1 )
+    {
+        *s = tc->seeders;
+        *l = tc->leechers;
+        *d = tc->downloaded;
+        ret = 0;
+    }
+
+    tr_trackerClose( tc );
+    return ret;
+}
