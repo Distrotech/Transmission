@@ -69,26 +69,22 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
     tr_tracker_t * tc;
 
-    tc           = calloc( 1, sizeof( tr_tracker_t ) );
-    tc->tor      = tor;
-    tc->id       = tor->id;
+    tc                 = calloc( 1, sizeof( tr_tracker_t ) );
+    tc->tor            = tor;
+    tc->id             = tor->id;
 
-    tc->started  = 1;
+    tc->started        = 1;
 
-    tc->interval = 300;
-    tc->minInterval = 0;
+    tc->interval       = 300;
     tc->scrapeInterval = 600;
-    tc->seeders  = -1;
-    tc->leechers = -1;
-    tc->downloaded  = -1;
+    tc->seeders        = -1;
+    tc->leechers       = -1;
+    tc->downloaded     = -1;
 
-    tc->lastAttempt = TC_ATTEMPT_NOREACH;
-    tc->scrapeNeeded = 0;
-    
-    tc->lastScrapeFailed = 0;
+    tc->lastAttempt    = TC_ATTEMPT_NOREACH;
 
-    tc->bindPort = *(tor->bindPort);
-    tc->newPort  = -1;
+    tc->bindPort       = *(tor->bindPort);
+    tc->newPort        = -1;
 
     return tc;
 }
@@ -96,7 +92,7 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 static int shouldConnect( tr_tracker_t * tc )
 {
     uint64_t now = tr_date();
-    
+
     /* Unreachable tracker, try 10 seconds before trying again */
     if( tc->lastAttempt == TC_ATTEMPT_NOREACH &&
         now < tc->dateTry + 10000 )
@@ -157,21 +153,23 @@ static int shouldConnect( tr_tracker_t * tc )
 
 static int shouldScrape( tr_tracker_t * tc )
 {
-    // scrape not supported
+    uint64_t now, interval;
+
+    /* scrape not supported */
     if( !tc->tor->scrape[0] )
     {
         return 0;
     }
 
-    uint64_t now = tr_date();
-    uint64_t interval = 1000 * MAX(tc->scrapeInterval, 60);
-    
-    // scrape half as often if there is no need to
-    if (!tc->scrapeNeeded && !tc->lastScrapeFailed)
+    now      = tr_date();
+    interval = 1000 * MAX( tc->scrapeInterval, 60 );
+
+    /* scrape half as often if there is no need to */
+    if( !tc->scrapeNeeded && !tc->lastScrapeFailed )
     {
         interval *= 2;
     }
-    
+
     return now > tc->dateScrape + interval;
 }
 
@@ -204,7 +202,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
                     ( 0 < tc->newPort ? "sending 'stopped' to change port" :
                       "getting peers" ) ) ) );
     }
-    
+
     if( NULL != tc->http )
     {
         switch( tr_httpPulse( tc->http, &data, &len ) )
@@ -239,7 +237,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         tr_inf( "Scrape: sent http request to %s:%d",
                     inf->trackerAddress, inf->trackerPort );
     }
-    
+
     if( NULL != tc->httpScrape )
     {
         switch( tr_httpPulse( tc->httpScrape, &data, &len ) )
@@ -250,7 +248,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
             case TR_ERROR:
                 tr_httpClose( tc->httpScrape );
                 tr_fdSocketClosed( tor->fdlimit, 1 );
-                tc->httpScrape    = NULL;
+                tc->httpScrape       = NULL;
                 tc->lastScrapeFailed = 1;
                 return 0;
 
@@ -325,20 +323,21 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
     uint64_t       left;
     uint64_t       down;
     uint64_t       up;
-    char         * start;
+    char           start;
     int            numwant = 50;
 
     down = tor->downloadedCur;
-    up = tor->uploadedCur;
+    up   = tor->uploadedCur;
     if( tc->started )
     {
         event = "&event=started";
-        down = up = 0;
-        
+        down  = 0;
+        up    = 0;
+
         if( 0 < tc->newPort )
         {
             tc->bindPort = tc->newPort;
-            tc->newPort = -1;
+            tc->newPort  = -1;
         }
     }
     else if( tc->completed )
@@ -355,22 +354,12 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
         event = "";
     }
 
-    if( NULL == strchr( inf->trackerAnnounce, '?' ) )
-    {
-        start = "?";
-    }
-    else
-    {
-        start = "&";
-    }
-
-    left = tr_cpLeftBytes( tor->completion );
-    
+    start     = ( strchr( inf->trackerAnnounce, '?' ) ? '&' : '?' );
+    left      = tr_cpLeftBytes( tor->completion );
     trackerid = tor->trackerid ? ( "&trackerid=%s", tor->trackerid ) : ""; 
 
-    return tr_httpClient( TR_HTTP_GET, inf->trackerAddress,
-                          inf->trackerPort,
-                          "%s%s"
+    return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+                          "%s%c"
                           "info_hash=%s&"
                           "peer_id=%s&"
                           "port=%d&"
@@ -382,8 +371,9 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
                           "key=%s"
                           "%s"
                           "%s",
-                          inf->trackerAnnounce, start, tor->escapedHashString, tc->id,
-                          tc->bindPort, up, down, left, numwant, tor->key, trackerid, event );
+                          inf->trackerAnnounce, start, tor->escapedHashString,
+                          tc->id, tc->bindPort, up, down, left, numwant,
+                          tor->key, trackerid, event );
 }
 
 static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
@@ -391,9 +381,14 @@ static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
     tr_torrent_t * tor = tc->tor;
     tr_info_t    * inf = &tor->info;
 
+    char           start;
+
+    start = ( strchr( tor->scrape, '?' ) ? '&' : '?' );
+
     return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
-                          "%s%sinfo_hash=%s", tor->scrape, strchr( tor->scrape, '?' ) ?
-                          "&" : "?", tor->escapedHashString );
+                          "%s%c"
+                          "info_hash=%s",
+                          tor->scrape, start, tor->escapedHashString );
 }
 
 static void readAnswer( tr_tracker_t * tc, const char * data, int len )
@@ -404,8 +399,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     benc_val_t   beAll;
     benc_val_t * bePeers, * beFoo;
     const uint8_t * body;
-    int bodylen;
-    int shouldfree;
+    int bodylen, shouldfree, scrapeNeeded;
 
     tc->dateTry = tr_date();
     code = tr_httpResponseCode( data, len );
@@ -433,7 +427,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         tc->lastAttempt = TC_ATTEMPT_NOREACH;
         return;
     }
-    bodylen = len - (body - (const uint8_t*)data);
+    bodylen = len - ( body - (const uint8_t*)data );
 
     /* Find and load the dictionary */
     shouldfree = 0;
@@ -475,8 +469,8 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
 
     /* Get the tracker interval, force to between
        10 sec and 5 mins */
-    if( !( beFoo = tr_bencDictFind( &beAll, "interval" ) ) ||
-        !( beFoo->type & TYPE_INT ) )
+    beFoo = tr_bencDictFind( &beAll, "interval" );
+    if( !beFoo || TYPE_INT != beFoo->type )
     {
         tr_err( "Tracker: no 'interval' field" );
         goto cleanup;
@@ -484,25 +478,26 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
 
     tc->interval = beFoo->val.i;
     tr_inf( "Tracker: interval = %d seconds", tc->interval );
-    
+
     tc->interval = MIN( tc->interval, 300 );
     tc->interval = MAX( 10, tc->interval );
-    
+
     /* Get the tracker minimum interval, force to between
        10 sec and 5 mins  */
-    if( ( beFoo = tr_bencDictFind( &beAll, "min interval" ) ) &&
-        ( beFoo->type & TYPE_INT ) )
+    beFoo = tr_bencDictFind( &beAll, "min interval" );
+    if( beFoo && TYPE_INT == beFoo->type )
     {
         tc->minInterval = beFoo->val.i;
         tr_inf( "Tracker: min interval = %d seconds", tc->minInterval );
-        
+
         tc->minInterval = MIN( tc->minInterval, 300 );
         tc->minInterval = MAX( 10, tc->minInterval );
-        
-        if( tc->interval < tc->minInterval)
+
+        if( tc->interval < tc->minInterval )
         {
             tc->interval = tc->minInterval;
-            tr_inf( "Tracker: 'interval' less than 'min interval', use 'min interval'" );
+            tr_inf( "Tracker: 'interval' less than 'min interval', "
+                    "using 'min interval'" );
         }
     }
     else
@@ -511,9 +506,9 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         tr_inf( "Tracker: no 'min interval' field" );
     }
 
-    int scrapeNeeded = 0;
-    if( ( beFoo = tr_bencDictFind( &beAll, "complete" ) ) &&
-        ( beFoo->type & TYPE_INT ) )
+    scrapeNeeded = 0;
+    beFoo = tr_bencDictFind( &beAll, "complete" );
+    if( beFoo && TYPE_INT == beFoo->type )
     {
         tc->seeders = beFoo->val.i;
     }
@@ -521,8 +516,9 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     {
         scrapeNeeded = 1;
     }
-    if( ( beFoo = tr_bencDictFind( &beAll, "incomplete" ) ) &&
-        ( beFoo->type & TYPE_INT ) )
+
+    beFoo = tr_bencDictFind( &beAll, "incomplete" );
+    if( beFoo && TYPE_INT == beFoo->type )
     {
         tc->leechers = beFoo->val.i;
     }
@@ -530,20 +526,23 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     {
         scrapeNeeded = 1;
     }
+
     tc->scrapeNeeded = scrapeNeeded;
-    
     if( !scrapeNeeded )
-        tc->hasManyPeers = tc->seeders + tc->leechers >= 50;
-    
-    if( beFoo = tr_bencDictFind( &beAll, "tracker id" ) )
     {
-        if( tor->trackerid )
-            free( tor->trackerid );
-        tor->trackerid = strdup( beFoo->val.s.s );
-        tr_inf( "Tracker: tracker id = %s", tor->trackerid);
+        tc->hasManyPeers = ( tc->seeders + tc->leechers >= 50 );
     }
-    
-    if( !( bePeers = tr_bencDictFind( &beAll, "peers" ) ) )
+
+    beFoo = tr_bencDictFind( &beAll, "tracker id" );
+    if( beFoo )
+    {
+        free( tor->trackerid );
+        tor->trackerid = strdup( beFoo->val.s.s );
+        tr_inf( "Tracker: tracker id = %s", tor->trackerid );
+    }
+
+    bePeers = tr_bencDictFind( &beAll, "peers" );
+    if( !bePeers )
     {
         if( tc->stopped || 0 < tc->newPort )
         {
@@ -634,8 +633,6 @@ cleanup:
 
 static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
 {
-    tr_torrent_t * tor = tc->tor;
-    int i;
     int code;
     const uint8_t * body;
     int bodylen, ii;
@@ -666,10 +663,9 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         tc->lastScrapeFailed = 1;
         return;
     }
-    
+
     tc->lastScrapeFailed = 0;
-    
-    bodylen = len - (body - (const uint8_t*)data);
+    bodylen = len - ( body - (const uint8_t*)data );
 
     for( ii = 0; ii < bodylen - 8; ii++ )
     {
@@ -725,16 +721,16 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
     tc->downloaded = val2->val.i;
     
     val2 = tr_bencDictFind( val1, "flags" );
-    if (val2)
+    if( val2 )
     {
         val2 = tr_bencDictFind( val2, "min_request_interval" );
-        if (val2)
+        if( val2 )
         {
             tc->scrapeInterval = val2->val.i;
         }
     }
     
-    tc->hasManyPeers = tc->seeders + tc->leechers >= 50;
+    tc->hasManyPeers = ( tc->seeders + tc->leechers >= 50 );
     
     tr_bencFree( &scrape );
 }
@@ -769,7 +765,6 @@ int tr_trackerDownloaded( tr_tracker_t * tc )
 /* Blocking version */
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 {
-    tr_info_t    * inf = &tor->info;
     tr_tracker_t * tc;
     tr_http_t    * http;
     const char   * data;
@@ -793,12 +788,10 @@ int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 
             case TR_ERROR:
                 goto scrapeDone;
-                break;
 
             case TR_OK:
                 readScrapeAnswer( tc, data, len );
                 goto scrapeDone;
-                break;
         }
     }
 

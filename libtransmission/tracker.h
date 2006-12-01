@@ -56,7 +56,12 @@ int tr_trackerLeechers ( tr_tracker_t * );
  **********************************************************************/
 int tr_trackerDownloaded( tr_tracker_t * tc );
 
-
+/***********************************************************************
+ * tr_trackerScrape
+ ***********************************************************************
+ * Attempt a blocking scrape and return the seeders, leechers, and
+ * completed downloads if successful.
+ **********************************************************************/
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d );
 
 #endif
