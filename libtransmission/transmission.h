@@ -61,6 +61,8 @@ extern "C" {
 typedef struct tr_handle_s tr_handle_t;
 tr_handle_t * tr_init();
 
+typedef struct tr_announce_list_item_s tr_announce_list_item_t;
+
 /***********************************************************************
  * tr_setMessageLevel
  ***********************************************************************
@@ -315,9 +317,14 @@ struct tr_info_s
     int         flags;
 
     /* Tracker info */
-    char        trackerAddress[256];
-    int         trackerPort;
-    char        trackerAnnounce[MAX_PATH_LENGTH];
+    char                trackerAddress[256];
+    int                 trackerPort;
+    char                trackerAnnounce[MAX_PATH_LENGTH];
+    char                trackerScrape[MAX_PATH_LENGTH];
+    int                 trackerCanScrape;
+    
+    tr_announce_list_item_t  * trackerAnnounceList;
+    int                 trackerAnnounceTiers;
     
     /* Torrent info */
     char        comment[MAX_PATH_LENGTH];
@@ -393,6 +400,15 @@ struct tr_msg_list_s
     time_t                 when;
     char                 * message;
     struct tr_msg_list_s * next;
+};
+
+struct tr_announce_list_item_s
+{
+    char address[256];
+    int port;
+    char announce[MAX_PATH_LENGTH];
+    
+    tr_announce_list_item_t * nextItem;
 };
 
 #ifdef __TRANSMISSION__

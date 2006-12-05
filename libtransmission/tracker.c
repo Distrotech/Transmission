@@ -47,6 +47,10 @@ struct tr_tracker_s
     uint64_t       dateOk;
     uint64_t       dateScrape;
     int            lastScrapeFailed;
+    
+    int            shouldsetAnnounce;
+    int            announceTier;
+    int            announceTierLast;
 
 #define TC_ATTEMPT_NOREACH 1
 #define TC_ATTEMPT_ERROR   2
@@ -61,6 +65,9 @@ struct tr_tracker_s
     int            newPort;
 };
 
+static void        setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem );
+static int         announceToScrape( char * announce, char * scrape );
+static void        failureAnnouncing( tr_tracker_t * tc );
 static tr_http_t * getQuery         ( tr_tracker_t * tc );
 static tr_http_t * getScrapeQuery   ( tr_tracker_t * tc );
 static void        readAnswer       ( tr_tracker_t * tc, const char *, int );
@@ -74,6 +81,8 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc                 = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor            = tor;
     tc->id             = tor->id;
+    
+    setAnnounce( tc, &tor->info.trackerAnnounceList[0] );
 
     tc->started        = 1;
 
@@ -91,11 +100,90 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     return tc;
 }
 
+static void setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem )
+{
+    tr_torrent_t * tor = tc->tor;
+    tr_info_t    * inf = &tor->info;
+    
+    tr_lockLock( &tor->lock );
+    
+    snprintf( inf->trackerAddress, 256, "%s", announceItem->address );
+    inf->trackerPort = announceItem->port;
+    snprintf( inf->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
+    
+    inf->trackerCanScrape = announceToScrape( announceItem->announce, inf->trackerScrape );
+    tc->dateScrape = 0;
+    
+    tr_lockUnlock( &tor->lock );
+}
+
+static int announceToScrape( char * announce, char * scrape )
+{   
+    char * slash, * nextSlash;
+    int pre, post;
+    
+    slash = strchr( announce, '/' );
+    while( ( nextSlash = strchr( slash + 1, '/' ) ) )
+    {
+        slash = nextSlash;
+    }
+    slash++;
+    
+    if( !strncmp( slash, "announce", 8 ) )
+    {
+        pre  = (long) slash - (long) announce;
+        post = strlen( announce ) - pre - 8;
+        memcpy( scrape, announce, pre );
+        sprintf( &scrape[pre], "scrape" );
+        memcpy( &scrape[pre+6], &announce[pre+8], post );
+        scrape[pre+6+post] = 0;
+        
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static void failureAnnouncing( tr_tracker_t * tc )
+{
+    tr_torrent_t * tor = tc->tor;
+    tr_info_t    * inf = &tor->info;
+    
+    int i;
+    tr_announce_list_item_t * announceItem;
+    
+    tc->announceTierLast++;
+    tc->shouldsetAnnounce = 1;
+    
+    /* If there are no more trackers don't try to change the announce */
+    if( tc->announceTier <= inf->trackerAnnounceTiers)
+        return;
+    
+    announceItem = &inf->trackerAnnounceList[tc->announceTier];
+    for( i = 0; i <= tc->announceTierLast; i++ )
+    {
+        announceItem = announceItem->nextItem;
+    }
+    
+    if( announceItem == NULL )
+    {
+        tc->shouldsetAnnounce = 0;
+    }
+}
+
 static int shouldConnect( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
     uint64_t       now;
-
+    
+    /* Last tracker failed, try next */
+    if( tc->shouldsetAnnounce )
+    {
+        return 1;
+    }
+    
     now = tr_date();
 
     /* Unreachable tracker, try 10 seconds before trying again */
@@ -161,10 +249,12 @@ static int shouldConnect( tr_tracker_t * tc )
 
 static int shouldScrape( tr_tracker_t * tc )
 {
+    tr_torrent_t * tor = tc->tor;
+    tr_info_t    * inf = &tor->info;
     uint64_t now, interval;
 
-    /* scrape not supported */
-    if( !tc->tor->scrape[0] )
+    /* in process of changing tracker or scrape not supported */
+    if( tc->shouldsetAnnounce || !inf->trackerCanScrape )
     {
         return 0;
     }
@@ -191,10 +281,49 @@ int tr_trackerPulse( tr_tracker_t * tc )
     tr_torrent_t * tor = tc->tor;
     tr_info_t    * inf = &tor->info;
     const char   * data;
-    int            len;
+    int            len, i;
+    tr_announce_list_item_t * announceItem;
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
+        if( tc->shouldsetAnnounce )
+        {
+            tr_err( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
+            
+            announceItem = &inf->trackerAnnounceList[tc->announceTier];
+            for( i = 0; i <= tc->announceTierLast; i++ )
+            {
+                announceItem = announceItem->nextItem;
+            }
+            
+            if( announceItem != NULL )
+            {
+                tc->announceTierLast++;
+                
+                /* Move address to front of tier in announce list */
+            }
+            else
+            {
+                tc->announceTierLast = 0;
+                tc->announceTier++;
+                
+                announceItem = &inf->trackerAnnounceList[tc->announceTier];
+            }
+            
+            setAnnounce( tc, announceItem );
+            
+            tc->shouldsetAnnounce = 0;
+        }
+        else
+        {
+            if( tc->announceTier != 0 )
+            {
+                setAnnounce( tc, inf->trackerAnnounceList );
+                tc->announceTier = 0;
+            }
+            tc->announceTierLast = 0;
+        }
+        
         if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
         {
             return 0;
@@ -221,11 +350,26 @@ int tr_trackerPulse( tr_tracker_t * tc )
             case TR_ERROR:
                 killHttp( &tc->http, tor->fdlimit );
                 tc->dateTry = tr_date();
-                break;
+                
+                failureAnnouncing( tc );
+                if ( tc->shouldsetAnnounce )
+                {
+                    tr_trackerPulse( tc );
+                }
+                
+                return;
 
             case TR_OK:
                 readAnswer( tc, data, len );
                 killHttp( &tc->http, tor->fdlimit );
+                
+                /* Something happened to need to try next address */
+                if ( tc->shouldsetAnnounce )
+                {
+                    tr_trackerPulse( tc );
+                    return;
+                }
+                
                 break;
         }
     }
@@ -257,6 +401,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
             case TR_OK:
                 readScrapeAnswer( tc, data, len );
                 killHttp( &tc->httpScrape, tor->fdlimit );
+                
                 break;
         }
     }
@@ -376,12 +521,12 @@ static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
 
     char           start;
 
-    start = ( strchr( tor->scrape, '?' ) ? '&' : '?' );
+    start = ( strchr( inf->trackerScrape, '?' ) ? '&' : '?' );
 
     return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
                           "%s%c"
                           "info_hash=%s",
-                          tor->scrape, start, tor->escapedHashString );
+                          inf->trackerScrape, start, tor->escapedHashString );
 }
 
 static void readAnswer( tr_tracker_t * tc, const char * data, int len )
@@ -396,11 +541,13 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
 
     tc->dateTry = tr_date();
     code = tr_httpResponseCode( data, len );
+    
     if( 0 > code )
     {
         /* We don't have a valid HTTP status line */
         tr_inf( "Tracker: invalid HTTP status line" );
         tc->lastAttempt = TC_ATTEMPT_NOREACH;
+        failureAnnouncing( tc );
         return;
     }
 
@@ -409,6 +556,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         /* we didn't get a 2xx status code */
         tr_err( "Tracker: invalid HTTP status code: %i", code );
         tc->lastAttempt = TC_ATTEMPT_ERROR;
+        failureAnnouncing( tc );
         return;
     }
 
@@ -418,6 +566,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     {
         tr_err( "Tracker: could not find end of HTTP headers" );
         tc->lastAttempt = TC_ATTEMPT_NOREACH;
+        failureAnnouncing( tc );
         return;
     }
     bodylen = len - ( body - (const uint8_t*)data );
@@ -442,6 +591,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         }
         tr_err( "Tracker: no valid dictionary found in answer" );
         tc->lastAttempt = TC_ATTEMPT_ERROR;
+        failureAnnouncing( tc );
         return;
     }
 
@@ -454,6 +604,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         snprintf( tor->trackerError, sizeof( tor->trackerError ),
                   "%s", bePeers->val.s.s );
         tc->lastAttempt = TC_ATTEMPT_ERROR;
+        failureAnnouncing( tc );
         goto cleanup;
     }
 
@@ -542,6 +693,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
             goto nodict;
         }
         tr_err( "Tracker: no \"peers\" field" );
+        failureAnnouncing( tc );
         goto cleanup;
     }
 
@@ -754,13 +906,15 @@ int tr_trackerDownloaded( tr_tracker_t * tc )
 /* Blocking version */
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 {
+    tr_info_t    * inf = &tor->info;
+    
     tr_tracker_t * tc;
     tr_http_t    * http;
     const char   * data;
     int            len;
     int            ret;
 
-    if( !tor->scrape[0] )
+    if( !inf->trackerCanScrape )
     {
         return 1;
     }

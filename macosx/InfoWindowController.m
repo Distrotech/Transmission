@@ -49,6 +49,7 @@
 
 @interface InfoWindowController (Private)
 
+- (void) updateInfoGeneral;
 - (void) updateInfoActivity;
 - (void) updateInfoPeers;
 
@@ -203,11 +204,8 @@
         [fNameField setToolTip: name];
         [fSizeField setStringValue: [NSString stringForFileSize: [torrent size]]];
         
-        NSString * tracker = [[torrent tracker] stringByAppendingString: [torrent announce]],
-                * hashString = [torrent hashString],
+        NSString * hashString = [torrent hashString],
                 * commentString = [torrent comment];
-        [fTrackerField setStringValue: tracker];
-        [fTrackerField setToolTip: tracker];
         [fPiecesField setStringValue: [NSString stringWithFormat: @"%d, %@", [torrent pieceCount],
                                         [NSString stringForFileSize: [torrent pieceSize]]]];
         [fHashField setStringValue: hashString];
@@ -279,7 +277,21 @@
         [self updateInfoActivity];
     else if ([[[fTabView selectedTabViewItem] identifier] isEqualToString: TAB_PEERS_IDENT])
         [self updateInfoPeers];
+    else if ([[[fTabView selectedTabViewItem] identifier] isEqualToString: TAB_INFO_IDENT])
+        [self updateInfoGeneral];
     else;
+}
+
+- (void) updateInfoGeneral
+{   
+    int numberSelected = [fTorrents count];
+    if (numberSelected != 1)
+        return;
+    
+    Torrent * torrent = [fTorrents objectAtIndex: 0];
+    NSString * tracker = [[torrent tracker] stringByAppendingString: [torrent announce]];
+    [fTrackerField setStringValue: tracker];
+    [fTrackerField setToolTip: tracker];
 }
 
 - (void) updateInfoActivity

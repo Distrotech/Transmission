@@ -302,23 +302,6 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
     tor->bindPort = &h->bindPort;
 	tor->finished = 0;
 
-
-    /* Guess scrape URL */
-    s1 = strchr( inf->trackerAnnounce, '/' );
-    while( ( s2 = strchr( s1 + 1, '/' ) ) )
-    {
-        s1 = s2;
-    }
-    s1++;
-    if( !strncmp( s1, "announce", 8 ) )
-    {
-        int pre  = (long) s1 - (long) inf->trackerAnnounce;
-        int post = strlen( inf->trackerAnnounce ) - pre - 8;
-        memcpy( tor->scrape, inf->trackerAnnounce, pre );
-        sprintf( &tor->scrape[pre], "scrape" );
-        memcpy( &tor->scrape[pre+6], &inf->trackerAnnounce[pre+8], post );
-    }
-
     /* Escaped info hash for HTTP queries */
     for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
     {
