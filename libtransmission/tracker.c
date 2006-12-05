@@ -48,7 +48,7 @@ struct tr_tracker_s
     uint64_t       dateScrape;
     int            lastScrapeFailed;
     
-    int            shouldsetAnnounce;
+    int            shouldChangeAnnounce;
     int            announceTier;
     int            announceTierLast;
 
@@ -155,7 +155,7 @@ static void failureAnnouncing( tr_tracker_t * tc )
     tr_announce_list_item_t * announceItem;
     
     tc->announceTierLast++;
-    tc->shouldsetAnnounce = 1;
+    tc->shouldChangeAnnounce = 1;
     
     /* If there are no more trackers don't try to change the announce */
     if( tc->announceTier <= inf->trackerAnnounceTiers)
@@ -169,7 +169,7 @@ static void failureAnnouncing( tr_tracker_t * tc )
     
     if( announceItem == NULL )
     {
-        tc->shouldsetAnnounce = 0;
+        tc->shouldChangeAnnounce = 0;
     }
 }
 
@@ -179,7 +179,7 @@ static int shouldConnect( tr_tracker_t * tc )
     uint64_t       now;
     
     /* Last tracker failed, try next */
-    if( tc->shouldsetAnnounce )
+    if( tc->shouldChangeAnnounce )
     {
         return 1;
     }
@@ -254,7 +254,7 @@ static int shouldScrape( tr_tracker_t * tc )
     uint64_t now, interval;
 
     /* in process of changing tracker or scrape not supported */
-    if( tc->shouldsetAnnounce || !inf->trackerCanScrape )
+    if( tc->shouldChangeAnnounce || !inf->trackerCanScrape )
     {
         return 0;
     }
@@ -286,7 +286,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
-        if( tc->shouldsetAnnounce )
+        if( tc->shouldChangeAnnounce )
         {
             tr_err( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
             
@@ -312,7 +312,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
             
             setAnnounce( tc, announceItem );
             
-            tc->shouldsetAnnounce = 0;
+            tc->shouldChangeAnnounce = 0;
         }
         else
         {
@@ -352,7 +352,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 tc->dateTry = tr_date();
                 
                 failureAnnouncing( tc );
-                if ( tc->shouldsetAnnounce )
+                if ( tc->shouldChangeAnnounce )
                 {
                     tr_trackerPulse( tc );
                 }
@@ -364,7 +364,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 killHttp( &tc->http, tor->fdlimit );
                 
                 /* Something happened to need to try next address */
-                if ( tc->shouldsetAnnounce )
+                if ( tc->shouldChangeAnnounce )
                 {
                     tr_trackerPulse( tc );
                     return;

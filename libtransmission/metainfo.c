@@ -275,6 +275,9 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         if( !( val = tr_bencDictFind( &meta, "announce" ) ) )
         {
             tr_err( "No \"announce\" entry" );
+            free( address );
+            free( announce );
+            
             tr_bencFree( &meta );
             return 1;
         }
@@ -282,6 +285,9 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         if ( !parseAnnounce( val->val.s.s, address, &port, announce ) )
         {
             tr_err( "Invalid announce URL (%s)", val->val.s.s );
+            free( address );
+            free( announce );
+            
             tr_bencFree( &meta );
             return 1;
         }
