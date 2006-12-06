@@ -282,7 +282,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
     tr_info_t    * inf = &tor->info;
     const char   * data;
     int            len, i;
-    tr_announce_list_item_t * announceItem;
+    tr_announce_list_item_t * announceItem, * prevAnnounceItem, * tempAnnounceItem;
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
@@ -293,6 +293,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
             announceItem = &inf->trackerAnnounceList[tc->announceTier];
             for( i = 0; i <= tc->announceTierLast; i++ )
             {
+                prevAnnounceItem = announceItem;
                 announceItem = announceItem->nextItem;
             }
             
@@ -301,6 +302,14 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 tc->announceTierLast++;
                 
                 /* Move address to front of tier in announce list */
+                prevAnnounceItem->nextItem = announceItem->nextItem;
+                
+                tempAnnounceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
+                *tempAnnounceItem = inf->trackerAnnounceList[tc->announceTier];
+                inf->trackerAnnounceList[tc->announceTier] = *announceItem;
+                inf->trackerAnnounceList[tc->announceTier].nextItem = tempAnnounceItem;
+                
+                free( announceItem );
             }
             else
             {
