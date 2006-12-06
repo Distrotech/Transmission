@@ -154,11 +154,10 @@ static void failureAnnouncing( tr_tracker_t * tc )
     int i;
     tr_announce_list_item_t * announceItem;
     
-    tc->announceTierLast++;
     tc->shouldChangeAnnounce = 1;
     
     /* If there are no more trackers don't try to change the announce */
-    if( tc->announceTier <= inf->trackerAnnounceTiers)
+    if( tc->announceTier < inf->trackerAnnounceTiers)
         return;
     
     announceItem = &inf->trackerAnnounceList[tc->announceTier];
