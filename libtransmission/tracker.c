@@ -315,11 +315,9 @@ int tr_trackerPulse( tr_tracker_t * tc )
             {
                 tc->announceTierLast = 0;
                 tc->announceTier++;
-                
-                announceItem = &inf->trackerAnnounceList[tc->announceTier];
             }
             
-            setAnnounce( tc, announceItem );
+            setAnnounce( tc, &inf->trackerAnnounceList[tc->announceTier] );
             
             tc->shouldChangeAnnounce = 0;
         }
