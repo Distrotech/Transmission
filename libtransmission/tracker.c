@@ -122,7 +122,7 @@ static void failureAnnouncing( tr_tracker_t * tc )
         return;
     
     /* If there are no more trackers don't try to change the announce */
-    announceItem = &inf->trackerAnnounceList[tc->announceTier];
+    announceItem = inf->trackerAnnounceList[tc->announceTier];
     for( i = 0; i <= tc->announceTierLast; i++ )
     {
         announceItem = announceItem->nextItem;
@@ -243,7 +243,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
     tr_info_t    * inf = &tor->info;
     const char   * data;
     int            len, i;
-    tr_announce_list_item_t * announceItem, * prevAnnounceItem, * tempAnnounceItem;
+    tr_announce_list_item_t * announceItem, * prevAnnounceItem;
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
@@ -251,7 +251,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         {
             tr_err( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
             
-            announceItem = &inf->trackerAnnounceList[tc->announceTier];
+            announceItem = inf->trackerAnnounceList[tc->announceTier];
             for( i = 0; i <= tc->announceTierLast; i++ )
             {
                 prevAnnounceItem = announceItem;
@@ -264,13 +264,8 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 
                 /* Move address to front of tier in announce list */
                 prevAnnounceItem->nextItem = announceItem->nextItem;
-                
-                tempAnnounceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
-                *tempAnnounceItem = inf->trackerAnnounceList[tc->announceTier];
-                inf->trackerAnnounceList[tc->announceTier] = *announceItem;
-                inf->trackerAnnounceList[tc->announceTier].nextItem = tempAnnounceItem;
-                
-                free( announceItem );
+                announceItem->nextItem = inf->trackerAnnounceList[tc->announceTier];
+                inf->trackerAnnounceList[tc->announceTier] = announceItem;
             }
             else
             {
@@ -278,14 +273,14 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 tc->announceTier++;
             }
             
-            setAnnounce( tc, &inf->trackerAnnounceList[tc->announceTier] );
+            setAnnounce( tc, inf->trackerAnnounceList[tc->announceTier] );
             tc->shouldChangeAnnounce = 0;
         }
         else
         {
             if( tc->announceTier != 0 )
             {
-                setAnnounce( tc, inf->trackerAnnounceList );
+                setAnnounce( tc, inf->trackerAnnounceList[0] );
                 tc->announceTier = 0;
             }
             tc->announceTierLast = 0;

@@ -328,7 +328,7 @@ struct tr_info_s
     char                trackerScrape[MAX_PATH_LENGTH];
     int                 trackerCanScrape;
     
-    tr_announce_list_item_t  * trackerAnnounceList;
+    tr_announce_list_item_t  ** trackerAnnounceList;
     int                 trackerAnnounceTiers;
     
     /* Torrent info */

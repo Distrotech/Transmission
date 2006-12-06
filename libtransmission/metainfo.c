@@ -86,9 +86,9 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     char       * buf;
     benc_val_t   meta, * beInfo, * list, * val, * sublist;
     char       * address, * announce;
-    int          i, j, k, tiers, inTier, port, random;
+    int          i, j, k, tiersSet, tiers, inTier, port, random;
     struct stat sb;
-    tr_announce_list_item_t * announceItem, * lastAnnounceItem;
+    tr_announce_list_item_t * announceItem, * prevAnnounceItem, * nextAnnounceItem;
 
     assert( NULL == path || NULL == savedHash );
     /* if savedHash isn't null, saveCopy should be false */
@@ -194,11 +194,13 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     address = calloc( sizeof( char ), 256 );
     announce = calloc( sizeof( char ), MAX_PATH_LENGTH );
     
+    tiersSet = 0;
     if( ( val = tr_bencDictFind( &meta, "announce-list" ) ) )
     {
         list = val->val.l.vals;
         
-        inf->trackerAnnounceList = calloc( sizeof( tr_announce_list_item_t ), val->val.l.count );
+        inf->trackerAnnounceList = calloc( sizeof( int ), val->val.l.count );
+        tiersSet = 1;
         
         tiers = 0;
         for( i = 0; i < val->val.l.count; i++ )
@@ -213,35 +215,29 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
                     continue;
                 }
                 
-                if( inTier == 0 )
+                /* Shuffle order of sublist */
+                random = tr_rand( inTier+1 );
+                
+                announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
+                prevAnnounceItem = 0;
+                nextAnnounceItem = inf->trackerAnnounceList[tiers];
+                for( k = 0; k < random; k++ )
                 {
-                    announceItem = & inf->trackerAnnounceList[tiers];
+                    prevAnnounceItem = nextAnnounceItem;
+                    nextAnnounceItem = nextAnnounceItem->nextItem;
+                }
+                
+                announceItem->nextItem = nextAnnounceItem;
+                if( prevAnnounceItem )
+                {
+                    prevAnnounceItem->nextItem = announceItem;
                 }
                 else
                 {
-                    announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
-                    
-                    /* Shuffle order of tier addresses */
-                    random = tr_rand( inTier + 1 );
-                    if( random == 0 )
-                    {
-                        *announceItem = inf->trackerAnnounceList[tiers];
-                        inf->trackerAnnounceList[tiers].nextItem = announceItem;
-                        announceItem = & inf->trackerAnnounceList[tiers];
-                    }
-                    else
-                    {
-                        lastAnnounceItem = & inf->trackerAnnounceList[tiers];
-                        for( k = 0; k < random - 1; k++ )
-                        {
-                            lastAnnounceItem = lastAnnounceItem->nextItem;
-                        }
-                        
-                        announceItem->nextItem = lastAnnounceItem->nextItem;
-                        lastAnnounceItem->nextItem = announceItem;
-                    }
+                    inf->trackerAnnounceList[tiers] = announceItem;
                 }
                 
+                /* Set values */
                 snprintf( announceItem->address, 256, "%s", address );
                 announceItem->port = port;
                 snprintf( announceItem->announce, MAX_PATH_LENGTH, "%s", announce );
@@ -250,7 +246,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
             }
             
             /* Only use tier if there are useable addresses */
-            if (inTier)
+            if( inTier > 0 )
             {
                 tiers++;
             }
@@ -263,7 +259,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     for( i = 0; i < inf->trackerAnnounceTiers; i++ )
     {
         tr_err( "list %d:", i );
-        for (announceItem = & inf->trackerAnnounceList[i]; announceItem != NULL; announceItem = announceItem->nextItem)
+        for (announceItem = inf->trackerAnnounceList[i]; announceItem != NULL; announceItem = announceItem->nextItem)
         {
             tr_err( "%s:%d%s", announceItem->address, announceItem->port, announceItem->announce );
         }
@@ -292,16 +288,17 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
             return 1;
         }
         
-        if ( !inf->trackerAnnounceList )
-            inf->trackerAnnounceList = calloc( sizeof( tr_announce_list_item_t ), 1 );
+        if ( !tiersSet )
+            inf->trackerAnnounceList = calloc( sizeof( int ), 1 );
+        announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
         
         inf->trackerAnnounceTiers = 1;
-        snprintf( inf->trackerAnnounceList[0].address, 256, "%s", address );
-        inf->trackerAnnounceList[0].port = port;
-        snprintf( inf->trackerAnnounceList[0].announce, MAX_PATH_LENGTH, "%s", announce );
+        snprintf( inf->trackerAnnounceList[0]->address, 256, "%s", address );
+        inf->trackerAnnounceList[0]->port = port;
+        snprintf( inf->trackerAnnounceList[0]->announce, MAX_PATH_LENGTH, "%s", announce );
     }
     
-    tr_setTorrentAnnounce( inf, &inf->trackerAnnounceList[0] );
+    tr_setTorrentAnnounce( inf, inf->trackerAnnounceList[0] );
     
     free( address );
     free( announce );
