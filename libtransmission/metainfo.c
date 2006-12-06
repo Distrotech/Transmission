@@ -301,6 +301,8 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         snprintf( inf->trackerAnnounceList[0].announce, MAX_PATH_LENGTH, "%s", announce );
     }
     
+    tr_setTorrentAnnounce( inf, &inf->trackerAnnounceList[0] );
+    
     free( address );
     free( announce );
         

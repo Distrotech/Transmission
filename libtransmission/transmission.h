@@ -259,6 +259,11 @@ typedef struct tr_stat_s tr_stat_t;
 tr_stat_t * tr_torrentStat( tr_torrent_t * );
 
 /***********************************************************************
+ * tr_setTorrentAnnounce
+ ***********************************************************************/
+void tr_setTorrentAnnounce( tr_info_t * inf, tr_announce_list_item_t * announceItem );
+
+/***********************************************************************
  * tr_torrentPeers
  ***********************************************************************/
 typedef struct tr_peer_stat_s tr_peer_stat_t;

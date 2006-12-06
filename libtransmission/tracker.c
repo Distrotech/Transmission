@@ -65,8 +65,7 @@ struct tr_tracker_s
     int            newPort;
 };
 
-static void        setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem );
-static int         announceToScrape( char * announce, char * scrape );
+static void        setAnnounce      ( tr_tracker_t * tc, tr_announce_list_item_t * announceItem );
 static void        failureAnnouncing( tr_tracker_t * tc );
 static tr_http_t * getQuery         ( tr_tracker_t * tc );
 static tr_http_t * getScrapeQuery   ( tr_tracker_t * tc );
@@ -81,8 +80,6 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc                 = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor            = tor;
     tc->id             = tor->id;
-    
-    setAnnounce( tc, &tor->info.trackerAnnounceList[0] );
 
     tc->started        = 1;
 
@@ -102,48 +99,12 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 
 static void setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem )
 {
-    tr_torrent_t * tor = tc->tor;
-    tr_info_t    * inf = &tor->info;
+    tr_lockLock( &tc->tor->lock );
     
-    tr_lockLock( &tor->lock );
-    
-    snprintf( inf->trackerAddress, 256, "%s", announceItem->address );
-    inf->trackerPort = announceItem->port;
-    snprintf( inf->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
-    
-    inf->trackerCanScrape = announceToScrape( announceItem->announce, inf->trackerScrape );
+    tr_setTorrentAnnounce( &tc->tor->info, announceItem);
     tc->dateScrape = 0;
     
-    tr_lockUnlock( &tor->lock );
-}
-
-static int announceToScrape( char * announce, char * scrape )
-{   
-    char * slash, * nextSlash;
-    int pre, post;
-    
-    slash = strchr( announce, '/' );
-    while( ( nextSlash = strchr( slash + 1, '/' ) ) )
-    {
-        slash = nextSlash;
-    }
-    slash++;
-    
-    if( !strncmp( slash, "announce", 8 ) )
-    {
-        pre  = (long) slash - (long) announce;
-        post = strlen( announce ) - pre - 8;
-        memcpy( scrape, announce, pre );
-        sprintf( &scrape[pre], "scrape" );
-        memcpy( &scrape[pre+6], &announce[pre+8], post );
-        scrape[pre+6+post] = 0;
-        
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
+    tr_lockUnlock( &tc->tor->lock );
 }
 
 static void failureAnnouncing( tr_tracker_t * tc )
@@ -318,7 +279,6 @@ int tr_trackerPulse( tr_tracker_t * tc )
             }
             
             setAnnounce( tc, &inf->trackerAnnounceList[tc->announceTier] );
-            
             tc->shouldChangeAnnounce = 0;
         }
         else
