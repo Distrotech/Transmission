@@ -290,7 +290,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         
         if ( !tiersSet )
             inf->trackerAnnounceList = calloc( sizeof( int ), 1 );
-        announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
+        inf->trackerAnnounceList[0] = calloc( sizeof( tr_announce_list_item_t ), 1 );
         
         inf->trackerAnnounceTiers = 1;
         snprintf( inf->trackerAnnounceList[0]->address, 256, "%s", address );
