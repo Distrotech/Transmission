@@ -99,12 +99,8 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 
 static void setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem )
 {
-    tr_lockLock( &tc->tor->lock );
-    
     tr_setTorrentAnnounce( &tc->tor->info, announceItem);
     tc->dateScrape = 0;
-    
-    tr_lockUnlock( &tc->tor->lock );
 }
 
 static void failureAnnouncing( tr_tracker_t * tc )
@@ -119,7 +115,9 @@ static void failureAnnouncing( tr_tracker_t * tc )
     
     /* If more tiers then announce can definitely be changed */
     if( tc->announceTier + 1 < inf->trackerAnnounceTiers)
+    {
         return;
+    }
     
     /* If there are no more trackers don't try to change the announce */
     announceItem = inf->trackerAnnounceList[tc->announceTier];
@@ -249,7 +247,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
     {
         if( tc->shouldChangeAnnounce )
         {
-            tr_err( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
+            tr_inf( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
             
             announceItem = inf->trackerAnnounceList[tc->announceTier];
             for( i = 0; i <= tc->announceTierLast; i++ )
@@ -273,6 +271,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 tc->announceTier++;
             }
             
+            tr_inf( "Tracker: tracker address set to %s", inf->trackerAnnounceList[tc->announceTier]->address );
             setAnnounce( tc, inf->trackerAnnounceList[tc->announceTier] );
             tc->shouldChangeAnnounce = 0;
         }

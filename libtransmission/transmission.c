@@ -574,7 +574,6 @@ static int announceToScrape( char * announce, char * scrape )
     }
 }
 
-/* Must lock torrent before use */
 void tr_setTorrentAnnounce( tr_info_t * inf, tr_announce_list_item_t * announceItem )
 {
     snprintf( inf->trackerAddress, 256, "%s", announceItem->address );
