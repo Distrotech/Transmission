@@ -688,6 +688,9 @@ void tr_torrentRemoveSaved( tr_torrent_t * tor ) {
  **********************************************************************/
 void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
 {
+    int i;
+    tr_announce_list_item_t * currentAnnounce, * nextAnnounce;
+    
     tr_info_t * inf = &tor->info;
 
     if( tor->status & ( TR_STATUS_STOPPING | TR_STATUS_STOPPED ) )
@@ -713,6 +716,17 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     }
     free( inf->pieces );
     free( inf->files );
+    
+    for( i = 0; i < inf->trackerAnnounceTiers; i++ )
+    {
+        currentAnnounce = inf->trackerAnnounceList[0];
+        while( currentAnnounce != NULL )
+        {
+            nextAnnounce = currentAnnounce->nextItem;
+            free( currentAnnounce );
+            currentAnnounce = nextAnnounce;
+        }
+    }
 
     if( tor->prev )
     {
