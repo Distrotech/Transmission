@@ -100,6 +100,11 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 static void setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem )
 {
     tr_setTorrentAnnounce( &tc->tor->info, announceItem);
+    
+    /* Needs a new scrape */
+    tc->seeders = -1;
+    tc->leechers = -1;
+    tc->complete = -1;
     tc->dateScrape = 0;
 }
 
