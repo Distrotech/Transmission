@@ -256,6 +256,8 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     }
 
     tr_err( "announce-list:" );
+    if( !inf->trackerAnnounceTiers )
+        tr_err( "no announce-list provided", i );
     for( i = 0; i < inf->trackerAnnounceTiers; i++ )
     {
         tr_err( "list %d:", i );
