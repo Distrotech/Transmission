@@ -719,12 +719,10 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     
     for( i = 0; i < inf->trackerAnnounceTiers; i++ )
     {
-        currentAnnounce = inf->trackerAnnounceList[i];
-        while( currentAnnounce != NULL )
+        for( currentAnnounce = inf->trackerAnnounceList[i]; currentAnnounce != NULL; currentAnnounce = nextAnnounce )
         {
             nextAnnounce = currentAnnounce->nextItem;
             free( currentAnnounce );
-            currentAnnounce = nextAnnounce;
         }
     }
 
