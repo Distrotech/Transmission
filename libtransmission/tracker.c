@@ -762,6 +762,8 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
     {
         /* we didn't get a 2xx status code */
         tr_err( "Scrape: invalid HTTP status code: %i", code );
+        if( TR_HTTP_STATUS_FAIL_CLIENT( code ) )
+            tc->tor->info.trackerCanScrape = 0;
         tc->lastScrapeFailed = 1;
         return;
     }
