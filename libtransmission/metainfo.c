@@ -255,7 +255,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         inf->trackerAnnounceTiers = tiers;
     }
 
-    tr_err( "announce-list:" );
+    /*tr_err( "announce-list:" );
     if( !inf->trackerAnnounceTiers )
         tr_err( "no announce-list provided", i );
     for( i = 0; i < inf->trackerAnnounceTiers; i++ )
@@ -265,7 +265,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         {
             tr_err( "%s:%d%s", announceItem->address, announceItem->port, announceItem->announce );
         }
-    }
+    }*/
     
     /* Regular announce value */
     if ( !inf->trackerAnnounceTiers )
