@@ -277,7 +277,6 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
     tr_torrent_t  * tor_tmp;
     tr_info_t     * inf;
     int             i;
-    char          * s1, * s2;
 
     inf        = &tor->info;
     inf->flags = flags;

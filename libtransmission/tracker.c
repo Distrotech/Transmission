@@ -287,8 +287,6 @@ static int shouldConnect( tr_tracker_t * tc )
 
 static int shouldScrape( tr_tracker_t * tc )
 {
-    tr_torrent_t * tor = tc->tor;
-    tr_info_t    * inf = &tor->info;
     uint64_t now, interval;
 
     /* in process of changing tracker or scrape not supported */
@@ -317,7 +315,6 @@ void tr_trackerChangePort( tr_tracker_t * tc, int port )
 int tr_trackerPulse( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
-    tr_info_t    * inf = &tor->info;
     const char   * data;
     int            len, i;
     tr_announce_list_ptr_t * announcePtr, * prevAnnouncePtr;
@@ -484,7 +481,6 @@ void tr_trackerClose( tr_tracker_t * tc )
 static tr_http_t * getQuery( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
-    tr_info_t    * inf = &tor->info;
 
     char         * event, * trackerid, * idparam;
     uint64_t       left;
@@ -556,7 +552,6 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
 static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
-    tr_info_t    * inf = &tor->info;
 
     char           start;
 
@@ -974,7 +969,6 @@ char * tr_trackerAnnounce( tr_tracker_t * tc )
 /* Blocking version */
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 {
-    tr_info_t    * inf = &tor->info;
     
     tr_tracker_t * tc;
     tr_http_t    * http;
