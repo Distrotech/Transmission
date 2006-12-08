@@ -24,12 +24,31 @@
 
 #include "transmission.h"
 
+typedef struct tr_announce_list_ptr_s tr_announce_list_ptr_t;
+struct tr_announce_list_ptr_s
+{
+    tr_announce_list_item_t * item;
+    tr_announce_list_ptr_t * nextItem;
+};
+
 struct tr_tracker_s
 {
     tr_torrent_t * tor;
 
     char         * id;
     char         * trackerid;
+    
+    char           trackerAddress[256];
+    int            trackerPort;
+    char           trackerAnnounce[MAX_PATH_LENGTH];
+    char           trackerScrape[MAX_PATH_LENGTH];
+    int            trackerCanScrape;
+    
+    tr_announce_list_ptr_t ** trackerAnnounceListPtr;
+    
+    int            shouldChangeAnnounce;
+    int            announceTier;
+    int            announceTierLast;
 
     char           started;
     char           completed;
@@ -47,10 +66,6 @@ struct tr_tracker_s
     uint64_t       dateOk;
     uint64_t       dateScrape;
     int            lastScrapeFailed;
-    
-    int            shouldChangeAnnounce;
-    int            announceTier;
-    int            announceTierLast;
 
 #define TC_ATTEMPT_NOREACH 1
 #define TC_ATTEMPT_ERROR   2
@@ -65,7 +80,8 @@ struct tr_tracker_s
     int            newPort;
 };
 
-static void        setAnnounce      ( tr_tracker_t * tc, tr_announce_list_item_t * announceItem );
+static int         announceToScrape ( char * announce, char * scrape );
+static void        setAnnounce      ( tr_tracker_t * tc, tr_announce_list_ptr_t * announceItem );
 static void        failureAnnouncing( tr_tracker_t * tc );
 static tr_http_t * getQuery         ( tr_tracker_t * tc );
 static tr_http_t * getScrapeQuery   ( tr_tracker_t * tc );
@@ -76,6 +92,9 @@ static void        killHttp         ( tr_http_t ** http, tr_fd_t * fdlimit );
 tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
     tr_tracker_t * tc;
+    tr_announce_list_item_t * announceItem;
+    tr_announce_list_ptr_t * announcePtr, * prevAnnouncePtr;
+    int i;
 
     tc                 = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor            = tor;
@@ -93,13 +112,68 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 
     tc->bindPort       = *(tor->bindPort);
     tc->newPort        = -1;
+    
+    tc->trackerAnnounceListPtr = calloc( sizeof( int ), tor->info.trackerAnnounceTiers );
+    for( i = 0; i < tor->info.trackerAnnounceTiers; i++ )
+    {
+        tc->trackerAnnounceListPtr[i] = calloc( 1, sizeof( tr_announce_list_ptr_t ) );
+        tc->trackerAnnounceListPtr[i]->item = tor->info.trackerAnnounceList[i];
+        prevAnnouncePtr = tc->trackerAnnounceListPtr[i];
+        
+        for( announceItem = tor->info.trackerAnnounceList[i]->nextItem; announceItem != NULL;
+                announceItem = announceItem->nextItem )
+        {
+            announcePtr = calloc( 1, sizeof( tr_announce_list_ptr_t ) );
+            
+            announcePtr->item = announceItem;
+            prevAnnouncePtr->nextItem = announcePtr;
+            prevAnnouncePtr = announcePtr;
+        }
+    }
+    
+    setAnnounce( tc, tc->trackerAnnounceListPtr[0] );
 
     return tc;
 }
 
-static void setAnnounce( tr_tracker_t * tc, tr_announce_list_item_t * announceItem )
+static int announceToScrape( char * announce, char * scrape )
+{   
+    char * slash, * nextSlash;
+    int pre, post;
+    
+    slash = strchr( announce, '/' );
+    while( ( nextSlash = strchr( slash + 1, '/' ) ) )
+    {
+        slash = nextSlash;
+    }
+    slash++;
+    
+    if( !strncmp( slash, "announce", 8 ) )
+    {
+        pre  = (long) slash - (long) announce;
+        post = strlen( announce ) - pre - 8;
+        memcpy( scrape, announce, pre );
+        sprintf( &scrape[pre], "scrape" );
+        memcpy( &scrape[pre+6], &announce[pre+8], post );
+        scrape[pre+6+post] = 0;
+        
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr )
 {
-    tr_setTorrentAnnounce( &tc->tor->info, announceItem);
+    tr_announce_list_item_t * announceItem = announcePtr->item;
+    
+    snprintf( tc->trackerAddress, 256, "%s", announceItem->address );
+    tc->trackerPort = announceItem->port;
+    snprintf( tc->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
+    
+    tc->trackerCanScrape = announceToScrape( announceItem->announce, tc->trackerScrape );
     
     /* Needs a new scrape */
     tc->seeders = -1;
@@ -114,7 +188,7 @@ static void failureAnnouncing( tr_tracker_t * tc )
     tr_info_t    * inf = &tor->info;
     
     int i;
-    tr_announce_list_item_t * announceItem;
+    tr_announce_list_ptr_t * announcePtr;
     
     tc->shouldChangeAnnounce = 1;
     
@@ -125,13 +199,13 @@ static void failureAnnouncing( tr_tracker_t * tc )
     }
     
     /* If there are no more trackers don't try to change the announce */
-    announceItem = inf->trackerAnnounceList[tc->announceTier];
+    announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
     for( i = 0; i <= tc->announceTierLast; i++ )
     {
-        announceItem = announceItem->nextItem;
+        announcePtr = announcePtr->nextItem;
     }
     
-    if( announceItem == NULL )
+    if( announcePtr == NULL )
     {
         tc->shouldChangeAnnounce = 0;
     }
@@ -218,7 +292,7 @@ static int shouldScrape( tr_tracker_t * tc )
     uint64_t now, interval;
 
     /* in process of changing tracker or scrape not supported */
-    if( tc->shouldChangeAnnounce || !inf->trackerCanScrape )
+    if( tc->shouldChangeAnnounce || !tc->trackerCanScrape )
     {
         return 0;
     }
@@ -246,29 +320,29 @@ int tr_trackerPulse( tr_tracker_t * tc )
     tr_info_t    * inf = &tor->info;
     const char   * data;
     int            len, i;
-    tr_announce_list_item_t * announceItem, * prevAnnounceItem;
+    tr_announce_list_ptr_t * announcePtr, * prevAnnouncePtr;
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
         if( tc->shouldChangeAnnounce )
         {
-            tr_inf( "Tracker: %s failed to connect, trying next", inf->trackerAddress );
+            tr_inf( "Tracker: %s failed to connect, trying next", tc->trackerAddress );
             
-            announceItem = inf->trackerAnnounceList[tc->announceTier];
+            announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
             for( i = 0; i <= tc->announceTierLast; i++ )
             {
-                prevAnnounceItem = announceItem;
-                announceItem = announceItem->nextItem;
+                prevAnnouncePtr = announcePtr;
+                announcePtr = announcePtr->nextItem;
             }
             
-            if( announceItem != NULL )
+            if( announcePtr != NULL )
             {
                 tc->announceTierLast++;
                 
                 /* Move address to front of tier in announce list */
-                prevAnnounceItem->nextItem = announceItem->nextItem;
-                announceItem->nextItem = inf->trackerAnnounceList[tc->announceTier];
-                inf->trackerAnnounceList[tc->announceTier] = announceItem;
+                prevAnnouncePtr->nextItem = announcePtr->nextItem;
+                announcePtr->nextItem =  tc->trackerAnnounceListPtr[tc->announceTier];
+                tc->trackerAnnounceListPtr[tc->announceTier] = announcePtr;
             }
             else
             {
@@ -276,15 +350,15 @@ int tr_trackerPulse( tr_tracker_t * tc )
                 tc->announceTier++;
             }
             
-            tr_inf( "Tracker: tracker address set to %s", inf->trackerAnnounceList[tc->announceTier]->address );
-            setAnnounce( tc, inf->trackerAnnounceList[tc->announceTier] );
+            tr_inf( "Tracker: tracker address set to %s", tc->trackerAnnounceListPtr[tc->announceTier]->item->address );
+            setAnnounce( tc, tc->trackerAnnounceListPtr[tc->announceTier] );
             tc->shouldChangeAnnounce = 0;
         }
         else
         {
             if( tc->announceTier != 0 )
             {
-                setAnnounce( tc, inf->trackerAnnounceList[0] );
+                setAnnounce( tc, tc->trackerAnnounceListPtr[0] );
                 tc->announceTier = 0;
             }
             tc->announceTierLast = 0;
@@ -298,7 +372,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         tc->http = getQuery( tc );
 
         tr_inf( "Tracker: connecting to %s:%d (%s)",
-                inf->trackerAddress, inf->trackerPort,
+                tc->trackerAddress, tc->trackerPort,
                 tc->started ? "sending 'started'" :
                 ( tc->completed ? "sending 'completed'" :
                   ( tc->stopped ? "sending 'stopped'" :
@@ -348,8 +422,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         }
         tc->dateScrape = tr_date();
         tc->httpScrape = getScrapeQuery( tc );
-        tr_inf( "Scrape: sent http request to %s:%d",
-                    inf->trackerAddress, inf->trackerPort );
+        tr_inf( "Scrape: sent http request to %s:%d", tc->trackerAddress, tc->trackerPort );
     }
 
     if( NULL != tc->httpScrape )
@@ -459,10 +532,10 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
         idparam   = "&trackerid=";
     }
 
-    start = ( strchr( inf->trackerAnnounce, '?' ) ? '&' : '?' );
+    start = ( strchr( tc->trackerAnnounce, '?' ) ? '&' : '?' );
     left  = tr_cpLeftBytes( tor->completion );
 
-    return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+    return tr_httpClient( TR_HTTP_GET, tc->trackerAddress, tc->trackerPort,
                           "%s%c"
                           "info_hash=%s&"
                           "peer_id=%s&"
@@ -475,7 +548,7 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
                           "key=%s"
                           "%s%s"
                           "%s",
-                          inf->trackerAnnounce, start, tor->escapedHashString,
+                          tc->trackerAnnounce, start, tor->escapedHashString,
                           tc->id, tc->bindPort, up, down, left, numwant,
                           tor->key, idparam, trackerid, event );
 }
@@ -487,12 +560,12 @@ static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
 
     char           start;
 
-    start = ( strchr( inf->trackerScrape, '?' ) ? '&' : '?' );
+    start = ( strchr( tc->trackerScrape, '?' ) ? '&' : '?' );
 
-    return tr_httpClient( TR_HTTP_GET, inf->trackerAddress, inf->trackerPort,
+    return tr_httpClient( TR_HTTP_GET, tc->trackerAddress, tc->trackerPort,
                           "%s%c"
                           "info_hash=%s",
-                          inf->trackerScrape, start, tor->escapedHashString );
+                          tc->trackerScrape, start, tor->escapedHashString );
 }
 
 static void readAnswer( tr_tracker_t * tc, const char * data, int len )
@@ -763,7 +836,7 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         /* we didn't get a 2xx status code */
         tr_err( "Scrape: invalid HTTP status code: %i", code );
         if( TR_HTTP_STATUS_FAIL_CLIENT( code ) )
-            tc->tor->info.trackerCanScrape = 0;
+            tc->trackerCanScrape = 0;
         tc->lastScrapeFailed = 1;
         return;
     }
@@ -871,6 +944,33 @@ int tr_trackerDownloaded( tr_tracker_t * tc )
     return tc->complete;
 }
 
+char * tr_trackerAddress( tr_tracker_t * tc )
+{
+    if( !tc )
+    {
+        return NULL;
+    }
+    return tc->trackerAddress;
+}
+
+int tr_trackerPort( tr_tracker_t * tc )
+{
+    if( !tc )
+    {
+        return 0;
+    }
+    return tc->trackerPort;
+}
+
+char * tr_trackerAnnounce( tr_tracker_t * tc )
+{
+    if( !tc )
+    {
+        return NULL;
+    }
+    return tc->trackerAnnounce;
+}
+
 /* Blocking version */
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 {
@@ -882,7 +982,7 @@ int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
     int            len;
     int            ret;
 
-    if( !inf->trackerCanScrape )
+    if( !tc->trackerCanScrape )
     {
         return 1;
     }

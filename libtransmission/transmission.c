@@ -30,10 +30,9 @@
 static tr_torrent_t * torrentRealInit( tr_handle_t *, tr_torrent_t * tor,
                                        int flags, int * error );
 static void torrentReallyStop( tr_torrent_t * );
-static void  downloadLoop( void * );
-static void  acceptLoop( void * );
+static void downloadLoop( void * );
+static void acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
-static int announceToScrape( char * announce, char * scrape );
 
 /***********************************************************************
  * tr_init
@@ -476,6 +475,19 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     s->error  = tor->error;
     memcpy( s->trackerError, tor->trackerError,
             sizeof( s->trackerError ) );
+    
+    if( tor->tracker )
+    {
+        snprintf( s->trackerAddress, 256, "%s", tr_trackerAddress( tor->tracker ) );
+        s->trackerPort = tr_trackerPort( tor->tracker );
+        snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", tr_trackerAnnounce( tor->tracker ) );
+    }
+    else
+    {
+        snprintf( s->trackerAddress, 256, "%s", inf->trackerAnnounceList[0]->address );
+        s->trackerPort = inf->trackerAnnounceList[0]->port;
+        snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", inf->trackerAnnounceList[0]->announce );
+    }
 
     s->peersTotal       = 0;
     s->peersIncoming    = 0;
@@ -521,9 +533,9 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     s->rateUpload = tr_rcRate( tor->upload );
     
-    s->seeders  = tr_trackerSeeders(tor->tracker);
-    s->leechers = tr_trackerLeechers(tor->tracker);
-    s->completedFromTracker = tr_trackerDownloaded(tor->tracker);
+    s->seeders  = tr_trackerSeeders( tor->tracker );
+    s->leechers = tr_trackerLeechers( tor->tracker );
+    s->completedFromTracker = tr_trackerDownloaded( tor->tracker );
 
     s->swarmspeed = tr_rcRate( tor->swarmspeed );
 
@@ -543,44 +555,6 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     tr_lockUnlock( &tor->lock );
 
     return s;
-}
-
-static int announceToScrape( char * announce, char * scrape )
-{   
-    char * slash, * nextSlash;
-    int pre, post;
-    
-    slash = strchr( announce, '/' );
-    while( ( nextSlash = strchr( slash + 1, '/' ) ) )
-    {
-        slash = nextSlash;
-    }
-    slash++;
-    
-    if( !strncmp( slash, "announce", 8 ) )
-    {
-        pre  = (long) slash - (long) announce;
-        post = strlen( announce ) - pre - 8;
-        memcpy( scrape, announce, pre );
-        sprintf( &scrape[pre], "scrape" );
-        memcpy( &scrape[pre+6], &announce[pre+8], post );
-        scrape[pre+6+post] = 0;
-        
-        return 1;
-    }
-    else
-    {
-        return 0;
-    }
-}
-
-void tr_setTorrentAnnounce( tr_info_t * inf, tr_announce_list_item_t * announceItem )
-{
-    snprintf( inf->trackerAddress, 256, "%s", announceItem->address );
-    inf->trackerPort = announceItem->port;
-    snprintf( inf->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
-    
-    inf->trackerCanScrape = announceToScrape( announceItem->announce, inf->trackerScrape );
 }
 
 tr_peer_stat_t * tr_torrentPeers( tr_torrent_t * tor, int * peerCount )

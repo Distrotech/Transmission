@@ -259,11 +259,6 @@ typedef struct tr_stat_s tr_stat_t;
 tr_stat_t * tr_torrentStat( tr_torrent_t * );
 
 /***********************************************************************
- * tr_setTorrentAnnounce
- ***********************************************************************/
-void tr_setTorrentAnnounce( tr_info_t * inf, tr_announce_list_item_t * announceItem );
-
-/***********************************************************************
  * tr_torrentPeers
  ***********************************************************************/
 typedef struct tr_peer_stat_s tr_peer_stat_t;
@@ -320,16 +315,9 @@ struct tr_info_s
     /* Flags */
 #define TR_FSAVEPRIVATE 0x01    /* save a private copy of the torrent */
     int         flags;
-
-    /* Tracker info */
-    char                trackerAddress[256];
-    int                 trackerPort;
-    char                trackerAnnounce[MAX_PATH_LENGTH];
-    char                trackerScrape[MAX_PATH_LENGTH];
-    int                 trackerCanScrape;
     
-    tr_announce_list_item_t  ** trackerAnnounceList;
-    int                 trackerAnnounceTiers;
+    tr_announce_list_item_t ** trackerAnnounceList;
+    int         trackerAnnounceTiers;
     
     /* Torrent info */
     char        comment[MAX_PATH_LENGTH];
@@ -369,6 +357,10 @@ struct tr_stat_s
 #define TR_EINOUT   2
     int                 error;
     char                trackerError[128];
+    
+    char                trackerAddress[256];
+    int                 trackerPort;
+    char                trackerAnnounce[MAX_PATH_LENGTH];
 
     float               progress;
     float               rateDownload;
