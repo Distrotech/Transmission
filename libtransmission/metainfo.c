@@ -190,118 +190,6 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
 
     /* We won't need this anymore */
     free( buf );
-    
-    address = calloc( sizeof( char ), 256 );
-    announce = calloc( sizeof( char ), MAX_PATH_LENGTH );
-    
-    tiersSet = 0;
-    if( ( val = tr_bencDictFind( &meta, "announce-list" ) ) )
-    {
-        list = val->val.l.vals;
-        
-        inf->trackerAnnounceList = calloc( sizeof( int ), val->val.l.count );
-        tiersSet = 1;
-        
-        tiers = 0;
-        for( i = 0; i < val->val.l.count; i++ )
-        {
-            sublist = list[i].val.l.vals;
-            
-            inTier = 0;
-            for( j = 0; j < list[i].val.l.count; j++ )
-            {
-                if( !parseAnnounce( sublist[j].val.s.s, address, &port, announce ) )
-                {
-                    continue;
-                }
-                
-                /* Shuffle order of sublist */
-                random = tr_rand( inTier+1 );
-                
-                announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
-                prevAnnounceItem = 0;
-                nextAnnounceItem = inf->trackerAnnounceList[tiers];
-                for( k = 0; k < random; k++ )
-                {
-                    prevAnnounceItem = nextAnnounceItem;
-                    nextAnnounceItem = nextAnnounceItem->nextItem;
-                }
-                
-                announceItem->nextItem = nextAnnounceItem;
-                if( prevAnnounceItem )
-                {
-                    prevAnnounceItem->nextItem = announceItem;
-                }
-                else
-                {
-                    inf->trackerAnnounceList[tiers] = announceItem;
-                }
-                
-                /* Set values */
-                snprintf( announceItem->address, 256, "%s", address );
-                announceItem->port = port;
-                snprintf( announceItem->announce, MAX_PATH_LENGTH, "%s", announce );
-                
-                inTier++;
-            }
-            
-            /* Only use tier if there are useable addresses */
-            if( inTier > 0 )
-            {
-                tiers++;
-            }
-        }
-        
-        inf->trackerAnnounceTiers = tiers;
-    }
-
-    /*tr_err( "announce-list:" );
-    if( !inf->trackerAnnounceTiers )
-        tr_err( "no announce-list provided", i );
-    for( i = 0; i < inf->trackerAnnounceTiers; i++ )
-    {
-        tr_err( "list %d:", i );
-        for (announceItem = inf->trackerAnnounceList[i]; announceItem != NULL; announceItem = announceItem->nextItem)
-        {
-            tr_err( "%s:%d%s", announceItem->address, announceItem->port, announceItem->announce );
-        }
-    }*/
-    
-    /* Regular announce value */
-    if ( !inf->trackerAnnounceTiers )
-    {
-        if( !( val = tr_bencDictFind( &meta, "announce" ) ) )
-        {
-            tr_err( "No \"announce\" entry" );
-            free( address );
-            free( announce );
-            
-            tr_bencFree( &meta );
-            return 1;
-        }
-        
-        if ( !parseAnnounce( val->val.s.s, address, &port, announce ) )
-        {
-            tr_err( "Invalid announce URL (%s)", val->val.s.s );
-            free( address );
-            free( announce );
-            
-            tr_bencFree( &meta );
-            return 1;
-        }
-        
-        if ( !tiersSet )
-            inf->trackerAnnounceList = calloc( sizeof( int ), 1 );
-        inf->trackerAnnounceList[0] = calloc( sizeof( tr_announce_list_item_t ), 1 );
-        
-        inf->trackerAnnounceTiers = 1;
-        snprintf( inf->trackerAnnounceList[0]->address, 256, "%s", address );
-        inf->trackerAnnounceList[0]->port = port;
-        snprintf( inf->trackerAnnounceList[0]->announce, MAX_PATH_LENGTH, "%s", announce );
-    }
-    
-    free( address );
-    free( announce );
         
     /* Comment info */
     if( ( val = tr_bencDictFind( &meta, "comment.utf-8" ) ) || ( val = tr_bencDictFind( &meta, "comment" ) ) )
@@ -413,6 +301,127 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         tr_bencFree( &meta );
         return 1;
     }
+    
+    /* Announce-list */
+    address = calloc( sizeof( char ), 256 );
+    announce = calloc( sizeof( char ), MAX_PATH_LENGTH );
+    
+    tiersSet = 0;
+    if( ( val = tr_bencDictFind( &meta, "announce-list" ) ) )
+    {
+        list = val->val.l.vals;
+        
+        inf->trackerAnnounceList = calloc( sizeof( int ), val->val.l.count );
+        tiersSet = 1;
+        
+        tiers = 0;
+        for( i = 0; i < val->val.l.count; i++ )
+        {
+            sublist = list[i].val.l.vals;
+            
+            inTier = 0;
+            for( j = 0; j < list[i].val.l.count; j++ )
+            {
+                if( !parseAnnounce( sublist[j].val.s.s, address, &port, announce ) )
+                {
+                    continue;
+                }
+                
+                /* Shuffle order of sublist */
+                random = tr_rand( inTier+1 );
+                
+                announceItem = calloc( sizeof( tr_announce_list_item_t ), 1 );
+                prevAnnounceItem = 0;
+                nextAnnounceItem = inf->trackerAnnounceList[tiers];
+                for( k = 0; k < random; k++ )
+                {
+                    prevAnnounceItem = nextAnnounceItem;
+                    nextAnnounceItem = nextAnnounceItem->nextItem;
+                }
+                
+                announceItem->nextItem = nextAnnounceItem;
+                if( prevAnnounceItem )
+                {
+                    prevAnnounceItem->nextItem = announceItem;
+                }
+                else
+                {
+                    inf->trackerAnnounceList[tiers] = announceItem;
+                }
+                
+                /* Set values */
+                snprintf( announceItem->address, 256, "%s", address );
+                announceItem->port = port;
+                snprintf( announceItem->announce, MAX_PATH_LENGTH, "%s", announce );
+                
+                inTier++;
+            }
+            
+            /* Only use tier if there are useable addresses */
+            if( inTier > 0 )
+            {
+                tiers++;
+            }
+        }
+        
+        inf->trackerAnnounceTiers = tiers;
+    }
+
+    
+    if( inf->trackerAnnounceTiers )
+    {
+        tr_inf( "announce-list for \"%s\":", inf->name );
+        for( i = 0; i < inf->trackerAnnounceTiers; i++ )
+        {
+            tr_inf( "list %d:", i );
+            for( announceItem = inf->trackerAnnounceList[i]; announceItem != NULL; announceItem = announceItem->nextItem )
+            {
+                tr_inf( "%s:%d%s", announceItem->address, announceItem->port, announceItem->announce );
+            }
+        }
+    }
+    else
+    {
+        tr_inf( "no announce-list provided for \"%s\"", inf->name );
+    }
+    
+    /* Regular announce value */
+    if ( !inf->trackerAnnounceTiers )
+    {
+        if( !( val = tr_bencDictFind( &meta, "announce" ) ) )
+        {
+            tr_err( "No \"announce\" entry" );
+            free( address );
+            free( announce );
+            
+            tr_bencFree( &meta );
+            return 1;
+        }
+        
+        if( !parseAnnounce( val->val.s.s, address, &port, announce ) )
+        {
+            tr_err( "Invalid announce URL (%s)", val->val.s.s );
+            free( address );
+            free( announce );
+            
+            tr_bencFree( &meta );
+            return 1;
+        }
+        
+        if ( !tiersSet )
+            inf->trackerAnnounceList = calloc( sizeof( int ), 1 );
+        inf->trackerAnnounceList[0] = calloc( sizeof( tr_announce_list_item_t ), 1 );
+        
+        inf->trackerAnnounceTiers = 1;
+        snprintf( inf->trackerAnnounceList[0]->address, 256, "%s", address );
+        inf->trackerAnnounceList[0]->port = port;
+        snprintf( inf->trackerAnnounceList[0]->announce, MAX_PATH_LENGTH, "%s", announce );
+        
+        tr_inf( "announce for \"%s\": %s:%d%s", inf->name, address, port, announce );
+    }
+    
+    free( address );
+    free( announce );
 
     tr_bencFree( &meta );
     return 0;

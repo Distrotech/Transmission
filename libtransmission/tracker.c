@@ -550,7 +550,6 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
 static tr_http_t * getScrapeQuery( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
-
     char           start;
 
     start = ( strchr( tc->trackerScrape, '?' ) ? '&' : '?' );
