@@ -94,7 +94,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     /* if savedHash isn't null, saveCopy should be false */
     assert( NULL == savedHash || !saveCopy );
 
-    if ( NULL != savedHash )
+    if( NULL != savedHash )
     {
         snprintf( inf->torrent, MAX_PATH_LENGTH, "%s/%s",
                   tr_getTorrentsDirectory(), savedHash );
@@ -366,7 +366,6 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         
         inf->trackerAnnounceTiers = tiers;
     }
-
     
     if( inf->trackerAnnounceTiers )
     {
@@ -408,8 +407,10 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
             return 1;
         }
         
-        if ( !tiersSet )
+        if( !tiersSet )
+        {
             inf->trackerAnnounceList = calloc( sizeof( int ), 1 );
+        }
         inf->trackerAnnounceList[0] = calloc( sizeof( tr_announce_list_item_t ), 1 );
         
         inf->trackerAnnounceTiers = 1;
