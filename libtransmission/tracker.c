@@ -323,7 +323,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
     {
         if( tc->shouldChangeAnnounce )
         {
-            tr_inf( "Tracker: %s failed to connect, trying next", tc->trackerAddress );
+            tr_inf( "Tracker: failed to connect to %s, trying next", tc->trackerAddress );
             
             announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
             for( i = 0; i <= tc->announceTierLast; i++ )
