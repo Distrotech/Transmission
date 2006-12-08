@@ -104,9 +104,6 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 
     tc->interval       = 300;
     tc->scrapeInterval = 600;
-    tc->seeders        = -1;
-    tc->leechers       = -1;
-    tc->complete       = -1;
 
     tc->lastAttempt    = TC_ATTEMPT_NOREACH;
 
@@ -976,14 +973,13 @@ int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
     int            len;
     int            ret;
     
-    tc = tor->tracker;
+    tc = tr_trackerInit( tor );
 
     if( !tc->trackerCanScrape )
     {
         return 1;
     }
 
-    tc = tr_trackerInit( tor );
     http = getScrapeQuery( tc );
 
     for( data = NULL; !data; tr_wait( 10 ) )
