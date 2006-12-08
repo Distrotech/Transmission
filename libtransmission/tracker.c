@@ -312,7 +312,7 @@ void tr_trackerChangePort( tr_tracker_t * tc, int port )
     tc->newPort = port;
 }
 
-int tr_trackerPulse( tr_tracker_t * tc )
+void tr_trackerPulse( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
     const char   * data;
@@ -325,8 +325,9 @@ int tr_trackerPulse( tr_tracker_t * tc )
         {
             tr_inf( "Tracker: failed to connect to %s, trying next", tc->trackerAddress );
             
-            announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
-            for( i = 0; i <= tc->announceTierLast; i++ )
+            prevAnnouncePtr = tc->trackerAnnounceListPtr[tc->announceTier];
+            announcePtr = prevAnnouncePtr->nextItem;
+            for( i = 0; i < tc->announceTierLast; i++ )
             {
                 prevAnnouncePtr = announcePtr;
                 announcePtr = announcePtr->nextItem;
@@ -363,7 +364,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         
         if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
         {
-            return 0;
+            return;
         }
         tc->dateTry = tr_date();
         tc->http = getQuery( tc );
@@ -415,7 +416,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
     {
         if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
         {
-            return 0;
+            return;
         }
         tc->dateScrape = tr_date();
         tc->httpScrape = getScrapeQuery( tc );
@@ -442,7 +443,7 @@ int tr_trackerPulse( tr_tracker_t * tc )
         }
     }
 
-    return 0;
+    return;
 }
 
 void tr_trackerCompleted( tr_tracker_t * tc )
@@ -969,12 +970,13 @@ char * tr_trackerAnnounce( tr_tracker_t * tc )
 /* Blocking version */
 int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
 {
-    
     tr_tracker_t * tc;
     tr_http_t    * http;
     const char   * data;
     int            len;
     int            ret;
+    
+    tc = tor->tracker;
 
     if( !tc->trackerCanScrape )
     {
