@@ -222,9 +222,9 @@ static int shouldConnect( tr_tracker_t * tc )
     
     now = tr_date();
 
-    /* Unreachable tracker, try 10 seconds before trying again */
+    /* Unreachable tracker, wait 10 seconds + random value before trying again */
     if( tc->lastAttempt == TC_ATTEMPT_NOREACH &&
-        now < tc->dateTry + 10000 )
+        now < tc->dateTry + tc->randOffset + 10000 )
     {
         return 0;
     }
