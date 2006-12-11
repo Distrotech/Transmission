@@ -630,13 +630,23 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
 
     if( ( bePeers = tr_bencDictFind( &beAll, "failure reason" ) ) )
     {
-        tr_err( "Tracker: %s", bePeers->val.s.s );
+        tr_err( "Tracker: Error - %s", bePeers->val.s.s );
         tor->error |= TR_ETRACKER;
         snprintf( tor->trackerError, sizeof( tor->trackerError ),
                   "%s", bePeers->val.s.s );
         tc->lastAttempt = TC_ATTEMPT_ERROR;
         failureAnnouncing( tc );
         goto cleanup;
+    }
+    else if( ( bePeers = tr_bencDictFind( &beAll, "warning message" ) ) )
+    {
+        tr_err( "Tracker: Warning - %s", bePeers->val.s.s );
+        snprintf( tor->trackerError, sizeof( tor->trackerError ),
+                  "%s", bePeers->val.s.s );
+    }
+    else
+    {
+        tor->trackerError[0] = '\0';
     }
 
     tor->error &= ~TR_ETRACKER;
