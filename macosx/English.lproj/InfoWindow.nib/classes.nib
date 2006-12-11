@@ -28,6 +28,7 @@
                 fDownloadedTotalField = NSTextField; 
                 fDownloadedValidField = NSTextField; 
                 fDownloadingFromField = NSTextField; 
+                fErrorMessageView = NSTextView; 
                 fFileTable = NSTableView; 
                 fFileTableStatusField = NSTextField; 
                 fHashField = NSTextField; 

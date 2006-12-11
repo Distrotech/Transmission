@@ -127,11 +127,12 @@
 - (float)   progress;
 - (int)     eta;
 
-- (BOOL)    isActive;
-- (BOOL)    isSeeding;
-- (BOOL)    isPaused;
-- (BOOL)    isError;
-- (BOOL)    justFinished;
+- (BOOL)        isActive;
+- (BOOL)        isSeeding;
+- (BOOL)        isPaused;
+- (BOOL)        isError;
+- (NSString *)  errorMessage;
+- (BOOL)        justFinished;
 
 - (NSArray *) peers;
 

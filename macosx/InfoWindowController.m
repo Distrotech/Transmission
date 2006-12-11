@@ -40,7 +40,7 @@
 
 //15 spacing at the bottom of each tab
 #define TAB_INFO_HEIGHT 268.0
-#define TAB_ACTIVITY_HEIGHT 109.0
+#define TAB_ACTIVITY_HEIGHT 170.0
 #define TAB_PEERS_HEIGHT 268.0
 #define TAB_FILES_HEIGHT 268.0
 #define TAB_OPTIONS_HEIGHT 83.0
@@ -156,7 +156,6 @@
         [fHashField setStringValue: @""];
         [fHashField setToolTip: nil];
         [fCommentView setString: @""];
-        [fCommentView setSelectable: NO];
         
         [fCreatorField setStringValue: @""];
         [fDateCreatedField setStringValue: @""];
@@ -166,6 +165,7 @@
         [fDataLocationField setStringValue: @""];
         [fDataLocationField setToolTip: nil];
         [fDateStartedField setStringValue: @""];
+        [fCommentView setSelectable: NO];
         
         [fRevealDataButton setHidden: YES];
         [fRevealTorrentButton setHidden: YES];
@@ -187,6 +187,8 @@
         [fDownloadingFromField setStringValue: @""];
         [fUploadingToField setStringValue: @""];
         [fSwarmSpeedField setStringValue: @""];
+        [fErrorMessageView setString: @""];
+        [fErrorMessageView setSelectable: NO];
         
         [fPeers removeAllObjects];
         [fPeerTable reloadData];
@@ -211,7 +213,6 @@
         [fHashField setStringValue: hashString];
         [fHashField setToolTip: hashString];
         [fCommentView setString: commentString];
-        [fCommentView setSelectable: YES];
         
         [fCreatorField setStringValue: [torrent creator]];
         [fDateCreatedField setObjectValue: [torrent dateCreated]];
@@ -324,10 +325,15 @@
                                         stringByAppendingFormat: @" (%.2f%%)", 100.0 * [torrent progress]]];
         
         [fStateField setStringValue: [torrent stateString]];
-        
         [fRatioField setStringValue: [NSString stringForRatioWithDownload: downloadedTotal upload: uploadedTotal]];
-        
         [fSwarmSpeedField setStringValue: [torrent isActive] ? [NSString stringForSpeed: [torrent swarmSpeed]] : @""];
+        
+        NSString * errorMessage = [torrent errorMessage];
+        if (![errorMessage isEqualToString: [fErrorMessageView string]])
+        {
+            [fErrorMessageView setString: errorMessage];
+            [fErrorMessageView setSelectable: ![errorMessage isEqualToString: @""]];
+        }
         
         [fPiecesView updateView: NO];
     }
