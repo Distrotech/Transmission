@@ -61,6 +61,7 @@ struct tr_tracker_s
     int            leechers;
     int            hasManyPeers;
     int            complete;
+    int            randOffset;
 
     uint64_t       dateTry;
     uint64_t       dateOk;
@@ -232,7 +233,7 @@ static int shouldConnect( tr_tracker_t * tc )
        don't hammer it - we'll probably get the same answer next time
        anyway */
     if( tc->lastAttempt == TC_ATTEMPT_ERROR &&
-        now < tc->dateTry + 1000 * tc->interval )
+        now < tc->dateTry + 1000 * tc->interval + tc->randOffset )
     {
         return 0;
     }
@@ -244,7 +245,7 @@ static int shouldConnect( tr_tracker_t * tc )
     }
 
     /* Should we try and get more peers? */
-    if( now > tc->dateOk + 1000 * tc->interval )
+    if( now > tc->dateOk + 1000 * tc->interval + tc->randOffset )
     {
         return 1;
     }
@@ -318,6 +319,8 @@ void tr_trackerPulse( tr_tracker_t * tc )
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
+        tc->randOffset = tr_rand( 60000 );
+        
         if( tc->shouldChangeAnnounce )
         {
             tr_inf( "Tracker: failed to connect to %s, trying next", tc->trackerAddress );
