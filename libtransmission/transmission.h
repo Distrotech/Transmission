@@ -53,6 +53,13 @@ extern "C" {
 #define TR_NOERROR        0
 
 /***********************************************************************
+ * Error codes
+ **********************************************************************/
+#define TR_ERROR_IO_PARENT      -10
+#define TR_ERROR_IO_PERMISSIONS -11
+#define TR_ERROR_IO_OTHER       -19
+
+/***********************************************************************
  * tr_init
  ***********************************************************************
  * Initializes a libtransmission instance. Returns a obscure handle to
