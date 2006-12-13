@@ -303,7 +303,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     }
     
     /* Announce-list */
-    address = calloc( sizeof( char ), 256 );
+    address = calloc( sizeof( char ), TR_ADDRLEN );
     announce = calloc( sizeof( char ), MAX_PATH_LENGTH );
     
     tiersSet = 0;
@@ -350,7 +350,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
                 }
                 
                 /* Set values */
-                snprintf( announceItem->address, 256, "%s", address );
+                snprintf( announceItem->address, sizeof( announceItem->address ), "%s", address );
                 announceItem->port = port;
                 snprintf( announceItem->announce, MAX_PATH_LENGTH, "%s", announce );
                 
@@ -412,7 +412,7 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
         inf->trackerAnnounceTiers = 1;
         
         inf->trackerAnnounceList[0] = calloc( sizeof( tr_announce_list_item_t ), 1 );
-        snprintf( inf->trackerAnnounceList[0]->address, 256, "%s", address );
+        snprintf( inf->trackerAnnounceList[0]->address, sizeof( inf->trackerAnnounceList[0]->address ), "%s", address );
         inf->trackerAnnounceList[0]->port = port;
         snprintf( inf->trackerAnnounceList[0]->announce, MAX_PATH_LENGTH, "%s", announce );
         

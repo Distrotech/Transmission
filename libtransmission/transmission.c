@@ -477,13 +477,13 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     
     if( tor->tracker )
     {
-        snprintf( s->trackerAddress, 256, "%s", tr_trackerAddress( tor->tracker ) );
+        snprintf( s->trackerAddress, sizeof( s->trackerAddress ), "%s", tr_trackerAddress( tor->tracker ) );
         s->trackerPort = tr_trackerPort( tor->tracker );
         snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", tr_trackerAnnounce( tor->tracker ) );
     }
     else
     {
-        snprintf( s->trackerAddress, 256, "%s", inf->trackerAnnounceList[0]->address );
+        snprintf( s->trackerAddress, sizeof( s->trackerAddress ), "%s", inf->trackerAnnounceList[0]->address );
         s->trackerPort = inf->trackerAnnounceList[0]->port;
         snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", inf->trackerAnnounceList[0]->announce );
     }

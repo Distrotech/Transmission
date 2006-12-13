@@ -38,7 +38,7 @@ struct tr_tracker_s
     char         * id;
     char         * trackerid;
     
-    char           trackerAddress[256];
+    char           trackerAddress[TR_ADDRLEN];
     int            trackerPort;
     char           trackerAnnounce[MAX_PATH_LENGTH];
     char           trackerScrape[MAX_PATH_LENGTH];
@@ -167,7 +167,7 @@ static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr
 {
     tr_announce_list_item_t * announceItem = announcePtr->item;
     
-    snprintf( tc->trackerAddress, 256, "%s", announceItem->address );
+    snprintf( tc->trackerAddress, sizeof( tc->trackerAddress ), "%s", announceItem->address );
     tc->trackerPort = announceItem->port;
     snprintf( tc->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
     
