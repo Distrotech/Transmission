@@ -51,7 +51,6 @@ extern "C" {
 
 #define TR_DEFAULT_PORT   9090
 #define TR_NOERROR        0
-#define TR_ADDRLEN        256
 
 /***********************************************************************
  * tr_init
@@ -359,9 +358,9 @@ struct tr_stat_s
     int                 error;
     char                trackerError[128];
     
-    char                trackerAddress[TR_ADDRLEN];
+    const char        * trackerAddress;
     int                 trackerPort;
-    char                trackerAnnounce[MAX_PATH_LENGTH];
+    const char        * trackerAnnounce;
 
     float               progress;
     float               rateDownload;
@@ -402,9 +401,9 @@ struct tr_msg_list_s
 
 struct tr_announce_list_item_s
 {
-    char address[TR_ADDRLEN];
-    int port;
-    char announce[MAX_PATH_LENGTH];
+    char * address;
+    int    port;
+    char * announce;
     
     tr_announce_list_item_t * nextItem;
 };

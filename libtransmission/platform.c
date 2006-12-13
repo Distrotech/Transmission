@@ -114,7 +114,7 @@ char * tr_getPrefsDirectory()
 #elif defined(__AMIGAOS4__)
     snprintf( prefsDirectory, MAX_PATH_LENGTH, "PROGDIR:.transmission" );
 #else
-    snprintf( prefsDirectory, MAX_PATH_LENGTH, "%s/.transmission",
+    snprintf( prefsDirectory, MAX_PATH_LENGTH, "%s/.transmission-mt",
               tr_getHomeDirectory() );
 #endif
 

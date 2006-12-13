@@ -38,9 +38,9 @@ struct tr_tracker_s
     char         * id;
     char         * trackerid;
     
-    char           trackerAddress[TR_ADDRLEN];
+    const char   * trackerAddress;
     int            trackerPort;
-    char           trackerAnnounce[MAX_PATH_LENGTH];
+    const char   * trackerAnnounce;
     char           trackerScrape[MAX_PATH_LENGTH];
     int            trackerCanScrape;
     
@@ -167,9 +167,9 @@ static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr
 {
     tr_announce_list_item_t * announceItem = announcePtr->item;
     
-    snprintf( tc->trackerAddress, sizeof( tc->trackerAddress ), "%s", announceItem->address );
-    tc->trackerPort = announceItem->port;
-    snprintf( tc->trackerAnnounce, MAX_PATH_LENGTH, "%s", announceItem->announce );
+    tc->trackerAddress  = announceItem->address;
+    tc->trackerPort     = announceItem->port;
+    tc->trackerAnnounce = announceItem->announce;
     
     tc->trackerCanScrape = announceToScrape( announceItem->announce, tc->trackerScrape );
     
@@ -949,7 +949,7 @@ int tr_trackerDownloaded( tr_tracker_t * tc )
     return tc->complete;
 }
 
-char * tr_trackerAddress( tr_tracker_t * tc )
+const char * tr_trackerAddress( tr_tracker_t * tc )
 {
     if( !tc )
     {
@@ -967,7 +967,7 @@ int tr_trackerPort( tr_tracker_t * tc )
     return tc->trackerPort;
 }
 
-char * tr_trackerAnnounce( tr_tracker_t * tc )
+const char * tr_trackerAnnounce( tr_tracker_t * tc )
 {
     if( !tc )
     {

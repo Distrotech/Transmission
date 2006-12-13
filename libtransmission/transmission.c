@@ -30,6 +30,7 @@
 static tr_torrent_t * torrentRealInit( tr_handle_t *, tr_torrent_t * tor,
                                        int flags, int * error );
 static void torrentReallyStop( tr_torrent_t * );
+static void freeInfo( tr_info_t * inf );
 static void downloadLoop( void * );
 static void acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
@@ -288,8 +289,7 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
                      SHA_DIGEST_LENGTH ) )
         {
             *error = TR_EDUPLICATE;
-            free( inf->pieces );
-            free( inf->files );
+            freeInfo( &tor->info );
             free( tor );
             return NULL;
         }
@@ -477,15 +477,15 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     
     if( tor->tracker )
     {
-        snprintf( s->trackerAddress, sizeof( s->trackerAddress ), "%s", tr_trackerAddress( tor->tracker ) );
-        s->trackerPort = tr_trackerPort( tor->tracker );
-        snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", tr_trackerAnnounce( tor->tracker ) );
+        s->trackerAddress  = tr_trackerAddress(  tor->tracker );
+        s->trackerPort     = tr_trackerPort(     tor->tracker );
+        s->trackerAnnounce = tr_trackerAnnounce( tor->tracker );
     }
     else
     {
-        snprintf( s->trackerAddress, sizeof( s->trackerAddress ), "%s", inf->trackerAnnounceList[0]->address );
-        s->trackerPort = inf->trackerAnnounceList[0]->port;
-        snprintf( s->trackerAnnounce, MAX_PATH_LENGTH, "%s", inf->trackerAnnounceList[0]->announce );
+        s->trackerAddress  = inf->trackerAnnounceList[0]->address;
+        s->trackerPort     = inf->trackerAnnounceList[0]->port;
+        s->trackerAnnounce = inf->trackerAnnounceList[0]->announce;
     }
 
     s->peersTotal       = 0;
@@ -661,9 +661,6 @@ void tr_torrentRemoveSaved( tr_torrent_t * tor ) {
  **********************************************************************/
 void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
 {
-    int i;
-    tr_announce_list_item_t * currentAnnounce, * nextAnnounce;
-    
     tr_info_t * inf = &tor->info;
 
     if( tor->status & ( TR_STATUS_STOPPING | TR_STATUS_STOPPED ) )
@@ -687,17 +684,8 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     {
         free( tor->destination );
     }
-    free( inf->pieces );
-    free( inf->files );
-    
-    for( i = 0; i < inf->trackerAnnounceTiers; i++ )
-    {
-        for( currentAnnounce = inf->trackerAnnounceList[i]; currentAnnounce != NULL; currentAnnounce = nextAnnounce )
-        {
-            nextAnnounce = currentAnnounce->nextItem;
-            free( currentAnnounce );
-        }
-    }
+
+    freeInfo( inf );
 
     if( tor->prev )
     {
@@ -714,6 +702,29 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     free( tor );
 
     tr_lockUnlock( &h->acceptLock );
+}
+
+static void freeInfo( tr_info_t * inf )
+{
+    int ii;
+    tr_announce_list_item_t * jj, * dead;
+
+    free( inf->pieces );
+    free( inf->files );
+    
+    for( ii = 0; ii < inf->trackerAnnounceTiers; ii++ )
+    {
+        jj = inf->trackerAnnounceList[ii];
+        while( NULL != jj )
+        {
+            dead = jj;
+            jj = jj->nextItem;
+            free( dead->address );
+            free( dead->announce );
+            free( dead );
+        }
+    }
+    free( inf->trackerAnnounceList );
 }
 
 void tr_close( tr_handle_t * h )

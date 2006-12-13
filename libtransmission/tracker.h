@@ -56,9 +56,9 @@ int tr_trackerLeechers ( tr_tracker_t * );
  **********************************************************************/
 int tr_trackerDownloaded( tr_tracker_t * tc );
 
-char * tr_trackerAddress( tr_tracker_t * tc );
-int tr_trackerPort( tr_tracker_t * tc );
-char * tr_trackerAnnounce( tr_tracker_t * tc );
+const char * tr_trackerAddress ( tr_tracker_t * tc );
+int          tr_trackerPort    ( tr_tracker_t * tc );
+const char * tr_trackerAnnounce( tr_tracker_t * tc );
 
 /***********************************************************************
  * tr_trackerScrape
