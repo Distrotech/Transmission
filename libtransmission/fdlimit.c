@@ -60,8 +60,9 @@ struct tr_fd_s
 /***********************************************************************
  * Local prototypes
  **********************************************************************/
+static int  ErrorFromErrno();
 static void CloseFile( tr_fd_t * f, int i );
-static int  CheckCanOpen( char * folder, char * name, int write );
+static int  CheckFolder( char * folder, char * name, int write );
 
 
 
@@ -150,7 +151,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
     }
 
     /* We'll need to open it, make sure that we can */
-    if( ( ret = CheckCanOpen( folder, name, write ) ) )
+    if( ( ret = CheckFolder( folder, name, write ) ) )
     {
         tr_err( "Can not open %s in %s (%d)", name, folder, ret );
         tr_lockUnlock( &f->lock );
@@ -205,9 +206,10 @@ open:
     free( path );
     if( f->open[winner].file < 0 )
     {
-        tr_err( "Could not open %s in %s (%d)", name, folder, errno );
+        ret = ErrorFromErrno();
         tr_lockUnlock( &f->lock );
-        return TR_ERROR_IO_OTHER;
+        tr_err( "Could not open %s in %s (%d)", name, folder, ret );
+        return ret;
     }
     snprintf( f->open[winner].folder, MAX_PATH_LENGTH, "%s", folder );
     snprintf( f->open[winner].name, MAX_PATH_LENGTH, "%s", name );
@@ -340,6 +342,16 @@ void tr_fdClose( tr_fd_t * f )
  **********************************************************************/
 
 /***********************************************************************
+ * ErrorFromErrno
+ **********************************************************************/
+static int ErrorFromErrno()
+{
+    if( errno == EACCES || errno == EROFS )
+        return TR_ERROR_IO_PERMISSIONS;
+    return TR_ERROR_IO_OTHER;
+}
+
+/***********************************************************************
  * CloseFile
  ***********************************************************************
  * We first mark it as closing then release the lock while doing so,
@@ -362,11 +374,52 @@ static void CloseFile( tr_fd_t * f, int i )
 }
 
 /***********************************************************************
- * CheckCanOpen
+ * CheckFolder
  ***********************************************************************
  *
  **********************************************************************/
-static int CheckCanOpen( char * folder, char * name, int write )
+static int CheckFolder( char * folder, char * name, int write )
 {
-    return 0;
+    struct stat sb;
+    char * path, * p, * s;
+    int ret = 0;
+
+    if( stat( folder, &sb ) || !S_ISDIR( sb.st_mode ) )
+    {
+        return TR_ERROR_IO_PARENT;
+    }
+
+    asprintf( &path, "%s/%s", folder, name );
+
+    p = path + strlen( folder ) + 1;;
+    while( ( s = strchr( p, '/' ) ) )
+    {
+        *s = '\0';
+        if( stat( folder, &sb ) )
+        {
+            /* Sub-folder does not exist */
+            if( !write )
+            {
+                ret = TR_ERROR_IO_OTHER;
+                break;
+            }
+            if( mkdir( path, 0777 ) )
+            {
+                ret = ErrorFromErrno();
+                break;
+            }
+        }
+        else
+        {
+            if( !S_ISDIR( sb.st_mode ) )
+            {
+                ret = TR_ERROR_IO_OTHER;
+                break;
+            }
+        }
+        *s = '/';
+    }
+    free( path );
+
+    return ret;
 }
