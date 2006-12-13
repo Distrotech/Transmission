@@ -46,7 +46,6 @@ struct tr_io_s
 /***********************************************************************
  * Local prototypes
  **********************************************************************/
-static int  createFiles( tr_io_t * );
 static int  checkFiles( tr_io_t * );
 static void closeFiles( tr_io_t * );
 static int  readOrWriteBytes( tr_io_t *, uint64_t, int, uint8_t *, int );
@@ -95,7 +94,7 @@ tr_io_t * tr_ioInit( tr_torrent_t * tor )
     io      = malloc( sizeof( tr_io_t ) );
     io->tor = tor;
 
-    if( createFiles( io ) || checkFiles( io ) )
+    if( checkFiles( io ) )
     {
         free( io );
         return NULL;
@@ -217,74 +216,6 @@ void tr_ioSaveResume( tr_io_t * io )
 }
 
 /***********************************************************************
- * createFiles
- ***********************************************************************
- * Make sure the existing folders/files have correct types and
- * permissions, and create missing folders and files
- **********************************************************************/
-static int createFiles( tr_io_t * io )
-{
-    tr_torrent_t * tor = io->tor;
-    tr_info_t    * inf = &tor->info;
-
-    int           i;
-    char        * path, * p;
-    struct stat   sb;
-    int           file;
-
-    tr_dbg( "Creating files..." );
-
-    for( i = 0; i < inf->fileCount; i++ )
-    {
-        asprintf( &path, "%s/%s", tor->destination, inf->files[i].name );
-
-        /* Create folders */
-        if( NULL != ( p = strrchr( path, '/' ) ) )
-        {
-            *p = '\0';
-            if( tr_mkdir( path ) )
-            {
-                free( path );
-                return 1;
-            }
-            *p = '/';
-        }
-
-        /* Empty folders use a dummy "" file, skip those */
-        if( p == &path[strlen( path ) - 1] )
-        {
-            free( path );
-            continue;
-        }
-
-        if( stat( path, &sb ) )
-        {
-            /* File doesn't exist yet */
-            if( ( file = open( path, O_WRONLY|O_CREAT|O_TRUNC, 0666 ) ) < 0 )
-            {
-                tr_err( "Could not create `%s' (%s)", path,
-                        strerror( errno ) );
-                free( path );
-                return 1;
-            }
-            close( file );
-        }
-        else if( ( sb.st_mode & S_IFMT ) != S_IFREG )
-        {
-            /* Node exists but isn't a file */
-            /* XXX this should be reported to the frontend somehow */
-            tr_err( "Remove %s, it's in the way.", path );
-            free( path );
-            return 1;
-        }
-
-        free( path );
-    }
-
-    return 0;
-}
-
-/***********************************************************************
  * checkFiles
  ***********************************************************************
  * Look for pieces
@@ -373,9 +304,8 @@ static void closeFiles( tr_io_t * io )
 
     for( i = 0; i < inf->fileCount; i++ )
     {
-        asprintf( &path, "%s/%s", tor->destination, inf->files[i].name );
-        tr_fdFileClose( tor->fdlimit, path );
-        free( path );
+        tr_fdFileClose( tor->fdlimit, tor->destination,
+                        inf->files[i].name );
     }
 }
 
@@ -442,16 +372,15 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
 
         if( cur > 0 )
         {
-            /* Now let's get a stream on the file... */
-            asprintf( &path, "%s/%s", tor->destination, inf->files[i].name );
-            file = tr_fdFileOpen( tor->fdlimit, path );
+            /* Now let's get a descriptor on the file... */
+            file = tr_fdFileOpen( tor->fdlimit, tor->destination,
+                                  inf->files[i].name, isWrite );
             if( file < 0 )
             {
-                tr_err( "readOrWriteBytes: could not open file '%s'", path );
-                free( path );
+                tr_err( "readOrWriteBytes: could not open file '%s'",
+                        inf->files[i].name);
                 goto fail;
             }
-            free( path );
 
             /* seek to the right offset... */
             if( lseek( file, offset, SEEK_SET ) < 0 )
@@ -465,7 +394,7 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
                 goto fail;
             }
 
-            /* and close the stream. */
+            /* and release the descriptor. */
             tr_fdFileRelease( tor->fdlimit, file );
         }
 

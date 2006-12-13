@@ -202,7 +202,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
 open:
     tr_dbg( "Opening %s in %s", name, folder );
     asprintf( &path, "%s/%s", folder, name );
-    f->open[winner].file = open( path, write ? O_RDWR : O_RDONLY, 0 );
+    f->open[winner].file = open( path, write ? O_RDWR|O_CREAT : O_RDONLY, 0 );
     free( path );
     if( f->open[winner].file < 0 )
     {
