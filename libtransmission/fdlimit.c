@@ -30,8 +30,10 @@
 
 typedef struct tr_openFile_s
 {
-    char       path[MAX_PATH_LENGTH];
+    char       folder[MAX_PATH_LENGTH];
+    char       name[MAX_PATH_LENGTH];
     int        file;
+    int        write;
 
 #define STATUS_INVALID 1
 #define STATUS_UNUSED  2
@@ -54,6 +56,14 @@ struct tr_fd_s
 
     tr_openFile_t   open[TR_MAX_OPEN_FILES];
 };
+
+/***********************************************************************
+ * Local prototypes
+ **********************************************************************/
+static void CloseFile( tr_fd_t * f, int i );
+static int  CheckCanOpen( char * folder, char * name, int write );
+
+
 
 /***********************************************************************
  * tr_fdInit
@@ -101,31 +111,50 @@ tr_fd_t * tr_fdInit()
 /***********************************************************************
  * tr_fdFileOpen
  **********************************************************************/
-int tr_fdFileOpen( tr_fd_t * f, char * path )
+int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
 {
-    int i, winner;
+    int i, winner, ret;
     uint64_t date;
+    char * path;
 
     tr_lockLock( &f->lock );
 
     /* Is it already open? */
     for( i = 0; i < TR_MAX_OPEN_FILES; i++ )
     {
-        if( f->open[i].status > STATUS_INVALID &&
-            !strcmp( path, f->open[i].path ) )
+        if( f->open[i].status & STATUS_INVALID ||
+            strcmp( folder, f->open[i].folder ) ||
+            strcmp( name, f->open[i].name ) )
         {
-            if( f->open[i].status & STATUS_CLOSING )
-            {
-                /* Wait until the file is closed */
-                tr_lockUnlock( &f->lock );
-                tr_wait( 10 );
-                tr_lockLock( &f->lock );
-                i = -1;
-                continue;
-            }
-            winner = i;
-            goto done;
+            continue;
         }
+        if( f->open[i].status & STATUS_CLOSING )
+        {
+            /* File is being closed by another thread, wait until
+             * it's done before we reopen it */
+            tr_lockUnlock( &f->lock );
+            tr_wait( 10 );
+            tr_lockLock( &f->lock );
+            i = -1;
+            continue;
+        }
+        if( f->open[i].write < write )
+        {
+            /* File is open read-only and needs to be closed then
+             * re-opened read-write */
+            CloseFile( f, i );
+            continue;
+        }
+        winner = i;
+        goto done;
+    }
+
+    /* We'll need to open it, make sure that we can */
+    if( ( ret = CheckCanOpen( folder, name, write ) ) )
+    {
+        tr_err( "Can not open %s in %s (%d)", name, folder, ret );
+        tr_lockUnlock( &f->lock );
+        return ret;
     }
 
     /* Can we open one more file? */
@@ -159,14 +188,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * path )
 
         if( winner >= 0 )
         {
-            /* Close the file: we mark it as closing then release the
-               lock while doing so, because close may take same time
-               and we don't want to block other threads */
-            tr_dbg( "Closing %s", f->open[winner].path );
-            f->open[winner].status = STATUS_CLOSING;
-            tr_lockUnlock( &f->lock );
-            close( f->open[winner].file );
-            tr_lockLock( &f->lock );
+            CloseFile( f, winner );
             goto open;
         }
 
@@ -177,9 +199,19 @@ int tr_fdFileOpen( tr_fd_t * f, char * path )
     }
 
 open:
-    tr_dbg( "Opening %s", path );
-    snprintf( f->open[winner].path, MAX_PATH_LENGTH, "%s", path );
-    f->open[winner].file = open( path, O_RDWR, 0 );
+    tr_dbg( "Opening %s in %s", name, folder );
+    asprintf( &path, "%s/%s", folder, name );
+    f->open[winner].file = open( path, write ? O_RDWR : O_RDONLY, 0 );
+    free( path );
+    if( f->open[winner].file < 0 )
+    {
+        tr_err( "Could not open %s in %s (%d)", name, folder, errno );
+        tr_lockUnlock( &f->lock );
+        return TR_ERROR_IO_OTHER;
+    }
+    snprintf( f->open[winner].folder, MAX_PATH_LENGTH, "%s", folder );
+    snprintf( f->open[winner].name, MAX_PATH_LENGTH, "%s", name );
+    f->open[winner].write = write;
 
 done:
     f->open[winner].status = STATUS_USED;
@@ -212,7 +244,7 @@ void tr_fdFileRelease( tr_fd_t * f, int file )
 /***********************************************************************
  * tr_fdFileClose
  **********************************************************************/
-void tr_fdFileClose( tr_fd_t * f, char * path )
+void tr_fdFileClose( tr_fd_t * f, char * folder, char * name )
 {
     int i;
 
@@ -225,18 +257,19 @@ void tr_fdFileClose( tr_fd_t * f, char * path )
         {
             continue;
         }
-        if( !strcmp( path, f->open[i].path ) )
+        if( !strcmp( folder, f->open[i].folder ) &&
+            !strcmp( name, f->open[i].name ) )
         {
-            tr_dbg( "Closing %s", path );
-            close( f->open[i].file );
-            f->open[i].status = STATUS_INVALID;
-            break;
+            CloseFile( f, i );
         }
     }
 
     tr_lockUnlock( &f->lock );
 }
 
+/***********************************************************************
+ * tr_fdSocketWillCreate
+ **********************************************************************/
 int tr_fdSocketWillCreate( tr_fd_t * f, int reserved )
 {
     int ret;
@@ -273,6 +306,9 @@ int tr_fdSocketWillCreate( tr_fd_t * f, int reserved )
     return ret;
 }
 
+/***********************************************************************
+ * tr_fdSocketClosed
+ **********************************************************************/
 void tr_fdSocketClosed( tr_fd_t * f, int reserved )
 {
     tr_lockLock( &f->lock );
@@ -289,9 +325,48 @@ void tr_fdSocketClosed( tr_fd_t * f, int reserved )
     tr_lockUnlock( &f->lock );
 }
 
+/***********************************************************************
+ * tr_fdClose
+ **********************************************************************/
 void tr_fdClose( tr_fd_t * f )
 {
     tr_lockClose( &f->lock );
     free( f );
 }
 
+
+/***********************************************************************
+ * Local functions
+ **********************************************************************/
+
+/***********************************************************************
+ * CloseFile
+ ***********************************************************************
+ * We first mark it as closing then release the lock while doing so,
+ * because close() may take same time and we don't want to block other
+ * threads.
+ **********************************************************************/
+static void CloseFile( tr_fd_t * f, int i )
+{
+    if( !( f->open[i].status & STATUS_UNUSED ) )
+    {
+        tr_err( "CloseFile: status is %d, should be %d",
+                f->open[i].status, STATUS_UNUSED );
+    }
+    tr_dbg( "Closing %s in %s", f->open[i].name, f->open[i].folder );
+    f->open[i].status = STATUS_CLOSING;
+    tr_lockUnlock( &f->lock );
+    close( f->open[i].file );
+    tr_lockLock( &f->lock );
+    f->open[i].status = STATUS_INVALID;
+}
+
+/***********************************************************************
+ * CheckCanOpen
+ ***********************************************************************
+ *
+ **********************************************************************/
+static int CheckCanOpen( char * folder, char * name, int write )
+{
+    return 0;
+}

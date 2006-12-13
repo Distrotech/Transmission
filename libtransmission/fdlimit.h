@@ -37,7 +37,7 @@ tr_fd_t * tr_fdInit();
  * If it isn't open already, tries to open the file 'name' in the
  * directory 'folder'. If 'name' itself contains '/'s, required
  * subfolders are created. The file is open read-write if 'write' is 1
- * (created if necessary), read-only otherwise.
+ * (created if necessary), read-only if 0.
  * Returns the file descriptor if successful, otherwise returns
  * one of the TR_ERROR_IO_*.
  **********************************************************************/
