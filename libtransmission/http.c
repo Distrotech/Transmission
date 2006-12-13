@@ -320,7 +320,7 @@ tr_httpParseUrl( const char * url, int len,
     /* check for protocol */
     if( 7 > len || 0 != tr_strncasecmp( url, "http://", 7 ) )
     {
-        tr_err( "Invalid HTTP URL" );
+        tr_err( "Invalid HTTP URL: %s", url );
         return 1;
     }
     url += 7;
