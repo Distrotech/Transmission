@@ -185,6 +185,7 @@ static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr
 
 static void failureAnnouncing( tr_tracker_t * tc )
 {
+    tr_torrent_t * tor = tc->tor;
     tr_info_t    * inf = &tor->info;
     
     tc->shouldChangeAnnounce = tc->announceTier + 1 < inf->trackerTiers
@@ -295,6 +296,7 @@ void tr_trackerChangePort( tr_tracker_t * tc, int port )
 void tr_trackerPulse( tr_tracker_t * tc )
 {
     tr_torrent_t * tor = tc->tor;
+    tr_info_t    * inf = &tor->info;
     const char   * data;
     int            len, i;
     tr_announce_list_ptr_t * announcePtr, * prevAnnouncePtr;
@@ -307,22 +309,22 @@ void tr_trackerPulse( tr_tracker_t * tc )
         {
             tr_inf( "Tracker: failed to connect to %s, trying next", tc->trackerAddress );
             
-            prevAnnouncePtr = tc->trackerAnnounceListPtr[tc->announceTier];
-            announcePtr = prevAnnouncePtr->nextItem;
-            for( i = 0; i < tc->announceTierLast; i++ )
+            if( tc->announceTierLast + 1 < inf->trackerList[tc->announceTier].count )
             {
-                prevAnnouncePtr = announcePtr;
-                announcePtr = announcePtr->nextItem;
-            }
-            
-            if( announcePtr != NULL )
-            {
-                tc->announceTierLast++;
+                prevAnnouncePtr = tc->trackerAnnounceListPtr[tc->announceTier];
+                announcePtr = prevAnnouncePtr->nextItem;
+                for( i = 0; i < tc->announceTierLast; i++ )
+                {
+                    prevAnnouncePtr = announcePtr;
+                    announcePtr = announcePtr->nextItem;
+                }
                 
                 /* Move address to front of tier in announce list */
                 prevAnnouncePtr->nextItem = announcePtr->nextItem;
                 announcePtr->nextItem =  tc->trackerAnnounceListPtr[tc->announceTier];
                 tc->trackerAnnounceListPtr[tc->announceTier] = announcePtr;
+                
+                tc->announceTierLast++;
             }
             else
             {
