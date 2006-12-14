@@ -185,31 +185,10 @@ static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr
 
 static void failureAnnouncing( tr_tracker_t * tc )
 {
-    tr_torrent_t * tor = tc->tor;
     tr_info_t    * inf = &tor->info;
     
-    int i;
-    tr_announce_list_ptr_t * announcePtr;
-    
-    tc->shouldChangeAnnounce = 1;
-    
-    /* If more tiers then announce can definitely be changed */
-    if( tc->announceTier + 1 < inf->trackerTiers )
-    {
-        return;
-    }
-    
-    /* If there are no more trackers don't try to change the announce */
-    announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
-    for( i = 0; i <= tc->announceTierLast; i++ )
-    {
-        announcePtr = announcePtr->nextItem;
-    }
-    
-    if( announcePtr == NULL )
-    {
-        tc->shouldChangeAnnounce = 0;
-    }
+    tc->shouldChangeAnnounce = tc->announceTier + 1 < inf->trackerTiers
+                                || tc->announceTierLast + 1 < inf->trackerList[tc->announceTier].count;
 }
 
 static int shouldConnect( tr_tracker_t * tc )
