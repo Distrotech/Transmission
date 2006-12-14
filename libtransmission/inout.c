@@ -105,8 +105,6 @@ tr_io_t * tr_ioInit( tr_torrent_t * tor )
 
 /***********************************************************************
  * tr_ioRead
- ***********************************************************************
- *
  **********************************************************************/
 int tr_ioRead( tr_io_t * io, int index, int begin, int length,
                uint8_t * buf )
@@ -122,8 +120,6 @@ int tr_ioRead( tr_io_t * io, int index, int begin, int length,
 
 /***********************************************************************
  * tr_ioWrite
- ***********************************************************************
- *
  **********************************************************************/
 int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
                 uint8_t * buf )
@@ -136,6 +132,7 @@ int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
     uint8_t      * pieceBuf;
     int            pieceSize;
     int            startBlock, endBlock;
+    int            ret;
 
     if( io->pieceSlot[index] < 0 )
     {
@@ -147,9 +144,9 @@ int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
     offset = (uint64_t) io->pieceSlot[index] *
         (uint64_t) inf->pieceSize + (uint64_t) begin;
 
-    if( writeBytes( io, offset, length, buf ) )
+    if( ( ret = writeBytes( io, offset, length, buf ) ) )
     {
-        return 1;
+        return ret;
     }
 
     startBlock = tr_pieceStartBlock( index );
@@ -326,6 +323,7 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
     size_t cur;
     int    file;
     iofunc readOrWrite = isWrite ? (iofunc) write : (iofunc) read;
+    int    ret = 0;
 
     /* Release the torrent lock so the UI can still update itself if
        this blocks for a while */
@@ -335,7 +333,8 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
     if( tr_pieceSize( piece ) < begin + size )
     {
         tr_err( "readOrWriteBytes: trying to write more than a piece" );
-        goto fail;
+        ret = TR_ERROR_ASSERT;
+        goto cleanup;
     }
 
     /* Find which file we shall start reading/writing in */
@@ -353,7 +352,8 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
         /* Should not happen */
         tr_err( "readOrWriteBytes: offset out of range (%"PRIu64", %d, %d)",
                 offset, size, isWrite );
-        goto fail;
+        ret = TR_ERROR_ASSERT;
+        goto cleanup;
     }
 
     while( size > 0 )
@@ -375,21 +375,24 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
                                   inf->files[i].name, isWrite );
             if( file < 0 )
             {
-                goto fail;
+                ret = file;
+                goto cleanup;
             }
 
             /* seek to the right offset... */
             if( lseek( file, offset, SEEK_SET ) < 0 )
             {
                 tr_fdFileRelease( tor->fdlimit, file );
-                goto fail;
+                ret = TR_ERROR_IO_OTHER;
+                goto cleanup;
             }
 
             /* do what we are here to do... */
             if( readOrWrite( file, buf, cur ) != cur )
             {
                 tr_fdFileRelease( tor->fdlimit, file );
-                goto fail;
+                ret = TR_ERROR_IO_OTHER;
+                goto cleanup;
             }
 
             /* and release the descriptor. */
@@ -403,12 +406,9 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
         buf    += cur;
     }
 
+cleanup:
     tr_lockLock( &tor->lock );
-    return 0;
-
-fail:
-    tr_lockLock( &tor->lock );
-    return 1;
+    return ret;
 }
 
 /***********************************************************************

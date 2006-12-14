@@ -55,6 +55,9 @@ extern "C" {
 /***********************************************************************
  * Error codes
  **********************************************************************/
+/* General errors */
+#define TR_ERROR_ASSERT         -1
+/* I/O errors */
 #define TR_ERROR_IO_PARENT      -10
 #define TR_ERROR_IO_PERMISSIONS -11
 #define TR_ERROR_IO_OTHER       -19
