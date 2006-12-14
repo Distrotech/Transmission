@@ -153,7 +153,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
     /* We'll need to open it, make sure that we can */
     if( ( ret = CheckFolder( folder, name, write ) ) )
     {
-        tr_err( "Can not open %s in %s (%d)", name, folder, ret );
+        tr_err( "Can not open %s in %s (%d, %d)", name, folder, write, ret );
         tr_lockUnlock( &f->lock );
         return ret;
     }
@@ -200,13 +200,14 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
 open:
     tr_dbg( "Opening %s in %s", name, folder );
     asprintf( &path, "%s/%s", folder, name );
-    f->open[winner].file = open( path, write ? O_RDWR|O_CREAT : O_RDONLY, 0 );
+    f->open[winner].file = open( path, write ? ( O_RDWR | O_CREAT ) :
+                                 O_RDONLY, 0666 );
     free( path );
     if( f->open[winner].file < 0 )
     {
         ret = ErrorFromErrno();
         tr_lockUnlock( &f->lock );
-        tr_err( "Could not open %s in %s (%d)", name, folder, ret );
+        tr_err( "Could not open %s in %s (%d, %d)", name, folder, write, ret );
         return ret;
     }
     snprintf( f->open[winner].folder, MAX_PATH_LENGTH, "%s", folder );
