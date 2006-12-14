@@ -267,7 +267,7 @@ void tr_condSignal( tr_cond_t * c )
             resume_thread( *c );
             break;
         }
-A       snooze( 5000 );
+        snooze( 5000 );
     }
 #else
     pthread_cond_signal( c );
