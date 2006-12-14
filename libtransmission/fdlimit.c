@@ -48,6 +48,7 @@ typedef struct tr_openFile_s
 struct tr_fd_s
 {
     tr_lock_t       lock;
+    tr_cond_t       cond;
     
     int             reserved;
 
@@ -76,8 +77,9 @@ tr_fd_t * tr_fdInit()
 
     f = calloc( sizeof( tr_fd_t ), 1 );
 
-    /* Init lock */
+    /* Init lock and cond */
     tr_lockInit( &f->lock );
+    tr_condInit( &f->cond );
 
     /* Detect the maximum number of open files or sockets */
     for( i = 0; i < 4096; i++ )
@@ -133,9 +135,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
         {
             /* File is being closed by another thread, wait until
              * it's done before we reopen it */
-            tr_lockUnlock( &f->lock );
-            tr_wait( 10 );
-            tr_lockLock( &f->lock );
+            tr_condWait( &f->cond, &f->lock );
             i = -1;
             continue;
         }
@@ -194,9 +194,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
         }
 
         /* All used! Wait a bit and try again */
-        tr_lockUnlock( &f->lock );
-        tr_wait( 10 );
-        tr_lockLock( &f->lock );
+        tr_condWait( &f->cond, &f->lock );
     }
 
 open:
@@ -240,6 +238,7 @@ void tr_fdFileRelease( tr_fd_t * f, int file )
         }
     }
     
+    tr_condSignal( &f->cond );
     tr_lockUnlock( &f->lock );
 }
 
@@ -333,6 +332,7 @@ void tr_fdSocketClosed( tr_fd_t * f, int reserved )
 void tr_fdClose( tr_fd_t * f )
 {
     tr_lockClose( &f->lock );
+    tr_condClose( &f->cond );
     free( f );
 }
 
@@ -371,6 +371,7 @@ static void CloseFile( tr_fd_t * f, int i )
     close( f->open[i].file );
     tr_lockLock( &f->lock );
     f->open[i].status = STATUS_INVALID;
+    tr_condSignal( &f->cond );
 }
 
 /***********************************************************************
