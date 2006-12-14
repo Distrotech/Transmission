@@ -396,7 +396,7 @@ static int CheckFolder( char * folder, char * name, int write )
     while( ( s = strchr( p, '/' ) ) )
     {
         *s = '\0';
-        if( stat( folder, &sb ) )
+        if( stat( path, &sb ) )
         {
             /* Sub-folder does not exist */
             if( !write )
@@ -419,6 +419,7 @@ static int CheckFolder( char * folder, char * name, int write )
             }
         }
         *s = '/';
+        p = s + 1;
     }
     free( path );
 

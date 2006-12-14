@@ -375,8 +375,6 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
                                   inf->files[i].name, isWrite );
             if( file < 0 )
             {
-                tr_err( "readOrWriteBytes: could not open file '%s'",
-                        inf->files[i].name);
                 goto fail;
             }
 
