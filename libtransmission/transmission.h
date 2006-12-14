@@ -61,7 +61,7 @@ extern "C" {
 typedef struct tr_handle_s tr_handle_t;
 tr_handle_t * tr_init();
 
-typedef struct tr_announce_list_item_s tr_announce_list_item_t;
+typedef struct tr_tracker_info_s tr_tracker_info_t;
 
 /***********************************************************************
  * tr_setMessageLevel
@@ -305,35 +305,40 @@ tr_file_t;
 struct tr_info_s
 {
     /* Path to torrent */
-    char        torrent[MAX_PATH_LENGTH];
+    char                 torrent[MAX_PATH_LENGTH];
 
     /* General info */
-    uint8_t     hash[SHA_DIGEST_LENGTH];
-    char        hashString[2*SHA_DIGEST_LENGTH+1];
-    char        name[MAX_PATH_LENGTH];
+    uint8_t              hash[SHA_DIGEST_LENGTH];
+    char                 hashString[2*SHA_DIGEST_LENGTH+1];
+    char                 name[MAX_PATH_LENGTH];
 
     /* Flags */
 #define TR_FSAVEPRIVATE 0x01    /* save a private copy of the torrent */
-    int         flags;
-    
-    tr_announce_list_item_t ** trackerAnnounceList;
-    int         trackerAnnounceTiers;
-    
+    int                  flags;
+
+    /* Tracker info */
+    struct
+    {
+        tr_tracker_info_t * list;
+        int                 count;
+    }                  * trackerList;
+    int                  trackerTiers;
+
     /* Torrent info */
-    char        comment[MAX_PATH_LENGTH];
-    char        creator[MAX_PATH_LENGTH];
-    int         dateCreated;
+    char                 comment[MAX_PATH_LENGTH];
+    char                 creator[MAX_PATH_LENGTH];
+    int                  dateCreated;
 
     /* Pieces info */
-    int         pieceSize;
-    int         pieceCount;
-    uint64_t    totalSize;
-    uint8_t   * pieces;
+    int                  pieceSize;
+    int                  pieceCount;
+    uint64_t             totalSize;
+    uint8_t            * pieces;
 
     /* Files info */
-    int         multifile;
-    int         fileCount;
-    tr_file_t * files;
+    int                  multifile;
+    int                  fileCount;
+    tr_file_t          * files;
 };
 
 /***********************************************************************
@@ -399,13 +404,11 @@ struct tr_msg_list_s
     struct tr_msg_list_s * next;
 };
 
-struct tr_announce_list_item_s
+struct tr_tracker_info_s
 {
     char * address;
     int    port;
     char * announce;
-    
-    tr_announce_list_item_t * nextItem;
 };
 
 #ifdef __TRANSMISSION__

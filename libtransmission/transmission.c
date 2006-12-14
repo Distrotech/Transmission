@@ -30,7 +30,6 @@
 static tr_torrent_t * torrentRealInit( tr_handle_t *, tr_torrent_t * tor,
                                        int flags, int * error );
 static void torrentReallyStop( tr_torrent_t * );
-static void freeInfo( tr_info_t * inf );
 static void downloadLoop( void * );
 static void acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
@@ -289,7 +288,7 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
                      SHA_DIGEST_LENGTH ) )
         {
             *error = TR_EDUPLICATE;
-            freeInfo( &tor->info );
+            tr_metainfoFree( &tor->info );
             free( tor );
             return NULL;
         }
@@ -483,9 +482,9 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     else
     {
-        s->trackerAddress  = inf->trackerAnnounceList[0]->address;
-        s->trackerPort     = inf->trackerAnnounceList[0]->port;
-        s->trackerAnnounce = inf->trackerAnnounceList[0]->announce;
+        s->trackerAddress  = inf->trackerList[0].list[0].address;
+        s->trackerPort     = inf->trackerList[0].list[0].port;
+        s->trackerAnnounce = inf->trackerList[0].list[0].announce;
     }
 
     s->peersTotal       = 0;
@@ -685,7 +684,7 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
         free( tor->destination );
     }
 
-    freeInfo( inf );
+    tr_metainfoFree( inf );
 
     if( tor->prev )
     {
@@ -702,29 +701,6 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     free( tor );
 
     tr_lockUnlock( &h->acceptLock );
-}
-
-static void freeInfo( tr_info_t * inf )
-{
-    int ii;
-    tr_announce_list_item_t * jj, * dead;
-
-    free( inf->pieces );
-    free( inf->files );
-    
-    for( ii = 0; ii < inf->trackerAnnounceTiers; ii++ )
-    {
-        jj = inf->trackerAnnounceList[ii];
-        while( NULL != jj )
-        {
-            dead = jj;
-            jj = jj->nextItem;
-            free( dead->address );
-            free( dead->announce );
-            free( dead );
-        }
-    }
-    free( inf->trackerAnnounceList );
 }
 
 void tr_close( tr_handle_t * h )

@@ -27,7 +27,7 @@
 typedef struct tr_announce_list_ptr_s tr_announce_list_ptr_t;
 struct tr_announce_list_ptr_s
 {
-    tr_announce_list_item_t * item;
+    tr_tracker_info_t * item;
     tr_announce_list_ptr_t * nextItem;
 };
 
@@ -92,10 +92,11 @@ static void        killHttp         ( tr_http_t ** http, tr_fd_t * fdlimit );
 
 tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
 {
+    tr_info_t * inf = &tor->info;
+
     tr_tracker_t * tc;
-    tr_announce_list_item_t * announceItem;
-    tr_announce_list_ptr_t * announcePtr, * prevAnnouncePtr;
-    int i;
+    tr_announce_list_ptr_t * prev, * cur;
+    int ii, jj;
 
     tc                 = calloc( 1, sizeof( tr_tracker_t ) );
     tc->tor            = tor;
@@ -111,21 +112,23 @@ tr_tracker_t * tr_trackerInit( tr_torrent_t * tor )
     tc->bindPort       = *(tor->bindPort);
     tc->newPort        = -1;
     
-    tc->trackerAnnounceListPtr = calloc( sizeof( int ), tor->info.trackerAnnounceTiers );
-    for( i = 0; i < tor->info.trackerAnnounceTiers; i++ )
+    tc->trackerAnnounceListPtr = calloc( sizeof( int ), inf->trackerTiers );
+    for( ii = 0; ii < inf->trackerTiers; ii++ )
     {
-        tc->trackerAnnounceListPtr[i] = calloc( 1, sizeof( tr_announce_list_ptr_t ) );
-        tc->trackerAnnounceListPtr[i]->item = tor->info.trackerAnnounceList[i];
-        prevAnnouncePtr = tc->trackerAnnounceListPtr[i];
-        
-        for( announceItem = tor->info.trackerAnnounceList[i]->nextItem; announceItem != NULL;
-                announceItem = announceItem->nextItem )
+        prev = NULL;
+        for( jj = 0; jj < inf->trackerList[ii].count; jj++ )
         {
-            announcePtr = calloc( 1, sizeof( tr_announce_list_ptr_t ) );
-            
-            announcePtr->item = announceItem;
-            prevAnnouncePtr->nextItem = announcePtr;
-            prevAnnouncePtr = announcePtr;
+            cur = calloc( sizeof( tr_announce_list_ptr_t ), 1 );
+            cur->item = &inf->trackerList[ii].list[jj];
+            if( NULL == prev )
+            {
+                tc->trackerAnnounceListPtr[ii] = cur;
+            }
+            else
+            {
+                prev->nextItem = cur;
+            }
+            prev = cur;
         }
     }
     
@@ -165,7 +168,7 @@ static int announceToScrape( char * announce, char * scrape )
 
 static void setAnnounce( tr_tracker_t * tc, tr_announce_list_ptr_t * announcePtr )
 {
-    tr_announce_list_item_t * announceItem = announcePtr->item;
+    tr_tracker_info_t * announceItem = announcePtr->item;
     
     tc->trackerAddress  = announceItem->address;
     tc->trackerPort     = announceItem->port;
@@ -191,7 +194,7 @@ static void failureAnnouncing( tr_tracker_t * tc )
     tc->shouldChangeAnnounce = 1;
     
     /* If more tiers then announce can definitely be changed */
-    if( tc->announceTier + 1 < inf->trackerAnnounceTiers)
+    if( tc->announceTier + 1 < inf->trackerTiers )
     {
         return;
     }
