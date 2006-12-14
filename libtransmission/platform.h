@@ -62,7 +62,7 @@ static inline void tr_lockUnlock( tr_lock_t * l )
 #endif
 }
 
-void tr_condCreate( tr_cond_t * );
+void tr_condInit( tr_cond_t * );
 void tr_condWait( tr_cond_t *, tr_lock_t * );
 void tr_condSignal( tr_cond_t * );
 void tr_condClose( tr_cond_t * );

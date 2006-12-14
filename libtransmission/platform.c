@@ -233,7 +233,7 @@ void tr_lockClose( tr_lock_t * l )
 }
 
 
-void tr_condCreate( tr_cond_t * c )
+void tr_condInit( tr_cond_t * c )
 {
 #ifdef SYS_BEOS
     *c = -1;

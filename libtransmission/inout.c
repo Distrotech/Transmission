@@ -300,7 +300,6 @@ static void closeFiles( tr_io_t * io )
     tr_info_t    * inf = &tor->info;
 
     int i;
-    char * path;
 
     for( i = 0; i < inf->fileCount; i++ )
     {
@@ -325,7 +324,6 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
     int    begin = offset % inf->pieceSize;
     int    i;
     size_t cur;
-    char * path;
     int    file;
     iofunc readOrWrite = isWrite ? (iofunc) write : (iofunc) read;
 
