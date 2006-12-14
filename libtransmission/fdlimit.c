@@ -198,7 +198,7 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
     }
 
 open:
-    tr_dbg( "Opening %s in %s", name, folder );
+    tr_dbg( "Opening %s in %s (%d)", name, folder, write );
     asprintf( &path, "%s/%s", folder, name );
     f->open[winner].file = open( path, write ? ( O_RDWR | O_CREAT ) :
                                  O_RDONLY, 0666 );
@@ -361,17 +361,18 @@ static int ErrorFromErrno()
  **********************************************************************/
 static void CloseFile( tr_fd_t * f, int i )
 {
-    if( !( f->open[i].status & STATUS_UNUSED ) )
+    tr_openFile_t * file = &f->open[i];
+    if( !( file->status & STATUS_UNUSED ) )
     {
         tr_err( "CloseFile: status is %d, should be %d",
-                f->open[i].status, STATUS_UNUSED );
+                file->status, STATUS_UNUSED );
     }
-    tr_dbg( "Closing %s in %s", f->open[i].name, f->open[i].folder );
-    f->open[i].status = STATUS_CLOSING;
+    tr_dbg( "Closing %s in %s (%d)", file->name, file->folder, file->write );
+    file->status = STATUS_CLOSING;
     tr_lockUnlock( &f->lock );
-    close( f->open[i].file );
+    close( file->file );
     tr_lockLock( &f->lock );
-    f->open[i].status = STATUS_INVALID;
+    file->status = STATUS_INVALID;
     tr_condSignal( &f->cond );
 }
 

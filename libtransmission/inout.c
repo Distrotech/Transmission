@@ -381,12 +381,14 @@ static int readOrWriteBytes( tr_io_t * io, uint64_t offset, int size,
             /* seek to the right offset... */
             if( lseek( file, offset, SEEK_SET ) < 0 )
             {
+                tr_fdFileRelease( tor->fdlimit, file );
                 goto fail;
             }
 
             /* do what we are here to do... */
             if( readOrWrite( file, buf, cur ) != cur )
             {
+                tr_fdFileRelease( tor->fdlimit, file );
                 goto fail;
             }
 
