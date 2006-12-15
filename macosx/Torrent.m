@@ -743,6 +743,11 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return [NSString stringWithUTF8String: fInfo->hashString];
 }
 
+- (BOOL) privateTorrent
+{
+    return fInfo->privateTorrent;
+}
+
 - (NSString *) torrentLocation
 {
     return [NSString stringWithUTF8String: fInfo->torrent];

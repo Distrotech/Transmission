@@ -169,7 +169,13 @@ int tr_metainfoParse( tr_info_t * inf, const char * path,
     {
         inf->dateCreated = 0;
     }
-
+    
+    /* Private torrent */
+    if( ( val = tr_bencDictFind( beInfo, "private" ) ) && TYPE_INT == val->type )
+    {
+        inf->privateTorrent = val->val.i;
+    }
+    
     /* Piece length */
     if( !( val = tr_bencDictFind( beInfo, "piece length" ) ) )
     {

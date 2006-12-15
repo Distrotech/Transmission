@@ -328,6 +328,7 @@ struct tr_info_s
     char                 comment[MAX_PATH_LENGTH];
     char                 creator[MAX_PATH_LENGTH];
     int                  dateCreated;
+    int                  privateTorrent;
 
     /* Pieces info */
     int                  pieceSize;

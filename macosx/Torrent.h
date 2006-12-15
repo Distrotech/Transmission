@@ -115,6 +115,7 @@
 - (int)        pieceSize;
 - (int)        pieceCount;
 - (NSString *) hashString;
+- (BOOL)       privateTorrent;
 
 - (NSString *) torrentLocation;
 - (NSString *) publicTorrentLocation;

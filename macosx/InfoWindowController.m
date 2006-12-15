@@ -39,7 +39,7 @@
 #define TAB_OPTIONS_IDENT @"Options"
 
 //15 spacing at the bottom of each tab
-#define TAB_INFO_HEIGHT 268.0
+#define TAB_INFO_HEIGHT 284.0
 #define TAB_ACTIVITY_HEIGHT 170.0
 #define TAB_PEERS_HEIGHT 268.0
 #define TAB_FILES_HEIGHT 268.0
@@ -155,6 +155,7 @@
         [fPiecesField setStringValue: @""];
         [fHashField setStringValue: @""];
         [fHashField setToolTip: nil];
+        [fSecureField setStringValue: @""];
         [fCommentView setString: @""];
         
         [fCreatorField setStringValue: @""];
@@ -212,6 +213,9 @@
                                         [NSString stringForFileSize: [torrent pieceSize]]]];
         [fHashField setStringValue: hashString];
         [fHashField setToolTip: hashString];
+        [fSecureField setStringValue: [torrent privateTorrent]
+                        ? NSLocalizedString(@"Private Torrent", "Inspector -> is private torrent")
+                        : NSLocalizedString(@"Public Torrent", "Inspector -> is not private torrent")];
         [fCommentView setString: commentString];
         
         [fCreatorField setStringValue: [torrent creator]];
