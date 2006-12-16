@@ -383,8 +383,7 @@ void tr_trackerPulse( tr_tracker_t * tc )
                 /* Check if the last announce was successful and wasn't the first in the sublist */
                 if( tc->shouldChangeAnnounce == TC_CHANGE_NO && tc->announceTierLast != 0 )
                 {
-                    prevAnnouncePtr = tc->trackerAnnounceListPtr[tc->announceTier];
-                    announcePtr = prevAnnouncePtr->nextItem;
+                    announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
                     for( i = 0; i < tc->announceTierLast; i++ )
                     {
                         prevAnnouncePtr = announcePtr;
