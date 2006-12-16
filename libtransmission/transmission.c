@@ -454,6 +454,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     tr_stat_t * s;
     tr_peer_t * peer;
     tr_info_t * inf = &tor->info;
+    tr_tracker_t * tc = tor->tracker;
     int i;
 
     tor->statCur = ( tor->statCur + 1 ) % 2;
@@ -473,6 +474,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     s->error  = tor->error;
     memcpy( s->trackerError, tor->trackerError,
             sizeof( s->trackerError ) );
+    s->cannotConnect = tr_trackerCannotConnecting( tc );
     
     if( tor->tracker )
     {
@@ -531,8 +533,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     s->rateUpload = tr_rcRate( tor->upload );
     
-    s->seeders  = tr_trackerSeeders( tor->tracker );
-    s->leechers = tr_trackerLeechers( tor->tracker );
+    s->seeders  = tr_trackerSeeders( tc );
+    s->leechers = tr_trackerLeechers( tc );
     s->completedFromTracker = tr_trackerDownloaded( tor->tracker );
 
     s->swarmspeed = tr_rcRate( tor->swarmspeed );

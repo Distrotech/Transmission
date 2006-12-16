@@ -363,6 +363,7 @@ struct tr_stat_s
 #define TR_EINOUT   2
     int                 error;
     char                trackerError[128];
+    int                 cannotConnect;
     
     const char        * trackerAddress;
     int                 trackerPort;

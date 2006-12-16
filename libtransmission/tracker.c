@@ -70,6 +70,8 @@ struct tr_tracker_s
     int            hasManyPeers;
     int            complete;
     int            randOffset;
+    
+    int            completelyUnconnectable;
 
     uint64_t       dateTry;
     uint64_t       dateOk;
@@ -201,6 +203,11 @@ static void failureAnnouncing( tr_tracker_t * tc )
     tc->shouldChangeAnnounce = tc->announceTier + 1 < inf->trackerTiers
                                 || tc->announceTierLast + 1 < inf->trackerList[tc->announceTier].count
                                 ? TC_CHANGE_NEXT : TC_CHANGE_NO;
+    
+    if( tc->shouldChangeAnnounce == TC_CHANGE_NO )
+    {
+        tc->completelyUnconnectable = 1;
+    }
 }
 
 static int shouldConnect( tr_tracker_t * tc )
@@ -315,6 +322,7 @@ void tr_trackerPulse( tr_tracker_t * tc )
 
     if( ( NULL == tc->http ) && shouldConnect( tc ) )
     {
+        tc->completelyUnconnectable = 0;
         tc->randOffset = tr_rand( 60000 );
         
         if( tr_fdSocketWillCreate( tor->fdlimit, 1 ) )
@@ -1052,6 +1060,15 @@ const char * tr_trackerAnnounce( tr_tracker_t * tc )
         return NULL;
     }
     return tc->trackerAnnounce;
+}
+
+int tr_trackerCannotConnecting( tr_tracker_t * tc )
+{
+    if( !tc )
+    {
+        return 0;
+    }
+    return tc->completelyUnconnectable;
 }
 
 /* Blocking version */
