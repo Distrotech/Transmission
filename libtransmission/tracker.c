@@ -337,6 +337,7 @@ void tr_trackerPulse( tr_tracker_t * tc )
             if( !tr_httpParseUrl( tc->redirectAddress, tc->redirectAddressLen,
                                      &address, &port, &announce ) )
             {
+                tr_err( "Tracker: redirected URL: %s:%d", address, port );
                 tc->http = tr_httpClient( TR_HTTP_GET, address, port, announce );
                 
                 free( address );
@@ -452,6 +453,7 @@ void tr_trackerPulse( tr_tracker_t * tc )
             if( !tr_httpParseUrl( tc->redirectScrapeAddress, tc->redirectScrapeAddressLen,
                                      &address, &port, &announce ) )
             {
+                tr_err( "Scrape: redirected URL: %s:%d", address, port );
                 tc->httpScrape = tr_httpClient( TR_HTTP_GET, address, port, announce );
                 
                 free( address );
@@ -639,8 +641,6 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         
         char * address = calloc( sizeof( char ), hdr->len+1 );
         snprintf( address, hdr->len+1, "%s", hdr->data );
-        
-        tr_err( "Tracker: redirected URL: %s", address );
         
         tc->shouldChangeAnnounce = TC_CHANGE_REDIRECT;
         tc->redirectAddress = address;
@@ -910,8 +910,6 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         
         char * address = calloc( sizeof( char ), hdr->len+1 );
         snprintf( address, hdr->len+1, "%s", hdr->data );
-        
-        tr_err( "Scrape: redirected URL: %s", address );
         
         /* Needs a new scrape */
         tc->dateScrape = 0;
