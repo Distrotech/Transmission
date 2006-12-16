@@ -636,7 +636,7 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
         
         tc->shouldChangeAnnounce = TC_CHANGE_REDIRECT;
         tc->redirectAddress = address;
-        tc->redirectAddressLen = hdr->len+1;
+        tc->redirectAddressLen = hdr->len;
         
         return;
     }
@@ -909,7 +909,7 @@ static void readScrapeAnswer( tr_tracker_t * tc, const char * data, int len )
         tc->dateScrape = 0;
         
         tc->redirectScrapeAddress = address;
-        tc->redirectScrapeAddressLen = hdr->len+1;
+        tc->redirectScrapeAddressLen = hdr->len;
         
         return;
     }
