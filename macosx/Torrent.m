@@ -355,12 +355,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     BOOL wasError = fError;
     if ((fError = fStat->cannotConnect))
     {
-        if (!wasError && [self isActive])
-        {
-            fError = YES;
-            if (![self isSeeding])
-                [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
-        }
+        if (!wasError && [self isActive] && ![self isSeeding])
+            [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
     }
 
     if ([self isActive] && fStat->status != TR_STATUS_CHECK )
