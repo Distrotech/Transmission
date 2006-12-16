@@ -48,7 +48,8 @@ struct tr_tracker_s
 
 #define TC_CHANGE_NO        0
 #define TC_CHANGE_NEXT      1
-#define TC_CHANGE_REDIRECT  2
+#define TC_CHANGE_NONEXT    2
+#define TC_CHANGE_REDIRECT  4
     int            shouldChangeAnnounce;
     int            announceTier;
     int            announceTierLast;
@@ -202,9 +203,9 @@ static void failureAnnouncing( tr_tracker_t * tc )
     
     tc->shouldChangeAnnounce = tc->announceTier + 1 < inf->trackerTiers
                                 || tc->announceTierLast + 1 < inf->trackerList[tc->announceTier].count
-                                ? TC_CHANGE_NEXT : TC_CHANGE_NO;
+                                ? TC_CHANGE_NEXT : TC_CHANGE_NONEXT;
     
-    if( tc->shouldChangeAnnounce == TC_CHANGE_NO )
+    if( tc->shouldChangeAnnounce == TC_CHANGE_NONEXT )
     {
         tc->completelyUnconnectable = 1;
     }
@@ -216,7 +217,8 @@ static int shouldConnect( tr_tracker_t * tc )
     uint64_t       now;
     
     /* Last tracker failed, try next */
-    if( tc->shouldChangeAnnounce != TC_CHANGE_NO )
+    if( tc->shouldChangeAnnounce == TC_CHANGE_NEXT
+        || tc->shouldChangeAnnounce == TC_CHANGE_REDIRECT )
     {
         return 1;
     }
@@ -331,9 +333,9 @@ void tr_trackerPulse( tr_tracker_t * tc )
         }
         tc->dateTry = tr_date();
         
+        /* Use redirected address */
         if( tc->shouldChangeAnnounce == TC_CHANGE_REDIRECT )
         {
-            /* Use redirected address */
             if( !tr_httpParseUrl( tc->redirectAddress, tc->redirectAddressLen,
                                      &address, &port, &announce ) )
             {
@@ -344,18 +346,42 @@ void tr_trackerPulse( tr_tracker_t * tc )
                 free( announce );
             }
             
-            tc->shouldChangeAnnounce = TC_CHANGE_NO;
-            
             free( tc->redirectAddress );
             tc->redirectAddress = NULL;
         }
         else
         {
+            /* Need to change to next address in list */
             if( tc->shouldChangeAnnounce == TC_CHANGE_NEXT )
             {
                 tr_inf( "Tracker: failed to connect to %s, trying next", tc->trackerAddress );
                 
                 if( tc->announceTierLast + 1 < inf->trackerList[tc->announceTier].count )
+                {
+                    tc->announceTierLast++;
+                    
+                    announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
+                    for( i = 0; i < tc->announceTierLast; i++ )
+                    {
+                        announcePtr = announcePtr->nextItem;
+                    }
+                }
+                else
+                {
+                    tc->announceTierLast = 0;
+                    tc->announceTier++;
+                    
+                    announcePtr = tc->trackerAnnounceListPtr[tc->announceTier];
+                }
+                
+                tr_inf( "Tracker: tracker address set to %s", tc->trackerAnnounceListPtr[tc->announceTier]->item->address );
+                setAnnounce( tc, announcePtr );
+            }
+            /* Need to change to first in list */
+            else if( tc->announceTier != 0 || tc->announceTierLast != 0 )
+            {
+                /* Check if the last announce was successful and wasn't the first in the sublist */
+                if( tc->shouldChangeAnnounce == TC_CHANGE_NO && tc->announceTierLast != 0 )
                 {
                     prevAnnouncePtr = tc->trackerAnnounceListPtr[tc->announceTier];
                     announcePtr = prevAnnouncePtr->nextItem;
@@ -369,26 +395,10 @@ void tr_trackerPulse( tr_tracker_t * tc )
                     prevAnnouncePtr->nextItem = announcePtr->nextItem;
                     announcePtr->nextItem =  tc->trackerAnnounceListPtr[tc->announceTier];
                     tc->trackerAnnounceListPtr[tc->announceTier] = announcePtr;
-                    
-                    tc->announceTierLast++;
-                }
-                else
-                {
-                    tc->announceTierLast = 0;
-                    tc->announceTier++;
                 }
                 
-                tr_inf( "Tracker: tracker address set to %s", tc->trackerAnnounceListPtr[tc->announceTier]->item->address );
-                setAnnounce( tc, tc->trackerAnnounceListPtr[tc->announceTier] );
-                tc->shouldChangeAnnounce = TC_CHANGE_NO;
-            }
-            else
-            {
-                if( tc->announceTier != 0 )
-                {
-                    setAnnounce( tc, tc->trackerAnnounceListPtr[0] );
-                    tc->announceTier = 0;
-                }
+                setAnnounce( tc, tc->trackerAnnounceListPtr[0] );
+                tc->announceTier = 0;
                 tc->announceTierLast = 0;
             }
             
@@ -402,6 +412,8 @@ void tr_trackerPulse( tr_tracker_t * tc )
                         ( 0 < tc->newPort ? "sending 'stopped' to change port" :
                           "getting peers" ) ) ) );
         }
+        
+        tc->shouldChangeAnnounce = TC_CHANGE_NO;
     }
 
     if( NULL != tc->http )
@@ -416,7 +428,7 @@ void tr_trackerPulse( tr_tracker_t * tc )
                 tc->dateTry = tr_date();
                 
                 failureAnnouncing( tc );
-                if ( tc->shouldChangeAnnounce != TC_CHANGE_NO )
+                if ( tc->shouldChangeAnnounce == TC_CHANGE_NEXT )
                 {
                     tr_trackerPulse( tc );
                     return;
@@ -429,7 +441,8 @@ void tr_trackerPulse( tr_tracker_t * tc )
                 killHttp( &tc->http, tor->fdlimit );
                 
                 /* Something happened to need to try next address */
-                if ( tc->shouldChangeAnnounce != TC_CHANGE_NO )
+                if ( tc->shouldChangeAnnounce == TC_CHANGE_NEXT
+                    || tc->shouldChangeAnnounce == TC_CHANGE_REDIRECT )
                 {
                     tr_trackerPulse( tc );
                     return;
