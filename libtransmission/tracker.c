@@ -215,15 +215,15 @@ int tr_trackerPulse( tr_tracker_t * tc )
     {
         switch( tr_httpPulse( tc->http, &data, &len ) )
         {
-            case TR_WAIT:
+            case TR_NET_WAIT:
                 break;
 
-            case TR_ERROR:
+            case TR_NET_ERROR:
                 killHttp( &tc->http, tor->fdlimit );
                 tc->dateTry = tr_date();
                 break;
 
-            case TR_OK:
+            case TR_NET_OK:
                 readAnswer( tc, data, len );
                 killHttp( &tc->http, tor->fdlimit );
                 break;
@@ -246,15 +246,15 @@ int tr_trackerPulse( tr_tracker_t * tc )
     {
         switch( tr_httpPulse( tc->httpScrape, &data, &len ) )
         {
-            case TR_WAIT:
+            case TR_NET_WAIT:
                 break;
 
-            case TR_ERROR:
+            case TR_NET_ERROR:
                 killHttp( &tc->httpScrape, tor->fdlimit );
                 tc->lastScrapeFailed = 1;
                 break;
 
-            case TR_OK:
+            case TR_NET_OK:
                 readScrapeAnswer( tc, data, len );
                 killHttp( &tc->httpScrape, tor->fdlimit );
                 break;
@@ -772,13 +772,13 @@ int tr_trackerScrape( tr_torrent_t * tor, int * s, int * l, int * d )
     {
         switch( tr_httpPulse( http, &data, &len ) )
         {
-            case TR_WAIT:
+            case TR_NET_WAIT:
                 break;
 
-            case TR_ERROR:
+            case TR_NET_ERROR:
                 goto scrapeDone;
 
-            case TR_OK:
+            case TR_NET_OK:
                 readScrapeAnswer( tc, data, len );
                 goto scrapeDone;
         }

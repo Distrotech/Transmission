@@ -55,6 +55,7 @@ extern "C" {
  * Error codes
  **********************************************************************/
 /* General errors */
+#define TR_OK                   0x00000000
 #define TR_ERROR                0x81000000
 #define TR_ERROR_ASSERT         0x82000000
 /* I/O errors */
