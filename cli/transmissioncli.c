@@ -120,6 +120,8 @@ int main( int argc, char ** argv )
     {
         tr_info_t * info = tr_torrentInfo( tor );
 
+        s = tr_torrentStat( tor );
+
         /* Print torrent info (quite à la btshowmetainfo) */
         printf( "hash:     " );
         for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
@@ -128,8 +130,8 @@ int main( int argc, char ** argv )
         }
         printf( "\n" );
         printf( "tracker:  %s:%d\n",
-                info->trackerAddress, info->trackerPort );
-        printf( "announce: %s\n", info->trackerAnnounce );
+                s->trackerAddress, s->trackerPort );
+        printf( "announce: %s\n", s->trackerAnnounce );
         printf( "size:     %"PRIu64" (%"PRIu64" * %d + %"PRIu64")\n",
                 info->totalSize, info->totalSize / info->pieceSize,
                 info->pieceSize, info->totalSize % info->pieceSize );
@@ -171,8 +173,8 @@ int main( int argc, char ** argv )
     signal( SIGINT, sigHandler );
 
     tr_setBindPort( h, bindPort );
-    tr_setUploadLimit( h, uploadLimit );
-    tr_setDownloadLimit( h, downloadLimit );
+    tr_setGlobalUploadLimit( h, uploadLimit );
+    tr_setGlobalDownloadLimit( h, downloadLimit );
 
     if( natTraversal )
     {

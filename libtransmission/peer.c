@@ -100,6 +100,7 @@ struct tr_peer_s
     int            outSlow;
 
     tr_ratecontrol_t * download;
+    tr_ratecontrol_t * upload;
 };
 
 #define peer_dbg( a... ) __peer_dbg( peer, ## a )
@@ -223,6 +224,7 @@ void tr_peerDestroy( tr_fd_t * fdlimit, tr_peer_t * peer )
         tr_fdSocketClosed( fdlimit, 0 );
     }
     tr_rcClose( peer->download );
+    tr_rcClose( peer->upload );
     free( peer );
 }
 
@@ -264,7 +266,8 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
     /* Try to read */
     for( ;; )
     {
-        if( tor && !tr_rcCanTransfer( tor->globalDownload ) )
+        if( tor && ( ( !tor->customSpeedLimit && !tr_rcCanGlobalTransfer( tor->handle, 0 ) )
+            || ( tor->customSpeedLimit && !tr_rcCanTransfer( tor->download ) ) ) )
         {
             break;
         }
@@ -298,7 +301,6 @@ int tr_peerRead( tr_torrent_t * tor, tr_peer_t * peer )
         {
             tr_rcTransferred( peer->download, ret );
             tr_rcTransferred( tor->download, ret );
-            tr_rcTransferred( tor->globalDownload, ret );
             if( ( ret = parseBuf( tor, peer ) ) )
             {
                 return ret;
@@ -435,7 +437,8 @@ writeBegin:
         /* Send pieces if we can */
         while( ( p = blockPending( tor, peer, &size ) ) )
         {
-            if( !tr_rcCanTransfer( tor->globalUpload ) )
+            if( ( !tor->customSpeedLimit && !tr_rcCanGlobalTransfer( tor->handle, 1 ) )
+                    || ( tor->customSpeedLimit && !tr_rcCanTransfer( tor->upload ) ) )
             {
                 break;
             }
@@ -451,8 +454,8 @@ writeBegin:
             }
 
             blockSent( peer, ret );
+            tr_rcTransferred( peer->upload, ret );
             tr_rcTransferred( tor->upload, ret );
-            tr_rcTransferred( tor->globalUpload, ret );
 
             tor->uploadedCur += ret;
             peer->outTotal   += ret;
@@ -539,13 +542,23 @@ int tr_peerIsDownloading( tr_peer_t * peer )
 }
 
 /***********************************************************************
- * tr_peerIsDownloading
+ * tr_peerProgress
  ***********************************************************************
  *
  **********************************************************************/
 float tr_peerProgress( tr_peer_t * peer )
 {
     return peer->progress;
+}
+
+/***********************************************************************
+ * tr_peerPort
+ ***********************************************************************
+ * Returns peer's listening port in host byte order
+ **********************************************************************/
+int tr_peerPort( tr_peer_t * peer )
+{
+    return ntohs( peer->port );
 }
 
 /***********************************************************************
@@ -561,6 +574,11 @@ uint8_t * tr_peerBitfield( tr_peer_t * peer )
 float tr_peerDownloadRate( tr_peer_t * peer )
 {
     return tr_rcRate( peer->download );
+}
+
+float tr_peerUploadRate( tr_peer_t * peer )
+{
+    return tr_rcRate( peer->upload );
 }
 
 int tr_peerIsUnchoked( tr_peer_t * peer )

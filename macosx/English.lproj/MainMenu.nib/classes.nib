@@ -1,8 +1,10 @@
 {
     IBClasses = (
+        {CLASS = ActionPopUpButton; LANGUAGE = ObjC; SUPERCLASS = NSPopUpButton; }, 
         {CLASS = BarButton; LANGUAGE = ObjC; SUPERCLASS = NSButton; }, 
         {
             ACTIONS = {
+                announceSelectedTorrents = id; 
                 applyFilter = id; 
                 applySpeedLimit = id; 
                 copyTorrentFile = id; 
@@ -47,6 +49,7 @@
                 fActionButton = NSButton; 
                 fDateSortActionItem = NSMenuItem; 
                 fDateSortItem = NSMenuItem; 
+                fDockMenu = NSMenu; 
                 fDownloadFilterButton = BarButton; 
                 fDownloadLimitItem = NSMenuItem; 
                 fDownloadMenu = NSMenu; 
@@ -93,7 +96,6 @@
             SUPERCLASS = NSObject; 
         }, 
         {CLASS = ImageBackgroundView; LANGUAGE = ObjC; SUPERCLASS = NSView; }, 
-        {CLASS = MenuButton; LANGUAGE = ObjC; SUPERCLASS = NSButton; }, 
         {CLASS = NSSegmentedControl; LANGUAGE = ObjC; SUPERCLASS = NSControl; }, 
         {CLASS = NameCell; LANGUAGE = ObjC; SUPERCLASS = NSCell; }, 
         {

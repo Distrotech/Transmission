@@ -34,9 +34,14 @@
 
 - (id) initWithHash: (NSString *) hashString path: (NSString *) path lib: (tr_handle_t *) lib
         publicTorrent: (NSNumber *) publicTorrent
-        date: (NSDate *) date stopRatioSetting: (NSNumber *) stopRatioSetting
-        ratioLimit: (NSNumber *) ratioLimit waitToStart: (NSNumber *) waitToStart
-        orderValue: (NSNumber *) orderValue;
+        date: (NSDate *) date
+        stopRatioCustom: (NSNumber *) ratioCustom
+        shouldStopAtRatio: (NSNumber *) shouldStopAtRatio
+        ratioLimit: (NSNumber *) ratioLimit
+        limitSpeedCustom: (NSNumber *) limitCustom
+        checkUpload: (NSNumber *) checkUpload uploadLimit: (NSNumber *) uploadLimit
+        checkDownload: (NSNumber *) checkDownload downloadLimit: (NSNumber *) downloadLimit
+        waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue;
 
 - (NSImage *) advancedBar;
 
@@ -62,7 +67,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 {
     self = [self initWithHash: nil path: path lib: lib
             publicTorrent: delete ? [NSNumber numberWithBool: NO] : nil
-            date: nil stopRatioSetting: nil ratioLimit: nil waitToStart: nil orderValue: nil];
+            date: nil
+            stopRatioCustom: nil shouldStopAtRatio: nil ratioLimit: nil
+            limitSpeedCustom: nil
+            checkUpload: nil uploadLimit: nil
+            checkDownload: nil downloadLimit: nil
+            waitToStart: nil orderValue: nil];
     
     if (self)
     {
@@ -81,8 +91,14 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                 path: [history objectForKey: @"TorrentPath"] lib: lib
                 publicTorrent: [history objectForKey: @"PublicCopy"]
                 date: [history objectForKey: @"Date"]
-                stopRatioSetting: [history objectForKey: @"StopRatioSetting"]
+                stopRatioCustom: [history objectForKey: @"StopRatioCustom"]
+                shouldStopAtRatio: [history objectForKey: @"ShouldStopAtRatio"]
                 ratioLimit: [history objectForKey: @"RatioLimit"]
+                limitSpeedCustom: [history objectForKey: @"LimitSpeedCustom"]
+                checkUpload: [history objectForKey: @"CheckUpload"]
+                uploadLimit: [history objectForKey: @"UploadLimit"]
+                checkDownload: [history objectForKey: @"CheckDownload"]
+                downloadLimit: [history objectForKey: @"DownloadLimit"]
                 waitToStart: [history objectForKey: @"WaitToStart"]
                 orderValue: [history objectForKey: @"OrderValue"]];
     
@@ -130,8 +146,14 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                     [NSNumber numberWithBool: fUseIncompleteFolder], @"UseIncompleteFolder",
                     [self isActive] ? @"NO" : @"YES", @"Paused",
                     [self date], @"Date",
-                    [NSNumber numberWithInt: fStopRatioSetting], @"StopRatioSetting",
+                    [NSNumber numberWithBool: fRatioCustom], @"StopRatioCustom",
+                    [NSNumber numberWithBool: fShouldStopAtRatio], @"ShouldStopAtRatio",
                     [NSNumber numberWithFloat: fRatioLimit], @"RatioLimit",
+                    [NSNumber numberWithBool: fLimitCustom], @"LimitSpeedCustom",
+                    [NSNumber numberWithBool: fCheckUpload], @"CheckUpload",
+                    [NSNumber numberWithInt: fUploadLimit], @"UploadLimit",
+                    [NSNumber numberWithBool: fCheckDownload], @"CheckDownload",
+                    [NSNumber numberWithInt: fDownloadLimit], @"DownloadLimit",
                     [NSNumber numberWithBool: fWaitToStart], @"WaitToStart",
                     [self orderValue], @"OrderValue", nil];
     
@@ -158,7 +180,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         if (fPublicTorrentLocation)
             [fPublicTorrentLocation release];
         
+        tr_torrentRemoveSaved(fHandle);
+        
         [fDate release];
+        
+        if (fAnnounceDate)
+            [fAnnounceDate release];
         
         [fIcon release];
         [fIconFlipped release];
@@ -231,19 +258,19 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             fIncompleteFolder = nil;
         }
         
+        fStat = tr_torrentStat(fHandle);
         [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentFinishedDownloading" object: self];
     }
     
     //check to stop for ratio
-    if ([self isSeeding] && ((fStopRatioSetting == RATIO_CHECK && [self ratio] >= fRatioLimit)
-            || (fStopRatioSetting == RATIO_GLOBAL && [fDefaults boolForKey: @"RatioCheck"]
-            && [self ratio] >= [fDefaults floatForKey: @"RatioLimit"])))
+    if ([self isSeeding] && ((fRatioCustom && fShouldStopAtRatio && [self ratio] >= fRatioLimit)
+            || (!fRatioCustom && [fDefaults boolForKey: @"RatioCheck"]
+                && [self ratio] >= [fDefaults floatForKey: @"RatioLimit"])))
     {
         [self stopTransfer];
-        [self setStopRatioSetting: RATIO_NO_CHECK];
-        fFinishedSeeding = YES;
-        
         fStat = tr_torrentStat(fHandle);
+        
+        fFinishedSeeding = YES;
         
         [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentStoppedForRatio" object: self];
     }
@@ -256,17 +283,21 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     else
         [fProgressString appendFormat: NSLocalizedString(@"%@, uploaded %@ (Ratio: %@)", "Torrent -> progress string"),
                 [NSString stringForFileSize: [self size]], [NSString stringForFileSize: [self uploadedTotal]],
-                [NSString stringForRatioWithDownload: [self downloadedTotal] upload: [self uploadedTotal]]];
+                [NSString stringForRatio: [self ratio]]];
 
     switch (fStat->status)
     {
         NSString * tempString;
     
         case TR_STATUS_PAUSE:
-            if (fFinishedSeeding)
+            if (fWaitToStart)
+            {
+                tempString = [self progress] < 1.0
+                        ? [NSLocalizedString(@"Waiting to download", "Torrent -> status string") stringByAppendingEllipsis]
+                        : [NSLocalizedString(@"Waiting to seed", "Torrent -> status string") stringByAppendingEllipsis];
+            }
+            else if (fFinishedSeeding)
                 tempString = NSLocalizedString(@"Seeding complete", "Torrent -> status string");
-            else if (fWaitToStart)
-                tempString = [NSLocalizedString(@"Waiting to start", "Torrent -> status string") stringByAppendingEllipsis];
             else
                 tempString = NSLocalizedString(@"Paused", "Torrent -> status string");
             
@@ -349,18 +380,14 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     if (fStat->error & TR_ETRACKER)
     {
         [fStatusString setString: [NSLocalizedString(@"Error: ", "Torrent -> status string") stringByAppendingString:
-                                    [NSString stringWithUTF8String: fStat->trackerError]]];
-        if (!fError && [self isActive])
-        {
-            fError = YES;
-            if (![self isSeeding])
-                [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
-        }
+                                    [self errorMessage]]];
     }
-    else
+    
+    BOOL wasError = fError;
+    if ((fError = fStat->cannotConnect))
     {
-        if (fError)
-            fError = NO;
+        if (!wasError && [self isActive])
+            [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
     }
 
     if ([self isActive] && fStat->status != TR_STATUS_CHECK )
@@ -374,8 +401,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         }
         else
         {
-            NSString * ratioString = [NSString stringForRatioWithDownload: [self downloadedTotal]
-                                                upload: [self uploadedTotal]];
+            NSString * ratioString = [NSString stringForRatio: [self ratio]];
         
             [fShortStatusString setString: [NSString stringWithFormat: NSLocalizedString(@"Ratio: %@, ",
                                             "Torrent -> status string"), ratioString]];
@@ -425,21 +451,23 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     fFinishedSeeding = NO;
     
     if (![self isActive] && [self alertForVolumeAvailable] && [self alertForRemainingDiskSpace])
+    {
         tr_torrentStart(fHandle);
+        [self update];
+    }
 }
 
 - (void) stopTransfer
 {
     fError = NO;
+    fWaitToStart = NO;
     
     if ([self isActive])
     {
-        BOOL wasSeeding = [self isSeeding];
-    
         tr_torrentStop(fHandle);
+        [self update];
 
-        if (!wasSeeding)
-            [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
     }
 }
 
@@ -447,11 +475,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 {
     if ([self isActive])
         tr_torrentStop(fHandle);
-}
-
-- (void) removeForever
-{
-    tr_torrentRemoveSaved(fHandle);
 }
 
 - (void) sleep
@@ -466,20 +489,46 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         tr_torrentStart(fHandle);
 }
 
+- (void) announce
+{
+    if (![self isActive])
+        return;
+    
+    tr_manualUpdate(fHandle);
+    
+    if (fAnnounceDate)
+        [fAnnounceDate release];
+    fAnnounceDate = [[NSDate date] retain];
+}
+
+- (NSDate *) announceDate
+{
+    return fAnnounceDate;
+}
+
 - (float) ratio
 {
-    float downloaded = [self downloadedTotal];
-    return downloaded > 0 ? (float)[self uploadedTotal] / downloaded : -1;
+    return fStat->ratio;
 }
 
-- (int) stopRatioSetting
+- (BOOL) customRatioSetting
 {
-	return fStopRatioSetting;
+	return fRatioCustom;
 }
 
-- (void) setStopRatioSetting: (int) setting
+- (void) setCustomRatioSetting: (BOOL) setting
 {
-    fStopRatioSetting = setting;
+    fRatioCustom = setting;
+}
+
+- (BOOL) shouldStopAtRatio
+{
+	return fShouldStopAtRatio;
+}
+
+- (void) setShouldStopAtRatio: (BOOL) setting
+{
+    fShouldStopAtRatio = setting;
 }
 
 - (float) ratioLimit
@@ -491,6 +540,68 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 {
     if (limit >= 0)
         fRatioLimit = limit;
+}
+
+- (BOOL) checkUpload
+{
+    return fCheckUpload;
+}
+
+- (void) setLimitUpload: (BOOL) limit
+{
+    fCheckUpload = limit;
+    [self updateSpeedSetting];
+}
+
+- (int) uploadLimit
+{
+    return fUploadLimit;
+}
+
+- (void) setUploadLimit: (int) limit
+{
+    fUploadLimit = limit;
+    [self updateSpeedSetting];
+}
+
+- (BOOL) checkDownload
+{
+    return fCheckDownload;
+}
+
+- (void) setLimitDownload: (BOOL) limit
+{
+    fCheckDownload = limit;
+    [self updateSpeedSetting];
+}
+
+- (int) downloadLimit
+{
+    return fDownloadLimit;
+}
+
+- (void) setDownloadLimit: (int) limit
+{
+    fDownloadLimit = limit;
+    [self updateSpeedSetting];
+}
+
+- (BOOL) customLimitSetting
+{
+    return fLimitCustom;
+}
+
+- (void) setCustomLimitSetting: (BOOL) setting
+{
+    fLimitCustom = setting;
+    [self updateSpeedSetting];
+}
+
+- (void) updateSpeedSetting
+{
+    tr_setUseCustomLimit(fHandle, fLimitCustom);
+    tr_setUploadLimit(fHandle, fCheckUpload ? fUploadLimit : -1);
+    tr_setDownloadLimit(fHandle, fCheckDownload ? fDownloadLimit : -1);
 }
 
 - (void) setWaitToStart: (BOOL) wait
@@ -552,15 +663,11 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         [alert addButtonWithTitle: NSLocalizedString(@"OK", "Torrent file disk space alert -> button")];
         [alert addButtonWithTitle: NSLocalizedString(@"Download Anyway", "Torrent file disk space alert -> button")];
         
-        if ([alert runModal] == NSAlertFirstButtonReturn)
-        {
-            [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
-            return NO;
-        }
-        else
-            return YES;
+        BOOL ret = [alert runModal] != NSAlertFirstButtonReturn;
         
         [alert release];
+        
+        return ret;
     }
     return YES;
 }
@@ -592,9 +699,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         [alert addButtonWithTitle: [NSLocalizedString(@"Choose New Directory",
                                     "Volume cannot be found alert -> directory button") stringByAppendingEllipsis]];
         
-        if ([alert runModal] == NSAlertFirstButtonReturn)
-            [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
-        else
+        if ([alert runModal] != NSAlertFirstButtonReturn)
         {
             NSOpenPanel * panel = [NSOpenPanel openPanel];
             
@@ -642,8 +747,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         
         [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateInfoSettings" object: nil];
     }
-    else
-        [[NSNotificationCenter defaultCenter] postNotificationName: @"StoppedDownloading" object: self];
 }
 
 - (BOOL) alertForMoveVolumeAvailable
@@ -702,14 +805,14 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fInfo->totalSize;
 }
 
-- (NSString *) tracker
+- (NSString *) trackerAddress
 {
-    return [NSString stringWithFormat: @"%s:%d", fInfo->trackerAddress, fInfo->trackerPort];
+    return [NSString stringWithFormat: @"http://%s:%d", fStat->trackerAddress, fStat->trackerPort];
 }
 
-- (NSString *) announce
+- (NSString *) trackerAddressAnnounce
 {
-    return [NSString stringWithUTF8String: fInfo->trackerAnnounce];
+    return [NSString stringWithUTF8String: fStat->trackerAnnounce];
 }
 
 - (NSString *) comment
@@ -741,6 +844,11 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 - (NSString *) hashString
 {
     return [NSString stringWithUTF8String: fInfo->hashString];
+}
+
+- (BOOL) privateTorrent
+{
+    return fInfo->privateTorrent;
 }
 
 - (NSString *) torrentLocation
@@ -822,6 +930,11 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fStat->error & TR_ETRACKER;
 }
 
+- (NSString *) errorMessage
+{
+    [NSString stringWithUTF8String: fStat->trackerError];
+}
+
 - (BOOL) justFinished
 {
     return tr_getFinished(fHandle);
@@ -833,19 +946,30 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     tr_peer_stat_t * peers = tr_torrentPeers(fHandle, & totalPeers);
     
     NSMutableArray * peerDics = [NSMutableArray arrayWithCapacity: totalPeers];
-    tr_peer_stat_t peer;
+    NSMutableDictionary * dic;
+    
+    tr_peer_stat_t * peer;
     NSString * client;
     for (i = 0; i < totalPeers; i++)
     {
-        peer = peers[i];
-        [peerDics addObject: [NSDictionary dictionaryWithObjectsAndKeys:
-            [NSNumber numberWithBool: peer.isConnected], @"Connected",
-            [NSNumber numberWithBool: peer.isIncoming], @"Incoming",
-            [NSString stringWithCString: (char *) peer.addr encoding: NSUTF8StringEncoding], @"IP",
-            [NSString stringWithCString: (char *) peer.client encoding: NSUTF8StringEncoding], @"Client",
-            [NSNumber numberWithFloat: peer.progress], @"Progress",
-            [NSNumber numberWithBool: peer.isDownloading], @"UL To",
-            [NSNumber numberWithBool: peer.isUploading], @"DL From", nil]];
+        peer = &peers[i];
+        
+        dic = [NSMutableDictionary dictionaryWithObjectsAndKeys:
+            [NSNumber numberWithBool: peer->isConnected], @"Connected",
+            [NSNumber numberWithBool: peer->isIncoming], @"Incoming",
+            [NSString stringWithCString: (char *) peer->addr encoding: NSUTF8StringEncoding], @"IP",
+            [NSString stringWithCString: (char *) peer->client encoding: NSUTF8StringEncoding], @"Client",
+            [NSNumber numberWithFloat: peer->progress], @"Progress",
+            [NSNumber numberWithBool: peer->isDownloading], @"UL To",
+            [NSNumber numberWithBool: peer->isUploading], @"DL From",
+            [NSNumber numberWithInt: peer->port], @"Port", nil];
+        
+        if (peer->isDownloading)
+            [dic setObject: [NSNumber numberWithFloat: peer->uploadToRate] forKey: @"UL To Rate"];
+        if (peer->isUploading)
+            [dic setObject: [NSNumber numberWithFloat: peer->downloadFromRate] forKey: @"DL From Rate"];
+        
+        [peerDics addObject: dic];
     }
     
     tr_torrentPeersFree(peers, totalPeers);
@@ -991,7 +1115,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 {
     //if finished downloading sort by ratio instead of progress
     float progress = [self progress];
-    return [NSNumber numberWithFloat: progress < 1.0 ? progress : 2.0 + [self ratio]];
+    return [NSNumber numberWithFloat: progress < 1.0 ? progress : 100.0 + [self ratio]];
 }
 
 @end
@@ -1002,9 +1126,14 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 //if a hash is given, attempt to load that; otherwise, attempt to open file at path
 - (id) initWithHash: (NSString *) hashString path: (NSString *) path lib: (tr_handle_t *) lib
         publicTorrent: (NSNumber *) publicTorrent
-        date: (NSDate *) date stopRatioSetting: (NSNumber *) stopRatioSetting
-        ratioLimit: (NSNumber *) ratioLimit waitToStart: (NSNumber *) waitToStart
-        orderValue: (NSNumber *) orderValue
+        date: (NSDate *) date
+        stopRatioCustom: (NSNumber *) ratioCustom
+        shouldStopAtRatio: (NSNumber *) shouldStopAtRatio
+        ratioLimit: (NSNumber *) ratioLimit
+        limitSpeedCustom: (NSNumber *) limitCustom
+        checkUpload: (NSNumber *) checkUpload uploadLimit: (NSNumber *) uploadLimit
+        checkDownload: (NSNumber *) checkDownload downloadLimit: (NSNumber *) downloadLimit
+        waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue
 {
     if (!(self = [super init]))
         return nil;
@@ -1029,13 +1158,25 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         return nil;
     }
     
+    NSNotificationCenter * nc = [NSNotificationCenter defaultCenter];
+    [nc addObserver: self selector: @selector(updateSpeedSetting:)
+                name: @"UpdateSpeedSetting" object: nil];
+    
     fInfo = tr_torrentInfo( fHandle );
 
     fDate = date ? [date retain] : [[NSDate alloc] init];
     
-    fStopRatioSetting = stopRatioSetting ? [stopRatioSetting intValue] : -1;
+    fRatioCustom = ratioCustom ? [ratioCustom boolValue] : NO;
+    fShouldStopAtRatio = shouldStopAtRatio ? [shouldStopAtRatio boolValue] : [fDefaults boolForKey: @"RatioCheck"];
     fRatioLimit = ratioLimit ? [ratioLimit floatValue] : [fDefaults floatForKey: @"RatioLimit"];
     fFinishedSeeding = NO;
+    
+    fLimitCustom = limitCustom ? [limitCustom boolValue] : NO;
+    fCheckUpload = checkUpload ? [checkUpload boolValue] : NO;
+    fUploadLimit = uploadLimit ? [uploadLimit intValue] : [fDefaults integerForKey: @"UploadLimit"];
+    fCheckDownload = checkDownload ? [checkDownload boolValue] : NO;
+    fDownloadLimit = downloadLimit ? [downloadLimit intValue] : [fDefaults integerForKey: @"DownloadLimit"];
+    [self updateSpeedSetting];
     
     fWaitToStart = waitToStart ? [waitToStart boolValue] : [fDefaults boolForKey: @"AutoStartDownload"];
     fOrderValue = orderValue ? [orderValue intValue] : tr_torrentCount(fLib) - 1;

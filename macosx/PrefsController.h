@@ -32,12 +32,14 @@
     tr_handle_t * fHandle;
     
     NSUserDefaults          * fDefaults;
+    BOOL                    hasLoaded;
     
     NSToolbar               * fToolbar;
     IBOutlet NSView         * fGeneralView, * fTransfersView, * fBandwidthView, * fNetworkView;
     
     IBOutlet NSPopUpButton  * fFolderPopUp, * fIncompleteFolderPopUp, * fImportFolderPopUp,
                             * fDownloadSoundPopUp, * fSeedingSoundPopUp;
+    IBOutlet NSTextField    * fRatioStopField, * fQueueDownloadField, * fQueueSeedField;
     
     NSArray                 * fSounds;
     
@@ -46,10 +48,8 @@
 
     IBOutlet NSTextField    * fUploadField, * fDownloadField,
                             * fSpeedLimitUploadField, * fSpeedLimitDownloadField;
-    IBOutlet NSButton       * fUploadCheck, * fDownloadCheck;
 
-    IBOutlet NSTextField            * fNatStatusField,
-                                    * fPortStatusField;
+    IBOutlet NSTextField            * fPortField, * fNatStatusField, * fPortStatusField;
     IBOutlet NSButton               * fNatCheck;
     IBOutlet NSImageView            * fNatStatusImage, * fPortStatusImage;
     IBOutlet NSProgressIndicator    * fPortStatusProgress;
@@ -64,6 +64,7 @@
 - (void) setSound:          (id) sender;
 - (void) setUpdate:         (id) sender;
 
+- (void) setQueue:          (id) sender;
 - (void) setQueueNumber:    (id) sender;
 
 - (void) setDownloadLocation:       (id) sender;
@@ -76,9 +77,16 @@
 - (void) setNat:    (id) sender;
 - (void) updateNatStatus;
 
-- (void) setAutoSpeedLimit: (id) sender;
+- (void) updateRatioStopField;
+- (void) setRatioStop: (id) sender;
 
 - (void) applySpeedSettings: (id) sender;
+
+- (void) updateLimitFields;
+- (void) setGlobalLimit: (id) sender;
+
+- (void) setSpeedLimit: (id) sender;
+- (void) setAutoSpeedLimit: (id) sender;
 
 - (void) setAutoImport: (id) sender;
 - (void) importFolderSheetShow: (id) sender;

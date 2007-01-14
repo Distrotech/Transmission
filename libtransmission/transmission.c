@@ -30,8 +30,8 @@
 static tr_torrent_t * torrentRealInit( tr_handle_t *, tr_torrent_t * tor,
                                        int flags, int * error );
 static void torrentReallyStop( tr_torrent_t * );
-static void  downloadLoop( void * );
-static void  acceptLoop( void * );
+static void downloadLoop( void * );
+static void acceptLoop( void * );
 static void acceptStop( tr_handle_t * h );
 
 /***********************************************************************
@@ -70,8 +70,9 @@ tr_handle_t * tr_init()
     signal( SIGPIPE, SIG_IGN );
 
     /* Initialize rate and file descripts controls */
-    h->upload   = tr_rcInit();
-    h->download = tr_rcInit();
+    h->uploadLimit   = -1;
+    h->downloadLimit = -1;
+    
     h->fdlimit  = tr_fdInit();
     h->choking  = tr_chokingInit( h );
     h->natpmp   = tr_natpmpInit( h->fdlimit );
@@ -190,32 +191,32 @@ int tr_natTraversalStatus( tr_handle_t * h )
     return TR_NAT_TRAVERSAL_ERROR;
 }
 
-/***********************************************************************
- * tr_setUploadLimit
- ***********************************************************************
- * 
- **********************************************************************/
-void tr_setUploadLimit( tr_handle_t * h, int limit )
+void tr_setGlobalUploadLimit( tr_handle_t * h, int limit )
 {
-    tr_rcSetLimit( h->upload, limit );
+    h->uploadLimit = limit;
     tr_chokingSetLimit( h->choking, limit );
 }
 
-/***********************************************************************
- * tr_setDownloadLimit
- ***********************************************************************
- * 
- **********************************************************************/
-void tr_setDownloadLimit( tr_handle_t * h, int limit )
+void tr_setGlobalDownloadLimit( tr_handle_t * h, int limit )
 {
-    tr_rcSetLimit( h->download, limit );
+    h->downloadLimit = limit;
 }
 
-/***********************************************************************
- * tr_torrentRates
- ***********************************************************************
- *
- **********************************************************************/
+void tr_setUseCustomLimit( tr_torrent_t * tor, int limit )
+{
+    tor->customSpeedLimit = limit;
+}
+
+void tr_setUploadLimit( tr_torrent_t * tor, int limit )
+{
+    tr_rcSetLimit( tor->upload, limit );
+}
+
+void tr_setDownloadLimit( tr_torrent_t * tor, int limit )
+{
+    tr_rcSetLimit( tor->download, limit );
+}
+
 void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
 {
     tr_torrent_t * tor;
@@ -277,8 +278,7 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
     tr_torrent_t  * tor_tmp;
     tr_info_t     * inf;
     int             i;
-    char          * s1, * s2;
-
+    
     inf        = &tor->info;
     inf->flags = flags;
 
@@ -289,35 +289,18 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
                      SHA_DIGEST_LENGTH ) )
         {
             *error = TR_EDUPLICATE;
-            free( inf->pieces );
-            free( inf->files );
+            tr_metainfoFree( &tor->info );
             free( tor );
             return NULL;
         }
     }
 
+    tor->handle = h;
     tor->status = TR_STATUS_PAUSE;
     tor->id     = h->id;
     tor->key    = h->key;
     tor->bindPort = &h->bindPort;
 	tor->finished = 0;
-
-
-    /* Guess scrape URL */
-    s1 = strchr( inf->trackerAnnounce, '/' );
-    while( ( s2 = strchr( s1 + 1, '/' ) ) )
-    {
-        s1 = s2;
-    }
-    s1++;
-    if( !strncmp( s1, "announce", 8 ) )
-    {
-        int pre  = (long) s1 - (long) inf->trackerAnnounce;
-        int post = strlen( inf->trackerAnnounce ) - pre - 8;
-        memcpy( tor->scrape, inf->trackerAnnounce, pre );
-        sprintf( &tor->scrape[pre], "scrape" );
-        memcpy( &tor->scrape[pre+6], &inf->trackerAnnounce[pre+8], post );
-    }
 
     /* Escaped info hash for HTTP queries */
     for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
@@ -333,8 +316,6 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
 
     tr_lockInit( &tor->lock );
 
-    tor->globalUpload   = h->upload;
-    tor->globalDownload = h->download;
     tor->fdlimit        = h->fdlimit;
     tor->upload         = tr_rcInit();
     tor->download       = tr_rcInit();
@@ -436,10 +417,12 @@ static void torrentReallyStop( tr_torrent_t * tor )
     tr_trackerClose( tor->tracker );
     tor->tracker = NULL;
 
+    tr_lockLock( &tor->lock );
     while( tor->peerCount > 0 )
     {
         tr_peerRem( tor, 0 );
     }
+    tr_lockUnlock( &tor->lock );
 }
 
 /***********************************************************************
@@ -473,11 +456,22 @@ int tr_getFinished( tr_torrent_t * tor )
     return 0;
 }
 
+void tr_manualUpdate( tr_torrent_t * tor )
+{
+    if( !( tor->status & TR_STATUS_ACTIVE ) )
+        return;
+    
+    tr_lockLock( &tor->lock );
+    tr_trackerAnnouncePulse( tor->tracker, 1 );
+    tr_lockUnlock( &tor->lock );
+}
+
 tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 {
     tr_stat_t * s;
     tr_peer_t * peer;
     tr_info_t * inf = &tor->info;
+    tr_tracker_t * tc;
     int i;
 
     tor->statCur = ( tor->statCur + 1 ) % 2;
@@ -497,6 +491,22 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     s->error  = tor->error;
     memcpy( s->trackerError, tor->trackerError,
             sizeof( s->trackerError ) );
+
+    tc = tor->tracker;
+    s->cannotConnect = tr_trackerCannotConnect( tc );
+    
+    if( tc )
+    {
+        s->trackerAddress  = tr_trackerAddress(  tc );
+        s->trackerPort     = tr_trackerPort(     tc );
+        s->trackerAnnounce = tr_trackerAnnounce( tc );
+    }
+    else
+    {
+        s->trackerAddress  = inf->trackerList[0].list[0].address;
+        s->trackerPort     = inf->trackerList[0].list[0].port;
+        s->trackerAnnounce = inf->trackerList[0].list[0].announce;
+    }
 
     s->peersTotal       = 0;
     s->peersIncoming    = 0;
@@ -542,9 +552,9 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     s->rateUpload = tr_rcRate( tor->upload );
     
-    s->seeders  = tr_trackerSeeders(tor->tracker);
-    s->leechers = tr_trackerLeechers(tor->tracker);
-    s->completedFromTracker = tr_trackerDownloaded(tor->tracker);
+    s->seeders  = tr_trackerSeeders( tc );
+    s->leechers = tr_trackerLeechers( tc );
+    s->completedFromTracker = tr_trackerDownloaded( tc );
 
     s->swarmspeed = tr_rcRate( tor->swarmspeed );
 
@@ -560,7 +570,16 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 
     s->downloaded = tor->downloadedCur + tor->downloadedPrev;
     s->uploaded   = tor->uploadedCur   + tor->uploadedPrev;
-
+    
+    if( s->downloaded == 0 )
+    {
+        s->ratio = s->uploaded == 0 ? TR_RATIO_NA : TR_RATIO_INF;
+    }
+    else
+    {
+        s->ratio = (float)s->uploaded / (float)s->downloaded;
+    }
+    
     tr_lockUnlock( &tor->lock );
 
     return s;
@@ -593,11 +612,19 @@ tr_peer_stat_t * tr_torrentPeers( tr_torrent_t * tor, int * peerCount )
             
             peers[i].client = tr_clientForId(tr_peerId(peer));
             
-            peers[i].isConnected = tr_peerIsConnected(peer);
-            peers[i].isIncoming = tr_peerIsIncoming(peer);
-            peers[i].isDownloading = tr_peerIsDownloading(peer);
-            peers[i].isUploading = tr_peerIsUploading(peer);
-            peers[i].progress = tr_peerProgress(peer);
+            peers[i].isConnected   = tr_peerIsConnected( peer );
+            peers[i].isIncoming    = tr_peerIsIncoming( peer );
+            peers[i].progress      = tr_peerProgress( peer );
+            peers[i].port          = tr_peerPort( peer );
+            
+            if( ( peers[i].isDownloading = tr_peerIsDownloading( peer ) ) )
+            {
+                peers[i].uploadToRate = tr_peerUploadRate( peer );
+            }
+            if( ( peers[i].isUploading = tr_peerIsUploading( peer ) ) )
+            {
+                peers[i].downloadFromRate = tr_peerDownloadRate( peer );
+            }
         }
     }
     
@@ -694,8 +721,8 @@ void tr_torrentClose( tr_handle_t * h, tr_torrent_t * tor )
     {
         free( tor->destination );
     }
-    free( inf->pieces );
-    free( inf->files );
+
+    tr_metainfoFree( inf );
 
     if( tor->prev )
     {
@@ -721,8 +748,6 @@ void tr_close( tr_handle_t * h )
     tr_upnpClose( h->upnp );
     tr_chokingClose( h->choking );
     tr_fdClose( h->fdlimit );
-    tr_rcClose( h->upload );
-    tr_rcClose( h->download );
     free( h );
 
     tr_netResolveThreadClose();

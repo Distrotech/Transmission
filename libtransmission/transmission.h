@@ -73,6 +73,8 @@ extern "C" {
 typedef struct tr_handle_s tr_handle_t;
 tr_handle_t * tr_init();
 
+typedef struct tr_tracker_info_s tr_tracker_info_t;
+
 /***********************************************************************
  * tr_setMessageLevel
  ***********************************************************************
@@ -141,18 +143,18 @@ void tr_natTraversalDisable( tr_handle_t * );
 int tr_natTraversalStatus( tr_handle_t * );
 
 /***********************************************************************
- * tr_setUploadLimit
+ * tr_setGlobalUploadLimit
  ***********************************************************************
  * Sets the total upload rate limit in KB/s
  **********************************************************************/
-void tr_setUploadLimit( tr_handle_t *, int );
+void tr_setGlobalUploadLimit( tr_handle_t *, int );
 
 /***********************************************************************
- * tr_setDownloadLimit
+ * tr_setGlobalDownloadLimit
  ***********************************************************************
  * Sets the total download rate limit in KB/s
  **********************************************************************/
-void tr_setDownloadLimit( tr_handle_t *, int );
+void tr_setGlobalDownloadLimit( tr_handle_t *, int );
 
 /***********************************************************************
  * tr_torrentCount
@@ -169,6 +171,10 @@ int tr_torrentCount( tr_handle_t * h );
 typedef struct tr_torrent_s tr_torrent_t;
 typedef void (*tr_callback_t) ( tr_torrent_t *, void * );
 void tr_torrentIterate( tr_handle_t *, tr_callback_t, void * );
+
+void tr_setUseCustomLimit( tr_torrent_t * tor, int limit );
+void tr_setUploadLimit( tr_torrent_t * tor, int limit );
+void tr_setDownloadLimit( tr_torrent_t * tor, int limit );
 
 /***********************************************************************
  * tr_torrentRates
@@ -256,6 +262,13 @@ void tr_torrentStop( tr_torrent_t * );
 int tr_getFinished( tr_torrent_t * );
 
 /***********************************************************************
+ * tr_manualUpdate
+ ***********************************************************************
+ * Reannounce to tracker regardless of wait interval
+ **********************************************************************/
+void tr_manualUpdate( tr_torrent_t * );
+
+/***********************************************************************
  * tr_torrentStat
  ***********************************************************************
  * Returns a pointer to an tr_stat_t structure with updated information
@@ -315,37 +328,41 @@ tr_file_t;
 struct tr_info_s
 {
     /* Path to torrent */
-    char        torrent[MAX_PATH_LENGTH];
+    char                 torrent[MAX_PATH_LENGTH];
 
     /* General info */
-    uint8_t     hash[SHA_DIGEST_LENGTH];
-    char        hashString[2*SHA_DIGEST_LENGTH+1];
-    char        name[MAX_PATH_LENGTH];
+    uint8_t              hash[SHA_DIGEST_LENGTH];
+    char                 hashString[2*SHA_DIGEST_LENGTH+1];
+    char                 name[MAX_PATH_LENGTH];
 
     /* Flags */
 #define TR_FSAVEPRIVATE 0x01    /* save a private copy of the torrent */
-    int         flags;
+    int                  flags;
 
     /* Tracker info */
-    char        trackerAddress[256];
-    int         trackerPort;
-    char        trackerAnnounce[MAX_PATH_LENGTH];
-    
+    struct
+    {
+        tr_tracker_info_t * list;
+        int                 count;
+    }                  * trackerList;
+    int                  trackerTiers;
+
     /* Torrent info */
-    char        comment[MAX_PATH_LENGTH];
-    char        creator[MAX_PATH_LENGTH];
-    int         dateCreated;
+    char                 comment[MAX_PATH_LENGTH];
+    char                 creator[MAX_PATH_LENGTH];
+    int                  dateCreated;
+    int                  privateTorrent;
 
     /* Pieces info */
-    int         pieceSize;
-    int         pieceCount;
-    uint64_t    totalSize;
-    uint8_t   * pieces;
+    int                  pieceSize;
+    int                  pieceCount;
+    uint64_t             totalSize;
+    uint8_t            * pieces;
 
     /* Files info */
-    int         multifile;
-    int         fileCount;
-    tr_file_t * files;
+    int                  multifile;
+    int                  fileCount;
+    tr_file_t          * files;
 };
 
 /***********************************************************************
@@ -369,6 +386,11 @@ struct tr_stat_s
 #define TR_EINOUT   2
     int                 error;
     char                trackerError[128];
+    int                 cannotConnect;
+    
+    const char        * trackerAddress;
+    int                 trackerPort;
+    const char        * trackerAnnounce;
 
     float               progress;
     float               rateDownload;
@@ -385,6 +407,10 @@ struct tr_stat_s
     uint64_t            downloaded;
     uint64_t            uploaded;
     float               swarmspeed;
+
+#define TR_RATIO_NA  -1
+#define TR_RATIO_INF -2
+    float               ratio;
 };
 
 struct tr_peer_stat_s
@@ -394,9 +420,13 @@ struct tr_peer_stat_s
     
     int     isConnected;
     int     isIncoming;
+    float   progress;
+    int     port;
+    
     int     isDownloading;
     int     isUploading;
-    float   progress;
+    float   downloadFromRate;
+    float   uploadToRate;
 };
 
 struct tr_msg_list_s
@@ -405,6 +435,13 @@ struct tr_msg_list_s
     time_t                 when;
     char                 * message;
     struct tr_msg_list_s * next;
+};
+
+struct tr_tracker_info_s
+{
+    char * address;
+    int    port;
+    char * announce;
 };
 
 #ifdef __TRANSMISSION__

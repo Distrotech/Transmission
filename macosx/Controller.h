@@ -92,6 +92,7 @@
     BOOL                            fUpdateInProgress;
     
     Badger                          * fBadger;
+    IBOutlet NSMenu                 * fDockMenu;
     
     NSMutableArray                  * fAutoImportedNames;
     NSMutableDictionary             * fPendingTorrentDownloads;
@@ -139,9 +140,10 @@
 
 - (void) revealFile: (id) sender;
 
+- (void) announceSelectedTorrents: (id) sender;
+
 - (void) showPreferenceWindow: (id) sender;
 
-- (void) makeWindowKey;
 - (void) showInfo: (id) sender;
 - (void) setInfoTab: (id) sender;
 
@@ -150,6 +152,9 @@
 - (void) updateControlTint: (NSNotification *) notification;
 
 - (void) updateUI: (NSTimer *) timer;
+
+- (void) updateTorrentsInQueue;
+
 - (void) torrentFinishedDownloading: (NSNotification *) notification;
 - (void) updateTorrentHistory;
 
@@ -170,15 +175,7 @@
 
 - (void) setQuickRatioGlobal: (id) sender;
 
-- (void) checkWaitingForStopped: (NSNotification *) notification;
-- (void) checkToStartWaiting: (Torrent *) finishedTorrent;
-- (void) torrentStartSettingChange: (NSNotification *) notification;
-- (void) globalStartSettingChange: (NSNotification *) notification;
-
 - (void) torrentStoppedForRatio: (NSNotification *) notification;
-
-- (void) attemptToStartAuto: (Torrent *) torrent;
-- (void) attemptToStartMultipleAuto: (NSArray *) torrents;
 
 - (void) changeAutoImport;
 - (void) checkAutoImportDirectory;

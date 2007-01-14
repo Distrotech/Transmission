@@ -1,5 +1,6 @@
 {
     IBClasses = (
+        {CLASS = DisableTextField; LANGUAGE = ObjC; SUPERCLASS = NSTextField; }, 
         {
             CLASS = FileTableView; 
             LANGUAGE = ObjC; 
@@ -12,8 +13,12 @@
                 revealDataFile = id; 
                 revealFile = id; 
                 revealTorrentFile = id; 
-                setRatioCheck = id; 
+                setLimitCheck = id; 
+                setLimitCustom = id; 
+                setRatioCustom = id; 
                 setRatioLimit = id; 
+                setRatioSetting = id; 
+                setSpeedLimit = id; 
             }; 
             CLASS = InfoWindowController; 
             LANGUAGE = ObjC; 
@@ -25,23 +30,30 @@
                 fDataLocationField = NSTextField; 
                 fDateCreatedField = NSTextField; 
                 fDateStartedField = NSTextField; 
+                fDownloadLimitCheck = NSButton; 
+                fDownloadLimitField = NSTextField; 
+                fDownloadLimitLabel = NSTextField; 
                 fDownloadedTotalField = NSTextField; 
                 fDownloadedValidField = NSTextField; 
                 fDownloadingFromField = NSTextField; 
+                fErrorMessageView = NSTextView; 
                 fFileTable = NSTableView; 
                 fFileTableStatusField = NSTextField; 
                 fHashField = NSTextField; 
                 fImageView = NSImageView; 
                 fLeechersField = NSTextField; 
+                fLimitCustomCheck = NSButton; 
                 fNameField = NSTextField; 
                 fPeerTable = NSTableView; 
                 fPiecesField = NSTextField; 
                 fPiecesView = PiecesView; 
+                fRatioCustomCheck = NSButton; 
                 fRatioField = NSTextField; 
                 fRatioLimitField = NSTextField; 
-                fRatioMatrix = NSMatrix; 
+                fRatioStopCheck = NSButton; 
                 fRevealDataButton = NSButton; 
                 fRevealTorrentButton = NSButton; 
+                fSecureField = NSTextField; 
                 fSeedersField = NSTextField; 
                 fSizeField = NSTextField; 
                 fStateField = NSTextField; 
@@ -49,6 +61,9 @@
                 fTabView = NSTabView; 
                 fTorrentLocationField = NSTextField; 
                 fTrackerField = NSTextField; 
+                fUploadLimitCheck = NSButton; 
+                fUploadLimitField = NSTextField; 
+                fUploadLimitLabel = NSTextField; 
                 fUploadedTotalField = NSTextField; 
                 fUploadingToField = NSTextField; 
             }; 

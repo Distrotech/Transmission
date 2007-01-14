@@ -31,13 +31,13 @@
 {
     NSArray * fTorrents;
     NSMutableArray * fPeers, * fFiles;
-    NSImage * fAppIcon, * fDotGreen, * fDotRed, * fCheckImage;
+    NSImage * fAppIcon, * fDotGreen, * fDotRed;
     
     IBOutlet NSTabView * fTabView;
 
     IBOutlet NSImageView * fImageView;
     IBOutlet NSTextField * fNameField, * fSizeField, * fTrackerField,
-                        * fPiecesField, * fHashField,
+                        * fPiecesField, * fHashField, * fSecureField,
                         * fTorrentLocationField, * fDataLocationField,
                         * fDateStartedField,
                         * fCreatorField, * fDateCreatedField,
@@ -50,19 +50,20 @@
     IBOutlet NSTableView * fPeerTable;
     IBOutlet NSTextField * fSeedersField, * fLeechersField, * fConnectedPeersField,
                         * fDownloadingFromField, * fUploadingToField, * fCompletedFromTrackerField;
+    IBOutlet NSTextView * fErrorMessageView;
+    IBOutlet PiecesView * fPiecesView;
     
     IBOutlet NSTableView * fFileTable;
     IBOutlet NSTextField * fFileTableStatusField;
     
-    IBOutlet NSMatrix * fRatioMatrix;
-    IBOutlet NSTextField * fRatioLimitField;
-    
-    IBOutlet PiecesView * fPiecesView;
+    IBOutlet NSButton * fRatioCustomCheck, * fRatioStopCheck,
+                    * fLimitCustomCheck, * fUploadLimitCheck, * fDownloadLimitCheck;
+    IBOutlet NSTextField * fUploadLimitField, * fDownloadLimitField, * fRatioLimitField,
+                        * fUploadLimitLabel, * fDownloadLimitLabel;
 }
 
 - (void) updateInfoForTorrents: (NSArray *) torrents;
 - (void) updateInfoStats;
-- (void) updateInfoSettings;
 
 - (void) setNextTab;
 - (void) setPreviousTab;
@@ -71,7 +72,12 @@
 - (void) revealDataFile: (id) sender;
 - (void) revealFile: (id) sender;
 
-- (void) setRatioCheck: (id) sender;
+- (void) setLimitCustom: (id) sender;
+- (void) setLimitCheck: (id) sender;
+- (void) setSpeedLimit: (id) sender;
+
+- (void) setRatioCustom: (id) sender;
+- (void) setRatioSetting: (id) sender;
 - (void) setRatioLimit: (id) sender;
 
 @end

@@ -25,10 +25,6 @@
 #import <Cocoa/Cocoa.h>
 #import <transmission.h>
 
-#define RATIO_CHECK 1
-#define RATIO_GLOBAL -1
-#define RATIO_NO_CHECK 0
-
 @interface Torrent : NSObject
 {
     tr_handle_t  * fLib;
@@ -37,7 +33,7 @@
     tr_stat_t    * fStat;
     
     BOOL         fResumeOnWake;
-    NSDate       * fDate;
+    NSDate       * fDate, * fAnnounceDate;
     
     BOOL        fUseIncompleteFolder;
     NSString    * fDownloadFolder, * fIncompleteFolder;
@@ -50,9 +46,12 @@
     NSImage         * fIcon, * fIconFlipped, * fIconSmall;
     NSMutableString * fNameString, * fProgressString, * fStatusString, * fShortStatusString, * fRemainingTimeString;
     
-    int     fStopRatioSetting;
+    
+    int     fUploadLimit, fDownloadLimit;
     float   fRatioLimit;
-    BOOL    fFinishedSeeding, fWaitToStart, fError;
+    BOOL    fLimitCustom, fCheckUpload, fCheckDownload,
+            fRatioCustom, fShouldStopAtRatio,
+            fFinishedSeeding, fWaitToStart, fError;
     
     int fOrderValue;
     
@@ -77,15 +76,32 @@
 - (void)        startTransfer;
 - (void)        stopTransfer;
 - (void)        stopTransferForQuit;
-- (void)        removeForever;
 - (void)        sleep;
 - (void)        wakeUp;
 
+- (void)        announce;
+- (NSDate *)    announceDate;
+
 - (float)       ratio;
-- (int)         stopRatioSetting;
-- (void)        setStopRatioSetting: (int) setting;
+- (BOOL)        customRatioSetting;
+- (void)        setCustomRatioSetting: (BOOL) setting;
+- (BOOL)        shouldStopAtRatio;
+- (void)        setShouldStopAtRatio: (BOOL) setting;
 - (float)       ratioLimit;
 - (void)        setRatioLimit: (float) limit;
+
+- (BOOL)    checkUpload;
+- (void)    setLimitUpload: (BOOL) limit;
+- (int)     uploadLimit;
+- (void)    setUploadLimit: (int) limit;
+- (BOOL)    checkDownload;
+- (void)    setLimitDownload: (BOOL) limit;
+- (int)     downloadLimit;
+- (void)    setDownloadLimit: (int) limit;
+
+- (BOOL)    customLimitSetting;
+- (void)    setCustomLimitSetting: (BOOL) setting;
+- (void)    updateSpeedSetting;
 
 - (void) setWaitToStart: (BOOL) wait;
 - (BOOL) waitingToStart;
@@ -105,8 +121,8 @@
 
 - (NSString *) name;
 - (uint64_t)   size;
-- (NSString *) tracker;
-- (NSString *) announce;
+- (NSString *) trackerAddress;
+- (NSString *) trackerAddressAnnounce;
 
 - (NSString *) comment;
 - (NSString *) creator;
@@ -115,6 +131,7 @@
 - (int)        pieceSize;
 - (int)        pieceCount;
 - (NSString *) hashString;
+- (BOOL)       privateTorrent;
 
 - (NSString *) torrentLocation;
 - (NSString *) publicTorrentLocation;
@@ -127,11 +144,12 @@
 - (float)   progress;
 - (int)     eta;
 
-- (BOOL)    isActive;
-- (BOOL)    isSeeding;
-- (BOOL)    isPaused;
-- (BOOL)    isError;
-- (BOOL)    justFinished;
+- (BOOL)        isActive;
+- (BOOL)        isSeeding;
+- (BOOL)        isPaused;
+- (BOOL)        isError;
+- (NSString *)  errorMessage;
+- (BOOL)        justFinished;
 
 - (NSArray *) peers;
 

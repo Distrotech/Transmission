@@ -114,6 +114,8 @@
 
 - (void) awakeFromNib
 {
+    hasLoaded = YES;
+    
     fToolbar = [[NSToolbar alloc] initWithIdentifier: @"Preferences Toolbar"];
     [fToolbar setDelegate: self];
     [fToolbar setAllowsUserCustomization: NO];
@@ -133,13 +135,30 @@
     else
         [fFolderPopUp selectItemAtIndex: DOWNLOAD_ASK];
     
+    //set stop ratio
+    [self updateRatioStopField];
+    
+    //set limits
+    [self updateLimitFields];
+    
+    //set speed limit
+    [fSpeedLimitUploadField setIntValue: [fDefaults integerForKey: @"SpeedLimitUploadLimit"]];
+    [fSpeedLimitDownloadField setIntValue: [fDefaults integerForKey: @"SpeedLimitDownloadLimit"]];
+    
+    //set port
+    [fPortField setIntValue: [fDefaults integerForKey: @"BindPort"]];
+    
     [self updatePortStatus];
     
     fNatStatus = -1;
     [self updateNatStatus];
     fNatStatusTimer = [NSTimer scheduledTimerWithTimeInterval: 5.0 target: self
                         selector: @selector(updateNatStatus) userInfo: nil repeats: YES];
-
+    
+    //set queue values
+    [fQueueDownloadField setIntValue: [fDefaults integerForKey: @"QueueDownloadNumber"]];
+    [fQueueSeedField setIntValue: [fDefaults integerForKey: @"QueueSeedNumber"]];
+    
     //set update check
     NSString * updateCheck = [fDefaults stringForKey: @"UpdateCheck"];
     if ([updateCheck isEqualToString: @"Weekly"])
@@ -220,6 +239,16 @@
 
 - (void) setPort: (id) sender
 {
+    int port = [sender intValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithFormat: @"%d", port]])
+    {
+        NSBeep();
+        [sender setIntValue: [fDefaults integerForKey: @"BindPort"]];
+        return;
+    }
+    
+    [fDefaults setInteger: port forKey: @"BindPort"];
+    
     tr_setBindPort(fHandle, [fDefaults integerForKey: @"BindPort"]);
     [self updateNatStatus];
     [self updatePortStatus];
@@ -301,16 +330,80 @@
 {
     if ([fDefaults boolForKey: @"SpeedLimit"])
     {
-        tr_setUploadLimit(fHandle, [fDefaults integerForKey: @"SpeedLimitUploadLimit"]);
-        tr_setDownloadLimit(fHandle, [fDefaults integerForKey: @"SpeedLimitDownloadLimit"]);
+        tr_setGlobalUploadLimit(fHandle, [fDefaults integerForKey: @"SpeedLimitUploadLimit"]);
+        tr_setGlobalDownloadLimit(fHandle, [fDefaults integerForKey: @"SpeedLimitDownloadLimit"]);
     }
     else
     {
-        tr_setUploadLimit(fHandle, [fDefaults boolForKey: @"CheckUpload"]
+        tr_setGlobalUploadLimit(fHandle, [fDefaults boolForKey: @"CheckUpload"]
                                         ? [fDefaults integerForKey: @"UploadLimit"] : -1);
-        tr_setDownloadLimit(fHandle, [fDefaults boolForKey: @"CheckDownload"]
+        tr_setGlobalDownloadLimit(fHandle, [fDefaults boolForKey: @"CheckDownload"]
                                         ? [fDefaults integerForKey: @"DownloadLimit"] : -1);
     }
+}
+
+- (void) updateRatioStopField
+{
+    if (!hasLoaded)
+        return;
+    
+    [fRatioStopField setFloatValue: [fDefaults floatForKey: @"RatioLimit"]];
+}
+
+- (void) setRatioStop: (id) sender
+{
+    float ratio = [sender floatValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithFormat: @"%.2f", ratio]] || ratio < 0)
+    {
+        NSBeep();
+        [sender setFloatValue: [fDefaults floatForKey: @"RatioLimit"]];
+        return;
+    }
+    
+    [fDefaults setFloat: ratio forKey: @"RatioLimit"];
+}
+
+- (void) updateLimitFields
+{
+    if (!hasLoaded)
+        return;
+    
+    [fUploadField setIntValue: [fDefaults integerForKey: @"UploadLimit"]];
+    [fDownloadField setIntValue: [fDefaults integerForKey: @"DownloadLimit"]];
+}
+
+- (void) setGlobalLimit: (id) sender
+{
+    BOOL upload = sender == fUploadField;
+    
+    int limit = [sender intValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithFormat: @"%d", limit]] || limit < 0)
+    {
+        NSBeep();
+        [sender setIntValue: [fDefaults integerForKey: upload ? @"UploadLimit" : @"DownloadLimit"]];
+        return;
+    }
+    
+    [fDefaults setInteger: limit forKey: upload ? @"UploadLimit" : @"DownloadLimit"];
+    
+    [self applySpeedSettings: self];
+}
+
+- (void) setSpeedLimit: (id) sender
+{
+    BOOL upload = sender == fSpeedLimitUploadField;
+    
+    int limit = [sender intValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithFormat: @"%d", limit]])
+    {
+        NSBeep();
+        [sender setIntValue: [fDefaults integerForKey: upload ? @"SpeedLimitUploadLimit" : @"SpeedLimitDownloadLimit"]];
+        return;
+    }
+    
+    [fDefaults setInteger: limit forKey: upload ? @"SpeedLimitUploadLimit" : @"SpeedLimitDownloadLimit"];
+    
+    [self applySpeedSettings: self];
 }
 
 - (void) setAutoSpeedLimit: (id) sender
@@ -358,14 +451,30 @@
         [fUpdater scheduleCheckWithInterval: seconds];
 }
 
+- (void) setQueue: (id) sender
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+}
+
 - (void) setQueueNumber: (id) sender
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"GlobalStartSettingChange" object: self];
+    BOOL download = sender == fQueueDownloadField;
+    
+    int limit = [sender intValue];
+    if (![[sender stringValue] isEqualToString: [NSString stringWithFormat: @"%d", limit]] || limit < 0)
+    {
+        NSBeep();
+        [sender setIntValue: [fDefaults integerForKey: download ? @"QueueDownloadNumber" : @"QueueSeedNumber"]];
+        return;
+    }
+    
+    [fDefaults setInteger: limit forKey: download ? @"QueueDownloadNumber" : @"QueueSeedNumber"];
+    
+    [self setQueue: nil];
 }
 
 - (void) setDownloadLocation: (id) sender
 {
-    //download folder
     switch ([fFolderPopUp indexOfSelectedItem])
     {
         case DOWNLOAD_FOLDER:
