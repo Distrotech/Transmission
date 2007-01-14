@@ -55,11 +55,12 @@ extern "C" {
  * Error codes
  **********************************************************************/
 /* General errors */
-#define TR_ERROR_ASSERT         -1
+#define TR_ERROR_ASSERT         0x80000000
 /* I/O errors */
-#define TR_ERROR_IO_PARENT      -10
-#define TR_ERROR_IO_PERMISSIONS -11
-#define TR_ERROR_IO_OTHER       -19
+#define TR_ERROR_IO_MASK        0x8000000F
+#define TR_ERROR_IO_PARENT      0x80000001
+#define TR_ERROR_IO_PERMISSIONS 0x80000002
+#define TR_ERROR_IO_OTHER       0x80000008
 
 /***********************************************************************
  * tr_init

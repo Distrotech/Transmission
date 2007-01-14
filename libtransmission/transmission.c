@@ -759,14 +759,14 @@ static void downloadLoop( void * _tor )
 			tor->finished = 1;
             tr_trackerCompleted( tor->tracker );
             tr_ioSaveResume( tor->io );
-#ifndef __AMIGAOS4__ 
-            sync(); /* KLUDGE: all files should be closed and
-                       re-opened in read-only mode instead */
-#endif
         }
 
         /* Receive/send messages */
-        tr_peerPulse( tor );
+        if( tr_peerPulse( tor ) )
+        {
+            /* I/O error */
+            break;
+        }
 
         /* Try to get new peers or to send a message to the tracker */
         tr_trackerPulse( tor->tracker );

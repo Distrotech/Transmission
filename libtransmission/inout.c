@@ -109,8 +109,8 @@ tr_io_t * tr_ioInit( tr_torrent_t * tor )
 int tr_ioRead( tr_io_t * io, int index, int begin, int length,
                uint8_t * buf )
 {
-    uint64_t    offset;
     tr_info_t * inf = &io->tor->info;
+    uint64_t    offset;
 
     offset = (uint64_t) io->pieceSlot[index] *
         (uint64_t) inf->pieceSize + (uint64_t) begin;
@@ -124,15 +124,8 @@ int tr_ioRead( tr_io_t * io, int index, int begin, int length,
 int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
                 uint8_t * buf )
 {
-    tr_torrent_t * tor = io->tor;
     tr_info_t    * inf = &io->tor->info;
     uint64_t       offset;
-    int            i, hashFailed;
-    uint8_t        hash[SHA_DIGEST_LENGTH];
-    uint8_t      * pieceBuf;
-    int            pieceSize;
-    int            startBlock, endBlock;
-    int            ret;
 
     if( io->pieceSlot[index] < 0 )
     {
@@ -144,27 +137,36 @@ int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
     offset = (uint64_t) io->pieceSlot[index] *
         (uint64_t) inf->pieceSize + (uint64_t) begin;
 
-    if( ( ret = writeBytes( io, offset, length, buf ) ) )
+    return writeBytes( io, offset, length, buf );
+}
+
+/***********************************************************************
+ * tr_ioHash
+ **********************************************************************/
+int tr_ioHash( tr_io_t * io, int index )
+{
+    tr_torrent_t * tor = io->tor;
+    tr_info_t    * inf = &io->tor->info;
+    int            pieceSize;
+    uint8_t      * pieceBuf;
+    uint8_t        hash[SHA_DIGEST_LENGTH];
+    int            hashFailed;
+    int            ret;
+    int            i;
+
+    if( !tr_cpPieceIsComplete( tor->completion, index ) )
     {
-        return ret;
+        return TR_ERROR_ASSERT;
     }
 
-    startBlock = tr_pieceStartBlock( index );
-    endBlock   = startBlock + tr_pieceCountBlocks( index );
-    for( i = startBlock; i < endBlock; i++ )
-    {
-        if( !tr_cpBlockIsComplete( tor->completion, i ) )
-        {
-            /* The piece is not complete */
-            return 0;
-        }
-    }
-
-    /* The piece is complete, check the hash */
     pieceSize = tr_pieceSize( index );
     pieceBuf  = malloc( pieceSize );
-    readBytes( io, (uint64_t) io->pieceSlot[index] *
-               (uint64_t) inf->pieceSize, pieceSize, pieceBuf );
+    if( ( ret = readBytes( io, (uint64_t) io->pieceSlot[index] *
+                    (uint64_t) inf->pieceSize, pieceSize, pieceBuf ) ) )
+    {
+        free( pieceBuf );
+        return ret;
+    }
     SHA1( pieceBuf, pieceSize, hash );
     free( pieceBuf );
 
@@ -173,12 +175,7 @@ int tr_ioWrite( tr_io_t * io, int index, int begin, int length,
     {
         tr_inf( "Piece %d (slot %d): hash FAILED", index,
                 io->pieceSlot[index] );
-
-        /* We will need to reload the whole piece */
-        for( i = startBlock; i < endBlock; i++ )
-        {
-            tr_cpBlockRem( tor->completion, i );
-        }
+        tr_cpPieceRem( tor->completion, index );
     }
     else
     {

@@ -356,7 +356,7 @@ uint8_t * tr_peerHash( tr_peer_t * peer )
  ***********************************************************************
  *
  **********************************************************************/
-void tr_peerPulse( tr_torrent_t * tor )
+int tr_peerPulse( tr_torrent_t * tor )
 {
     int i, ret, size;
     uint8_t * p;
@@ -402,10 +402,11 @@ void tr_peerPulse( tr_torrent_t * tor )
             continue;
         }
 
-        if( tr_peerRead( tor, tor->peers[i] ) )
-        {
+        ret = tr_peerRead( tor, tor->peers[i] );
+        if( ret & TR_ERROR_IO_MASK )
+            return ret;
+        if( ret )
             goto dropPeer;
-        }
 
         if( peer->status < PEER_STATUS_CONNECTED )
         {

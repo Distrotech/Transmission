@@ -222,119 +222,117 @@ static inline int parseRequest( tr_peer_t * peer, uint8_t * p, int len )
     return 0;
 }
 
+static inline void updateRequests( tr_torrent_t * tor, tr_peer_t * peer,
+                                   int index, int begin )
+{
+    tr_request_t * r;
+    int i, j;
+
+    /* Find this block in the requests list */
+    for( i = 0; i < peer->inRequestCount; i++ )
+    {
+        r = &peer->inRequests[i];
+        if( index == r->index && begin == r->begin )
+        {
+            break;
+        }
+    }
+
+    /* Usually i should be 0, but some clients don't handle multiple
+       request well and drop previous requests */
+    if( i < peer->inRequestCount )
+    {
+        if( i > 0 )
+        {
+            peer_dbg( "not expecting this block yet (%d requests dropped)", i );
+        }
+        i++;
+        for( j = 0; j < i; j++ )
+        {
+            r = &peer->inRequests[j];
+            tr_cpDownloaderRem( tor->completion,
+                                tr_block( r->index, r->begin ) );
+        }
+        peer->inRequestCount -= i;
+        memmove( &peer->inRequests[0], &peer->inRequests[i],
+                 peer->inRequestCount * sizeof( tr_request_t ) );
+    }
+    else
+    {
+        /* Not in the list. Probably because of a cancel that arrived
+           too late */
+    }
+}
+
 static inline int parsePiece( tr_torrent_t * tor, tr_peer_t * peer,
                               uint8_t * p, int len )
 {
-    int index, begin, block, i, j;
-    tr_request_t * r;
+    int index, begin, block, i, j, ret;
 
     TR_NTOHL( p,     index );
     TR_NTOHL( &p[4], begin );
+    block = tr_block( index, begin );
 
     peer_dbg( "GET  piece %d/%d (%d bytes)",
               index, begin, len - 9 );
 
-    if( peer->inRequestCount < 1 )
+    updateRequests( tor, peer, index, begin );
+    tor->downloadedCur += len;
+
+    /* Sanity checks */
+    if( len != tr_blockSize( block ) )
     {
-        /* Our "cancel" was probably late */
-        peer_dbg( "not expecting a block" );
-        return 0;
+        peer_dbg( "wrong size (expecting %d)", tr_blockSize( block ) );
+        return TR_ERROR_ASSERT;
     }
-    
-    r = &peer->inRequests[0];
-    if( index != r->index || begin != r->begin )
-    {
-        int suckyClient;
-
-        /* Either our "cancel" was late, or this is a sucky
-           client that cannot deal with multiple requests */
-        suckyClient = 0;
-        for( i = 0; i < peer->inRequestCount; i++ )
-        {
-            r = &peer->inRequests[i];
-
-            if( index != r->index || begin != r->begin )
-            {
-                continue;
-            }
-
-            /* Sucky client, he dropped the previous requests */
-            peer_dbg( "block was expected later" );
-            for( j = 0; j < i; j++ )
-            {
-                r = &peer->inRequests[j];
-                tr_cpDownloaderRem( tor->completion,
-                                    tr_block(r->index,r->begin) );
-            }
-            suckyClient = 1;
-            peer->inRequestCount -= i;
-            memmove( &peer->inRequests[0], &peer->inRequests[i],
-                     peer->inRequestCount * sizeof( tr_request_t ) );
-            r = &peer->inRequests[0];
-            break;
-        }
-
-        if( !suckyClient )
-        {
-            r = &peer->inRequests[0];
-            peer_dbg( "wrong block (expecting %d/%d)",
-                      r->index, r->begin );
-            return 0;
-        }
-    }
-
-    if( len - 9 != r->length )
-    {
-        peer_dbg( "wrong size (expecting %d)", r->length );
-        return 1;
-    }
-
-    tor->downloadedCur += r->length;
-
-    block = tr_block( r->index, r->begin );
     if( tr_cpBlockIsComplete( tor->completion, block ) )
     {
         peer_dbg( "have this block already" );
-        (peer->inRequestCount)--;
-        memmove( &peer->inRequests[0], &peer->inRequests[1],
-                 peer->inRequestCount * sizeof( tr_request_t ) );
         return 0;
     }
 
-    /* set blame/credit for this piece */
+    /* Set blame/credit for this piece */
     if( !peer->blamefield )
     {
         peer->blamefield = calloc( ( tor->info.pieceCount + 7 ) / 8, 1 );
     }
     tr_bitfieldAdd( peer->blamefield, index );
 
+    /* Write to disk */
+    if( ( ret = tr_ioWrite( tor->io, index, begin, len - 9, &p[8] ) ) )
+    {
+        return ret;
+    }
     tr_cpBlockAdd( tor->completion, block );
-    tr_ioWrite( tor->io, index, begin, len - 9, &p[8] );
-    tr_cpDownloaderRem( tor->completion, block );
-
     sendCancel( tor, block );
 
-    if( tr_cpPieceIsComplete( tor->completion, index ) )
+    if( !tr_cpPieceHasAllBlocks( tor->completion, index ) )
     {
-        tr_peer_t * otherPeer;
-
-        for( i = 0; i < tor->peerCount; i++ )
-        {
-            otherPeer = tor->peers[i];
-
-            if( otherPeer->status < PEER_STATUS_CONNECTED )
-            {
-                continue;
-            }
-
-            sendHave( otherPeer, index );
-            updateInterest( tor, otherPeer );
-        }
+        return 0;
     }
 
-    (peer->inRequestCount)--;
-    memmove( &peer->inRequests[0], &peer->inRequests[1],
-             peer->inRequestCount * sizeof( tr_request_t ) );
+    /* Piece is complete, check it */
+    if( ( ret = tr_ioHash( tor->io, index ) ) )
+    {
+        return ret;
+    }
+    if( !tr_cpPieceIsComplete( tor->completion, index ) )
+    {
+        return 0;
+    }
+
+    /* Hash OK */
+    for( i = 0; i < tor->peerCount; i++ )
+    {
+        tr_peer_t * otherPeer;
+        otherPeer = tor->peers[i];
+
+        if( otherPeer->status < PEER_STATUS_CONNECTED )
+            continue;
+
+        sendHave( otherPeer, index );
+        updateInterest( tor, otherPeer );
+    }
 
     return 0;
 }
