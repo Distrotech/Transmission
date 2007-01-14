@@ -150,7 +150,7 @@ struct tr_torrent_s
 
     int               status;
     int               error;
-    char              trackerError[128];
+    char              errorString[128];
     int               finished;
 
     char            * id;

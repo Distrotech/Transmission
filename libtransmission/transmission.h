@@ -63,6 +63,10 @@ extern "C" {
 #define TR_ERROR_IO_PARENT      0x80000001
 #define TR_ERROR_IO_PERMISSIONS 0x80000002
 #define TR_ERROR_IO_OTHER       0x80000008
+/* Misc */
+#define TR_ERROR_TC_MASK        0x000000F0
+#define TR_ERROR_TC_ERROR       0x80000010
+#define TR_ERROR_TC_WARNING     0x80000020
 
 /***********************************************************************
  * tr_init
@@ -382,10 +386,8 @@ struct tr_stat_s
 #define TR_STATUS_INACTIVE (TR_STATUS_STOPPING|TR_STATUS_STOPPED|TR_STATUS_PAUSE)
     int                 status;
 
-#define TR_ETRACKER 1
-#define TR_EINOUT   2
     int                 error;
-    char                trackerError[128];
+    char                errorString[128];
     int                 cannotConnect;
     
     const char        * trackerAddress;

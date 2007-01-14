@@ -731,8 +731,8 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     if( ( bePeers = tr_bencDictFind( &beAll, "failure reason" ) ) )
     {
         tr_err( "Tracker: Error - %s", bePeers->val.s.s );
-        tor->error |= TR_ETRACKER;
-        snprintf( tor->trackerError, sizeof( tor->trackerError ),
+        tor->error = TR_ERROR_TC_ERROR;
+        snprintf( tor->errorString, sizeof( tor->errorString ),
                   "%s", bePeers->val.s.s );
         tc->lastError = 1;
         tc->allUnreachIfError = 0;
@@ -742,15 +742,15 @@ static void readAnswer( tr_tracker_t * tc, const char * data, int len )
     else if( ( bePeers = tr_bencDictFind( &beAll, "warning message" ) ) )
     {
         tr_err( "Tracker: Warning - %s", bePeers->val.s.s );
-        snprintf( tor->trackerError, sizeof( tor->trackerError ),
+        tor->error = TR_ERROR_TC_WARNING;
+        snprintf( tor->errorString, sizeof( tor->errorString ),
                   "%s", bePeers->val.s.s );
     }
-    else
+    else if( tor->error & TR_ERROR_TC_MASK )
     {
-        tor->trackerError[0] = '\0';
+        tor->error = TR_OK;
     }
 
-    tor->error &= ~TR_ETRACKER;
     tc->lastError = 0;
     tc->allUnreachIfError = 0;
 

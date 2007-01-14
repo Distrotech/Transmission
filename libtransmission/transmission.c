@@ -379,6 +379,7 @@ void tr_torrentStart( tr_torrent_t * tor )
     tor->uploadedCur     = 0;
 
     tor->status  = TR_STATUS_CHECK;
+    tor->error   = TR_OK;
     tor->tracker = tr_trackerInit( tor );
 
     tor->date = tr_date();
@@ -489,8 +490,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 
     s->status = tor->status;
     s->error  = tor->error;
-    memcpy( s->trackerError, tor->trackerError,
-            sizeof( s->trackerError ) );
+    memcpy( s->errorString, tor->errorString,
+            sizeof( s->errorString ) );
 
     tc = tor->tracker;
     s->cannotConnect = tr_trackerCannotConnect( tc );
@@ -797,6 +798,9 @@ static void downloadLoop( void * _tor )
         {
             tr_err( "Fatal error, stopping download (%d)", ret );
             torrentStop( tor );
+            tor->error = ret;
+            snprintf( tor->errorString, sizeof( tor->errorString ),
+                      "%s", tr_errorString( ret ) );
         }
 
         /* Try to get new peers or to send a message to the tracker */
