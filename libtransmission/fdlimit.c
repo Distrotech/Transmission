@@ -62,9 +62,9 @@ struct tr_fd_s
  * Local prototypes
  **********************************************************************/
 static int  ErrorFromErrno();
+static int  OpenFile( tr_fd_t * f, int i, char * folder, char * name,
+                      int write );
 static void CloseFile( tr_fd_t * f, int i );
-static int  CheckFolder( char * folder, char * name, int write );
-
 
 
 /***********************************************************************
@@ -150,14 +150,6 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
         goto done;
     }
 
-    /* We'll need to open it, make sure that we can */
-    if( ( ret = CheckFolder( folder, name, write ) ) )
-    {
-        tr_err( "Can not open %s in %s (%d, %d)", name, folder, write, ret );
-        tr_lockUnlock( &f->lock );
-        return ret;
-    }
-
     /* Can we open one more file? */
     for( i = 0; i < TR_MAX_OPEN_FILES; i++ )
     {
@@ -168,9 +160,9 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
         }
     }
 
+    /* All slots taken - close the oldest currently unused file */
     for( ;; )
     {
-        /* Close the oldest currently unused file */
         date   = tr_date() + 1;
         winner = -1;
 
@@ -198,16 +190,9 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
     }
 
 open:
-    tr_dbg( "Opening %s in %s (%d)", name, folder, write );
-    asprintf( &path, "%s/%s", folder, name );
-    f->open[winner].file = open( path, write ? ( O_RDWR | O_CREAT ) :
-                                 O_RDONLY, 0666 );
-    free( path );
-    if( f->open[winner].file < 0 )
+    if( ( ret = OpenFile( f, winner, folder, name, write ) ) )
     {
-        ret = ErrorFromErrno();
         tr_lockUnlock( &f->lock );
-        tr_err( "Could not open %s in %s (%d, %d)", name, folder, write, ret );
         return ret;
     }
     snprintf( f->open[winner].folder, MAX_PATH_LENGTH, "%s", folder );
@@ -353,6 +338,73 @@ static int ErrorFromErrno()
 }
 
 /***********************************************************************
+ * CheckFolder
+ ***********************************************************************
+ *
+ **********************************************************************/
+static int OpenFile( tr_fd_t * f, int i, char * folder, char * name,
+                     int write )
+{
+    tr_openFile_t * file = &f->open[i];
+    struct stat sb;
+    char * path;
+    int ret = 0;
+
+    tr_dbg( "Opening %s in %s (%d)", name, folder, write );
+
+    /* Make sure the parent folder exists */
+    if( stat( folder, &sb ) || !S_ISDIR( sb.st_mode ) )
+    {
+        return TR_ERROR_IO_PARENT;
+    }
+
+    asprintf( &path, "%s/%s", folder, name );
+
+    /* Create subfolders, if any */
+    if( write )
+    {
+        char * p = path + strlen( folder ) + 1;
+        char * s;
+
+        while( ( s = strchr( p, '/' ) ) )
+        {
+            *s = '\0';
+            if( stat( path, &sb ) )
+            {
+                if( mkdir( path, 0777 ) )
+                {
+                    free( path );
+                    return ErrorFromErrno();
+                }
+            }
+            else
+            {
+                if( !S_ISDIR( sb.st_mode ) )
+                {
+                    free( path );
+                    return TR_ERROR_IO_OTHER;
+                }
+            }
+            *s = '/';
+            p = s + 1;
+        }
+    }
+
+    /* Now try to really open the file */
+    file->file = open( path, write ? ( O_RDWR | O_CREAT ) : O_RDONLY, 0666 );
+    free( path );
+
+    if( file->file < 0 )
+    {
+        int ret = ErrorFromErrno();
+        tr_err( "Could not open %s in %s (%d, %d)", name, folder, write, ret );
+        return ret;
+    }
+
+    return 0;
+}
+
+/***********************************************************************
  * CloseFile
  ***********************************************************************
  * We first mark it as closing then release the lock while doing so,
@@ -376,54 +428,3 @@ static void CloseFile( tr_fd_t * f, int i )
     tr_condSignal( &f->cond );
 }
 
-/***********************************************************************
- * CheckFolder
- ***********************************************************************
- *
- **********************************************************************/
-static int CheckFolder( char * folder, char * name, int write )
-{
-    struct stat sb;
-    char * path, * p, * s;
-    int ret = 0;
-
-    if( stat( folder, &sb ) || !S_ISDIR( sb.st_mode ) )
-    {
-        return TR_ERROR_IO_PARENT;
-    }
-
-    asprintf( &path, "%s/%s", folder, name );
-
-    p = path + strlen( folder ) + 1;;
-    while( ( s = strchr( p, '/' ) ) )
-    {
-        *s = '\0';
-        if( stat( path, &sb ) )
-        {
-            /* Sub-folder does not exist */
-            if( !write )
-            {
-                ret = TR_ERROR_IO_OTHER;
-                break;
-            }
-            if( mkdir( path, 0777 ) )
-            {
-                ret = ErrorFromErrno();
-                break;
-            }
-        }
-        else
-        {
-            if( !S_ISDIR( sb.st_mode ) )
-            {
-                ret = TR_ERROR_IO_OTHER;
-                break;
-            }
-        }
-        *s = '/';
-        p = s + 1;
-    }
-    free( path );
-
-    return ret;
-}

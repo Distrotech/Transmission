@@ -50,7 +50,6 @@ extern "C" {
 #endif
 
 #define TR_DEFAULT_PORT   9090
-#define TR_NOERROR        0
 
 /***********************************************************************
  * Error codes
