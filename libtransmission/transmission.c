@@ -730,6 +730,7 @@ static void downloadLoop( void * _tor )
 {
     tr_torrent_t * tor = _tor;
     uint64_t       date1, date2;
+    int            ret;
 
     tr_dbg( "Thread started" );
 
@@ -762,9 +763,10 @@ static void downloadLoop( void * _tor )
         }
 
         /* Receive/send messages */
-        if( tr_peerPulse( tor ) )
+        if( ( ret = tr_peerPulse( tor ) ) )
         {
             /* I/O error */
+            tr_err( "Stopping download (%d)", ret );
             break;
         }
 
