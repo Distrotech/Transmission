@@ -118,7 +118,6 @@ int tr_fdFileOpen( tr_fd_t * f, char * folder, char * name, int write )
 {
     int i, winner, ret;
     uint64_t date;
-    char * path;
 
     tr_lockLock( &f->lock );
 
@@ -347,7 +346,6 @@ static int OpenFile( tr_fd_t * f, int i, char * folder, char * name,
     tr_openFile_t * file = &f->open[i];
     struct stat sb;
     char * path;
-    int ret = 0;
 
     tr_dbg( "Opening %s in %s (%d)", name, folder, write );
 
@@ -400,7 +398,7 @@ static int OpenFile( tr_fd_t * f, int i, char * folder, char * name,
         return ret;
     }
 
-    return 0;
+    return TR_OK;
 }
 
 /***********************************************************************

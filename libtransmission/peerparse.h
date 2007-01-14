@@ -267,7 +267,7 @@ static inline void updateRequests( tr_torrent_t * tor, tr_peer_t * peer,
 static inline int parsePiece( tr_torrent_t * tor, tr_peer_t * peer,
                               uint8_t * p, int len )
 {
-    int index, begin, block, i, j, ret;
+    int index, begin, block, i, ret;
 
     TR_NTOHL( p,     index );
     TR_NTOHL( &p[4], begin );

@@ -730,7 +730,7 @@ dfname(GtkTreeViewColumn *col SHUTUP, GtkCellRenderer *rend,
     g_assert_not_reached();
   }
 
-  if(TR_NOERROR != err) {
+  if(TR_OK != err) {
     gtk_tree_model_get(model, iter, MC_TERR, &terr, -1);
     bottom = g_strconcat(_("Error: "), terr, NULL);
     g_free(terr);
