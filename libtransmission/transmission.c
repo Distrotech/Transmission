@@ -405,15 +405,20 @@ void tr_torrentStart( tr_torrent_t * tor )
     tr_threadCreate( &tor->thread, downloadLoop, tor );
 }
 
-void tr_torrentStop( tr_torrent_t * tor )
+static void torrentStop( tr_torrent_t * tor )
 {
-    tr_lockLock( &tor->lock );
     tr_trackerStopped( tor->tracker );
     tr_rcReset( tor->download );
     tr_rcReset( tor->upload );
     tr_rcReset( tor->swarmspeed );
     tor->status = TR_STATUS_STOPPING;
     tor->stopDate = tr_date();
+}
+
+void tr_torrentStop( tr_torrent_t * tor )
+{
+    tr_lockLock( &tor->lock );
+    torrentStop( tor );
     tr_lockUnlock( &tor->lock );
 }
 
@@ -765,9 +770,8 @@ static void downloadLoop( void * _tor )
         /* Receive/send messages */
         if( ( ret = tr_peerPulse( tor ) ) )
         {
-            /* I/O error */
-            tr_err( "Stopping download (%d)", ret );
-            break;
+            tr_err( "Fatal error, stopping download (%d)", ret );
+            torrentStop( tor );
         }
 
         /* Try to get new peers or to send a message to the tracker */

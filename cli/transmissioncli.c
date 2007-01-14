@@ -55,8 +55,8 @@ static int           bindPort      = TR_DEFAULT_PORT;
 static int           uploadLimit   = 20;
 static int           downloadLimit = -1;
 static char          * torrentPath = NULL;
-static volatile char mustDie       = 0;
 static int           natTraversal  = 0;
+static tr_torrent_t  * tor;
 
 static char          * finishCall   = NULL;
 
@@ -67,7 +67,6 @@ int main( int argc, char ** argv )
 {
     int i, error, nat;
     tr_handle_t  * h;
-    tr_torrent_t * tor;
     tr_stat_t    * s;
 
     printf( "Transmission %s (%d) - http://transmission.m0k.org/\n\n",
@@ -187,7 +186,7 @@ int main( int argc, char ** argv )
     tr_torrentSetFolder( tor, "." );
     tr_torrentStart( tor );
 
-    while( !mustDie )
+    for( ;; )
     {
         char string[80];
         int  chars = 0;
@@ -197,7 +196,11 @@ int main( int argc, char ** argv )
 
         s = tr_torrentStat( tor );
 
-        if( s->status & TR_STATUS_CHECK )
+        if( s->status & TR_STATUS_PAUSE )
+        {
+            break;
+        }
+        else if( s->status & TR_STATUS_CHECK )
         {
             chars = snprintf( string, 80,
                 "Checking files... %.2f %%", 100.0 * s->progress );
@@ -238,18 +241,14 @@ int main( int argc, char ** argv )
     }
     fprintf( stderr, "\n" );
 
-    /* Try for 5 seconds to notify the tracker that we are leaving
-       and to delete any port mappings for nat traversal */
-    tr_torrentStop( tor );
+    /* Try for 5 seconds to delete any port mappings for nat traversal */
     tr_natTraversalDisable( h );
     for( i = 0; i < 10; i++ )
     {
-        s = tr_torrentStat( tor );
         nat = tr_natTraversalStatus( h );
-        if( s->status & TR_STATUS_PAUSE && TR_NAT_TRAVERSAL_DISABLED == nat )
+        if( TR_NAT_TRAVERSAL_DISABLED == nat )
         {
-            /* The 'stopped' tracker message was sent
-               and port mappings were deleted */
+            /* Port mappings were deleted */
             break;
         }
         usleep( 500000 );
@@ -335,7 +334,7 @@ static void sigHandler( int signal )
     switch( signal )
     {
         case SIGINT:
-            mustDie = 1;
+            tr_torrentStop( tor );
             break;
 
         default:
