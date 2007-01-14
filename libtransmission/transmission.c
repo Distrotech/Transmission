@@ -764,7 +764,7 @@ static void downloadLoop( void * _tor )
             tor->status = TR_STATUS_SEED;
 			tor->finished = 1;
             tr_trackerCompleted( tor->tracker );
-            tr_ioSaveResume( tor->io );
+            tr_ioSync( tor->io );
         }
 
         /* Receive/send messages */

@@ -49,7 +49,14 @@ int tr_ioWrite ( tr_io_t *, int index, int begin, int len, uint8_t * );
  **********************************************************************/
 int tr_ioHash ( tr_io_t *, int piece );
 
+/***********************************************************************
+ * tr_ioSync
+ ***********************************************************************
+ * Flush all data on disc by closing all files, and update the cache
+ * file.
+ **********************************************************************/
+void tr_ioSync( tr_io_t * );
+
 void      tr_ioClose       ( tr_io_t * );
-void      tr_ioSaveResume  ( tr_io_t * );
 
 #endif

@@ -237,7 +237,6 @@ void tr_fdFileClose( tr_fd_t * f, char * folder, char * name )
 
     tr_lockLock( &f->lock );
 
-    /* Is it already open? */
     for( i = 0; i < TR_MAX_OPEN_FILES; i++ )
     {
         if( f->open[i].status & STATUS_INVALID )
@@ -414,10 +413,22 @@ static int OpenFile( tr_fd_t * f, int i, char * folder, char * name,
 static void CloseFile( tr_fd_t * f, int i )
 {
     tr_openFile_t * file = &f->open[i];
-    if( !( file->status & STATUS_UNUSED ) )
+
+    /* If it's already being closed by another thread, just wait till
+     * it is done */
+    while( file->status & STATUS_CLOSING )
     {
-        tr_err( "CloseFile: status is %d, should be %d",
-                file->status, STATUS_UNUSED );
+        tr_condWait( &f->cond, &f->lock );
+    }
+    if( file->status & STATUS_INVALID )
+    {
+        return;
+    }
+
+    /* Nobody is closing it already, so let's do it */
+    if( file->status & STATUS_USED )
+    {
+        tr_err( "CloseFile: closing a file that's being used!" );
     }
     tr_dbg( "Closing %s in %s (%d)", file->name, file->folder, file->write );
     file->status = STATUS_CLOSING;

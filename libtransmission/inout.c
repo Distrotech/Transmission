@@ -193,20 +193,25 @@ int tr_ioHash( tr_io_t * io, int index )
     return 0;
 }
 
-void tr_ioClose( tr_io_t * io )
+/***********************************************************************
+ * tr_ioSync
+ **********************************************************************/
+void tr_ioSync( tr_io_t * io )
 {
     closeFiles( io );
-
     fastResumeSave( io );
+}
+
+/***********************************************************************
+ * tr_ioClose
+ **********************************************************************/
+void tr_ioClose( tr_io_t * io )
+{
+    tr_ioSync( io );
 
     free( io->pieceSlot );
     free( io->slotPiece );
     free( io );
-}
-
-void tr_ioSaveResume( tr_io_t * io )
-{
-    fastResumeSave( io );
 }
 
 /***********************************************************************
