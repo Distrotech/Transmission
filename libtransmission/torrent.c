@@ -324,7 +324,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     s->tracker = ( tc ? tr_trackerGet( tc ) : &inf->trackerList[0].list[0] );
 
     s->peersTotal       = 0;
-    bzero( s->peersFrom, sizeof( s->peersFrom ) );
+    memset( s->peersFrom, 0, sizeof( s->peersFrom ) );
     s->peersUploading   = 0;
     s->peersDownloading = 0;
     

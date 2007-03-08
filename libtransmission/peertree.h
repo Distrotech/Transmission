@@ -68,7 +68,7 @@ peertreeGet( tr_peertree_t * tree, struct in_addr * addr, in_port_t port )
 {
     tr_peertree_entry_t entry;
 
-    bzero( &entry, sizeof( entry ) );
+    memset( &entry, 0, sizeof( entry ) );
     memcpy( entry.peer, addr, 4 );
     memcpy( entry.peer + 4, &port, 2 );
 
