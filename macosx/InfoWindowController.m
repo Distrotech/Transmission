@@ -666,14 +666,23 @@
     if (tableView == fPeerTable)
     {
         NSDictionary * peerDic = [fPeers objectAtIndex: row];
+        
+        NSString * fromString;
+        int from = [[peerDic objectForKey: @"From"] intValue];
+        if (from == TR_PEER_FROM_INCOMING)
+            fromString = NSLocalizedString(@"incoming connection", "Inspector -> Peers tab -> table row tooltip");
+        else if (from == TR_PEER_FROM_CACHE)
+            fromString = NSLocalizedString(@"cache", "Inspector -> Peers tab -> table row tooltip");
+        else if (from == TR_PEER_FROM_PEX)
+            fromString = NSLocalizedString(@"PEX", "Inspector -> Peers tab -> table row tooltip");
+        else
+            fromString = NSLocalizedString(@"tracker", "Inspector -> Peers tab -> table row tooltip");
+        
         return [NSString stringWithFormat: NSLocalizedString(@"Progress: %.1f%%"
                     "\nPort: %@"
-                    "\nFrom %@ connection", "Inspector -> Peers tab -> table row tooltip"),
+                    "\nFrom %@", "Inspector -> Peers tab -> table row tooltip"),
                     [[peerDic objectForKey: @"Progress"] floatValue] * 100.0,
-                    [peerDic objectForKey: @"Port"],
-                    [[peerDic objectForKey: @"Incoming"] boolValue]
-                        ? NSLocalizedString(@"incoming", "Inspector -> Peers tab -> table row tooltip")
-                        : NSLocalizedString(@"outgoing", "Inspector -> Peers tab -> table row tooltip")];
+                    [peerDic objectForKey: @"Port"], fromString];
     }
     return nil;
 }
