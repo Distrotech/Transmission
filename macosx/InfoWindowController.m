@@ -237,7 +237,7 @@
         [fHashField setStringValue: hashString];
         [fHashField setToolTip: hashString];
         [fSecureField setStringValue: [torrent privateTorrent]
-                        ? NSLocalizedString(@"Private Torrent", "Inspector -> is private torrent")
+                        ? NSLocalizedString(@"Private Torrent, PEX disabled", "Inspector -> is private torrent")
                         : NSLocalizedString(@"Public Torrent", "Inspector -> is not private torrent")];
         [fCommentView setString: commentString];
         
@@ -674,13 +674,13 @@
         else if (from == TR_PEER_FROM_CACHE)
             fromString = NSLocalizedString(@"cache", "Inspector -> Peers tab -> table row tooltip");
         else if (from == TR_PEER_FROM_PEX)
-            fromString = NSLocalizedString(@"PEX", "Inspector -> Peers tab -> table row tooltip");
+            fromString = NSLocalizedString(@"peer exchange", "Inspector -> Peers tab -> table row tooltip");
         else
             fromString = NSLocalizedString(@"tracker", "Inspector -> Peers tab -> table row tooltip");
         
         return [NSString stringWithFormat: NSLocalizedString(@"Progress: %.1f%%"
                     "\nPort: %@"
-                    "\nFrom %@", "Inspector -> Peers tab -> table row tooltip"),
+                    "\nFrom: %@", "Inspector -> Peers tab -> table row tooltip"),
                     [[peerDic objectForKey: @"Progress"] floatValue] * 100.0,
                     [peerDic objectForKey: @"Port"], fromString];
     }
