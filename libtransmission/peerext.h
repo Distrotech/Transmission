@@ -25,147 +25,6 @@
 #define EXTENDED_HANDSHAKE_ID   0
 #define EXTENDED_PEX_ID         1
 
-#ifdef PEXDBG
-
-static void
-dumptree( tr_peertree_t * tree, const char * label )
-{
-    tr_peertree_entry_t * ii;
-    char addr[INET_ADDRSTRLEN];
-    in_port_t port;
-
-    printf( "tree %s:", label );
-    for( ii = peertreeFirst( tree ); NULL != ii;
-         ii = peertreeNext( tree, ii ) )
-    {
-        tr_netNtop( ( struct in_addr * )( ii->peer ),
-                    addr, sizeof( addr ) );
-        memcpy( &port, ii->peer + 4, 2 );
-        printf( " %s:%hu", addr, ntohs( port ) );
-    }
-    printf( "\n" );
-}
-
-#define PEXF                    "pex %s %*s:%5i "
-#define PEXA                    label, sizeof( addr ), addr, port
-static void
-pexdebug( tr_peer_t * peer, uint8_t * buf, int len, const char * label )
-{
-    char addr[INET_ADDRSTRLEN], peeraddr[INET_ADDRSTRLEN], * list, * fmt;
-    int port, ii, jj, count, fmtused, fmtmax;
-    benc_val_t val, * sub;
-    const char * names[] = { "added", "dropped", NULL };
-    int lengths[] = { 0, 0, 0 };
-    in_port_t peerport;
-
-    tr_netNtop( &peer->addr, addr, sizeof( addr ) );
-    port = ntohs( peer->port );
-
-    if( tr_bencLoad( buf, len, &val, NULL ) )
-    {
-        printf( PEXF "benc load failed for %p %i\n", PEXA, buf, len );
-        return;
-    }
-    if( TYPE_DICT != val.type )
-    {
-        printf( PEXF "not a dictionary\n", PEXA );
-        tr_bencFree( &val );
-        return;
-    }
-
-    fmt     = NULL;
-    fmtused = 0;
-    fmtmax  = 0;
-    for( ii = 0; ii < val.val.l.count; ii += 2 )
-    {
-        sub = &val.val.l.vals[ii];
-        if( TYPE_STR != sub->type )
-        {
-            tr_sprintf( &fmt, &fmtused, &fmtmax, " ???" );
-        }
-        else
-        {
-            tr_sprintf( &fmt, &fmtused, &fmtmax, " '%s'", sub->val.s.s );
-        }
-    }
-    printf( PEXF "dict keys:%s\n", PEXA, fmt );
-    free( fmt );
-
-    for( ii = 0; NULL != names[ii]; ii++ )
-    {
-        sub = tr_bencDictFind( &val, names[ii] );
-        if( NULL == sub )
-        {
-            printf( PEXF "'%s' is missing\n", PEXA, names[ii] );
-        }
-        else if( TYPE_STR != sub->type )
-        {
-            printf( PEXF "'%s' is not a string\n", PEXA, names[ii] );
-        }
-        else if( 0 != sub->val.s.i % 6 )
-        {
-            printf( PEXF "'%s' is %i bytes, should be a multiple of 6\n",
-                    PEXA, names[ii], sub->val.s.i );
-        }
-        else
-        {
-            lengths[ii] = sub->val.s.i / 6;
-            list    = sub->val.s.s;
-            count   = sub->val.s.i / 6;
-            fmt     = NULL;
-            fmtused = 0;
-            fmtmax  = 0;
-            for( jj = 0; jj < count; jj++ )
-            {
-                tr_netNtop( ( struct in_addr * )( list + jj * 6 ),
-                            peeraddr, sizeof( peeraddr ) );
-                memcpy( &peerport, list + jj * 6 + 4, 2 );
-                tr_sprintf( &fmt, &fmtused, &fmtmax, " %s:%hu", peeraddr,
-                            ntohs( peerport ) );
-            }
-            printf( PEXF "'%s' list:%s\n", PEXA, names[ii], fmt );
-            free( fmt );
-        }
-    }
-
-    sub = tr_bencDictFind( &val, "added.f" );
-    if( NULL != sub )
-    {
-        if( TYPE_STR != sub->type )
-        {
-            printf( PEXF "'added.f' is not a string\n", PEXA );
-        }
-        else if( 0 < sub->val.s.i && sub->val.s.i != lengths[0] )
-        {
-            printf( PEXF "'added.f' should be %i bytes but is %i\n",
-                    PEXA, lengths[0], sub->val.s.i );
-        }
-        else
-        {
-/*
-            list    = sub->val.s.s;
-            count   = sub->val.s.i;
-            fmt     = NULL;
-            fmtused = 0;
-            fmtmax  = 0;
-            for( jj = 0; jj < count; jj++ )
-            {
-                tr_sprintf( &fmt, &fmtused, &fmtmax, " %02x", list[jj] );
-            }
-            printf( PEXF "'added.f' data:%s\n", PEXA, fmt );
-            free( fmt );
-*/
-        }
-    }
-
-    tr_bencFree( &val );
-    fflush( stdout );
-}
-#undef PEXF
-#undef PEXA
-
-#endif
-
 static char *
 makeCommonPex( tr_torrent_t * tor, tr_peer_t * peer, int * len,
                int ( *peerfunc )( tr_peertree_t *, benc_val_t * ),
@@ -345,10 +204,6 @@ makeUTPex( tr_torrent_t * tor, tr_peer_t * peer, int * len )
     tr_bencInitStr( &val, NULL, 0, 1 );
     ret = makeCommonPex( tor, peer, len, peertreeToBencUT, "added.f", &val );
 
-#ifdef PEXDBG
-    pexdebug( peer, ret, *len, "send" );
-#endif
-
     return ret;
 }
 
@@ -401,10 +256,6 @@ static inline int
 parseUTPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
 {
     benc_val_t val, * sub;
-
-#ifdef PEXDBG
-    pexdebug( peer, buf, len, "recv" );
-#endif
 
     if( peer->private )
     {

@@ -96,121 +96,6 @@ azmsgNameIndex( const char *name, int len )
     return -1;
 }
 
-#ifdef AZDBG
-
-#define AZHEX( cc )             ( 10 > (cc) ? (cc) + '0' : (cc) - 10 + 'A' )
-
-static void
-dumplinear( benc_val_t * val, char ** buf, int * used, int * max )
-{
-    int ii, jj;
-    benc_val_t * sub;
-
-    assert( TYPE_DICT == val->type || TYPE_LIST == val->type );
-
-    for( ii = 0; ii < val->val.l.count; ii++ )
-    {
-        if( TYPE_DICT == val->type )
-        {
-            sub = &val->val.l.vals[ii];
-            if( TYPE_STR != sub->type )
-            {
-                tr_sprintf( buf, used, max, "???" /* silly trigraphs */ "=" );
-            }
-            else
-            {
-                tr_sprintf( buf, used, max, "'%s'=", sub->val.s.s );
-            }
-            if( ii + 1 == val->val.l.count )
-            {
-                break;
-            }
-            ii++;
-        }
-        sub = &val->val.l.vals[ii];
-        switch( sub->type )
-        {
-            case TYPE_INT:
-                tr_sprintf( buf, used, max, "%" PRId64 " ", sub->val.i );
-                break;
-            case TYPE_STR:
-                for( jj = 0; jj < sub->val.s.i && 0x20 <= sub->val.s.s[jj] &&
-                         0x7f >= (unsigned)sub->val.s.s[jj]; jj++ )
-                {
-                }
-                if( jj < sub->val.s.i )
-                {
-                    tr_concat( buf, used, max, "0x", 2 );
-                    tr_concat( buf, used, max, NULL, sub->val.s.i * 2 );
-                    for( jj = 0; jj < sub->val.s.i; jj++ )
-                    {
-                        (*buf)[ *used + jj * 2 ] =
-                            AZHEX((((unsigned)sub->val.s.s[jj]) & 0xf0) >> 4 );
-                        (*buf)[ *used + jj * 2 + 1] =
-                            AZHEX( ((unsigned)sub->val.s.s[jj]) & 0x0f );
-                    }
-                    *used += sub->val.s.i * 2;
-                    tr_concat( buf, used, max, " ", 1 );
-                }
-                else
-                {
-                    tr_sprintf( buf, used, max, "'%s' ", sub->val.s.s );
-                }
-                break;
-            case TYPE_LIST:
-            case TYPE_DICT:
-                tr_sprintf( buf, used, max, "(" );
-                dumplinear( sub, buf, used, max );
-                tr_sprintf( buf, used, max, ") " );
-                break;
-            default:
-                tr_sprintf( buf, used, max, "??? " );
-                break;
-        }
-    }
-}
-
-#undef  AZHEX
-#define AZF                    "az %s %*s:%5i "
-#define AZA                    label, sizeof( addr ), addr, port
-
-static void
-azdebug( tr_peer_t * peer, uint8_t * buf, int len, const char * label )
-{
-    char addr[INET_ADDRSTRLEN], * fmt;
-    int port, fmtused, fmtmax;
-    benc_val_t val;
-
-    tr_netNtop( &peer->addr, addr, sizeof( addr ) );
-    port = ntohs( peer->port );
-
-    if( tr_bencLoad( buf, len, &val, NULL ) )
-    {
-        printf( AZF "benc load failed for %p %i\n", AZA, buf, len );
-        return;
-    }
-    if( TYPE_DICT != val.type )
-    {
-        printf( AZF "not a dictionary\n", AZA );
-        tr_bencFree( &val );
-        return;
-    }
-
-    fmt     = NULL;
-    fmtused = 0;
-    fmtmax  = 0;
-    dumplinear( &val, &fmt, &fmtused, &fmtmax );
-    printf( AZF "%s\n", AZA, fmt );
-    free( fmt );
-
-    tr_bencFree( &val );
-    fflush( stdout );
-}
-#undef AZF
-#undef AZA
-
-#endif
-
 static char *
 makeAZHandshake( tr_torrent_t * tor, tr_peer_t * peer, int * buflen )
 {
@@ -308,12 +193,6 @@ makeAZHandshake( tr_torrent_t * tor, tr_peer_t * peer, int * buflen )
     /* XXX is there a way to tell azureus that the public port has changed? */
     peer->advertisedPort = tor->publicPort;
 
-#ifdef AZDBG
-    idx = azmsgIdIndex( AZ_MSG_AZ_HANDSHAKE );
-    azdebug( peer, buf + ( 4 + 4 + azmsgLen( idx ) + 1 ),
-                   len - ( 4 + 4 + azmsgLen( idx ) + 1 ), "hand send" );
-#endif
-
     *buflen = len;
     return buf;
 }
@@ -358,10 +237,6 @@ makeAZPex( tr_torrent_t * tor, tr_peer_t * peer, int * len )
     assert( !peer->private );
     tr_bencInitStr( &val, tor->info.hash, sizeof( tor->info.hash ), 1 );
     buf = makeCommonPex( tor, peer, len, peertreeToBencAZ, "infohash", &val );
-
-#ifdef AZDBG
-    azdebug( peer, buf, *len, "pex  send" );
-#endif
 
     return buf;
 }
@@ -475,10 +350,6 @@ parseAZHandshake( tr_peer_t * peer, uint8_t * buf, int len )
     tr_bitfield_t * msgs;
     int             ii, idx;
 
-#ifdef AZDBG
-    azdebug( peer, buf, len, "hand recv" );
-#endif
-
     if( tr_bencLoad( buf, len, &val, NULL ) )
     {
         peer_dbg( "invalid bencoding in Azureus handshake" );
@@ -567,10 +438,6 @@ parseAZPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
     tr_info_t * info = &tor->info;
     benc_val_t  val, * list, * pair;
     int         ii;
-
-#ifdef AZDBG
-    azdebug( peer, buf, len, "pex  recv" );
-#endif
 
     if( peer->private )
     {
