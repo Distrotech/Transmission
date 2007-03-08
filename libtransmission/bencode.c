@@ -282,7 +282,7 @@ char * tr_bencStealStr( benc_val_t * val )
     return val->val.s.s;
 }
 
-void tr_bencInitStr( benc_val_t * val, char * str, int len, int nofree )
+void _tr_bencInitStr( benc_val_t * val, char * str, int len, int nofree )
 {
     tr_bencInit( val, TYPE_STR );
     val->val.s.s      = str;
@@ -307,7 +307,7 @@ int tr_bencInitStrDup( benc_val_t * val, const char * str )
         }
     }
 
-    tr_bencInitStr( val, new, 0, 0 );
+    _tr_bencInitStr( val, new, 0, 0 );
 
     return 0;
 }

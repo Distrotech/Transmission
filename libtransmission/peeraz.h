@@ -80,7 +80,7 @@ azmsgIdIndex( int id )
 }
 
 static inline int
-azmsgNameIndex( const char *name, int len )
+azmsgNameIndex( const char * name, int len )
 {
     int ii;
 
@@ -96,7 +96,7 @@ azmsgNameIndex( const char *name, int len )
     return -1;
 }
 
-static char *
+static uint8_t *
 makeAZHandshake( tr_torrent_t * tor, tr_peer_t * peer, int * buflen )
 {
     char       * buf;
@@ -194,7 +194,7 @@ makeAZHandshake( tr_torrent_t * tor, tr_peer_t * peer, int * buflen )
     peer->advertisedPort = tor->publicPort;
 
     *buflen = len;
-    return buf;
+    return ( uint8_t * )buf;
 }
 
 static int
@@ -244,7 +244,7 @@ makeAZPex( tr_torrent_t * tor, tr_peer_t * peer, int * len )
 static int
 sendAZHandshake( tr_torrent_t * tor, tr_peer_t * peer )
 {
-    char * buf;
+    uint8_t * buf;
     int len;
 
     /* XXX this is kind of evil to use this buffer like this */
@@ -318,7 +318,7 @@ parseAZMessageHeader( tr_peer_t * peer, uint8_t * buf, int len,
     /* get payload length from message length */
     msglen -= off;
 
-    index = azmsgNameIndex( name, namelen );
+    index = azmsgNameIndex( ( char * )name, namelen );
     if( AZ_EXT_VERSION != vers )
     {
         /* XXX should we close the connection here? */
@@ -478,7 +478,8 @@ parseAZPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
         pair = &list->val.l.vals[ii];
         if( TYPE_STR == pair->type && 6 == pair->val.s.i )
         {
-            tr_torrentAddCompact( tor, TR_PEER_FROM_PEX, pair->val.s.s, 1 );
+            tr_torrentAddCompact( tor, TR_PEER_FROM_PEX,
+                                  ( uint8_t * )pair->val.s.s, 1 );
         }
     }
 

@@ -278,7 +278,7 @@ parseUTPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
     if( NULL != sub && TYPE_STR == sub->type && 0 == sub->val.s.i % 6 )
     {
         tr_torrentAddCompact( tor, TR_PEER_FROM_PEX,
-                              sub->val.s.s, sub->val.s.i / 6 );
+                              ( uint8_t * )sub->val.s.s, sub->val.s.i / 6 );
     }
 
     return TR_OK;

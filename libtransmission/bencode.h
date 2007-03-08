@@ -71,7 +71,9 @@ static inline void tr_bencInit( benc_val_t * val, int type )
     val->type = type;
 }
 
-void   tr_bencInitStr( benc_val_t * val, char * str, int len, int nofree );
+#define tr_bencInitStr( a, b, c, d ) \
+    _tr_bencInitStr( (a), ( char * )(b), (c), (d) )
+void   _tr_bencInitStr( benc_val_t * val, char * str, int len, int nofree );
 int    tr_bencInitStrDup( benc_val_t * val, const char * str );
 void   tr_bencInitInt( benc_val_t * val, int64_t num );
 /* args are a NULL terminated list of benc_val_t** */
