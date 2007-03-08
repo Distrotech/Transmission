@@ -471,9 +471,9 @@ parseAZMessageHeader( tr_peer_t * peer, uint8_t * buf, int len,
 static inline int
 parseAZHandshake( tr_peer_t * peer, uint8_t * buf, int len )
 {
-    benc_val_t val, * sub, * dict, * subsub;
-    uint8_t    msgs[ ( azmsgCount() + 7 ) / 8 ];
-    int        ii, idx;
+    benc_val_t      val, * sub, * dict, * subsub;
+    tr_bitfield_t * msgs;
+    int             ii, idx;
 
 #ifdef AZDBG
     azdebug( peer, buf, len, "hand recv" );
@@ -512,7 +512,7 @@ parseAZHandshake( tr_peer_t * peer, uint8_t * buf, int len )
     }
 
     /* fill bitmask with supported message info */
-    memset( msgs, 0, sizeof( msgs ) );
+    msgs = tr_bitfieldNew( azmsgCount() );
     for( ii = 0; ii < sub->val.l.count; ii++ )
     {
         dict = &sub->val.l.vals[ii];
@@ -552,9 +552,11 @@ parseAZHandshake( tr_peer_t * peer, uint8_t * buf, int len )
             !tr_bitfieldHas( msgs, ii ) )
         {
             peer_dbg( "Azureus message %s not supported", azmsgStr( ii ) );
+            tr_bitfieldFree( msgs );
             return TR_ERROR;
         }
     }
+    tr_bitfieldFree( msgs );
 
     return TR_OK;
 }
