@@ -39,8 +39,8 @@
 //15 spacing at the bottom of each tab
 #define TAB_INFO_HEIGHT 284.0
 #define TAB_ACTIVITY_HEIGHT 170.0
-#define TAB_PEERS_HEIGHT 268.0
-#define TAB_FILES_HEIGHT 268.0
+#define TAB_PEERS_HEIGHT 279.0
+#define TAB_FILES_HEIGHT 279.0
 #define TAB_OPTIONS_HEIGHT 117.0
 
 #define OPTION_POPUP_GLOBAL 0
@@ -196,7 +196,7 @@
         [fSeedersField setStringValue: @""];
         [fLeechersField setStringValue: @""];
         [fCompletedFromTrackerField setStringValue: @""];
-        [fConnectedPeersField setStringValue: @""];
+        [fConnectedPeersField setStringValue: NSLocalizedString(@"info not available", "Inspector -> Peers tab -> peers")];
         [fDownloadingFromField setStringValue: @""];
         [fUploadingToField setStringValue: @""];
         [fSwarmSpeedField setStringValue: @""];
@@ -382,9 +382,42 @@
     [fCompletedFromTrackerField setStringValue: downloaded < 0 ? @"" : [NSString stringWithInt: downloaded]];
     
     BOOL active = [torrent isActive];
-    [fConnectedPeersField setStringValue: active ? [NSString stringWithFormat: NSLocalizedString(@"%d (%d incoming)",
-                                                                                "Inspector -> Peers tab -> connected"),
-                                                    [torrent totalPeers], [torrent totalPeersIncoming]]: @""];
+    
+    if (active)
+    {
+        int left = [torrent totalPeers], count;
+        NSMutableString * connected = [NSMutableString stringWithFormat:
+                                        NSLocalizedString(@"%d Connected", "Inspector -> Peers tab -> peers"), left];
+        
+        if (left > 0)
+        {
+            [connected appendString: @": "];
+            if ((count = [torrent totalPeersTracker]) > 0)
+            {
+                [connected appendFormat: NSLocalizedString(@"%d tracker", "Inspector -> Peers tab -> peers"), count];
+                if ((left -= count) > 0)
+                    [connected appendString: @", "];
+            }
+            if (left > 0 && (count = [torrent totalPeersIncoming]) > 0)
+            {
+                [connected appendFormat: NSLocalizedString(@"%d incoming", "Inspector -> Peers tab -> peers"), count];
+                if ((left -= count) > 0)
+                    [connected appendString: @", "];
+            }
+            if (left > 0 && (count = [torrent totalPeersPex]) > 0)
+            {
+                [connected appendFormat: NSLocalizedString(@"%d PEX", "Inspector -> Peers tab -> peers"), count];
+                if ((left -= count) > 0)
+                    [connected appendString: @", "];
+            }
+            if (left > 0 && (count = [torrent totalPeersCache]) > 0)
+                [connected appendFormat: NSLocalizedString(@"%d cache", "Inspector -> Peers tab -> peers"), count];
+        }
+        [fConnectedPeersField setStringValue: connected];
+    }
+    else
+        [fConnectedPeersField setStringValue: NSLocalizedString(@"info not available", "Inspector -> Peers tab -> peers")];
+    
     [fDownloadingFromField setStringValue: active ? [NSString stringWithInt: [torrent peersUploading]] : @""];
     [fUploadingToField setStringValue: active ? [NSString stringWithInt: [torrent peersDownloading]] : @""];
     
