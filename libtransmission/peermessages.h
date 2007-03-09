@@ -187,9 +187,7 @@ static uint8_t * getMessagePointer( tr_peer_t * peer, int size, int id )
  **********************************************************************/
 static void sendKeepAlive( tr_peer_t * peer )
 {
-    uint8_t * p;
-
-    p = getMessagePointer( peer, 0, AZ_MSG_BT_KEEP_ALIVE );
+    getMessagePointer( peer, 0, AZ_MSG_BT_KEEP_ALIVE );
 
     peer_dbg( "SEND keep-alive" );
 }
@@ -202,11 +200,10 @@ static void sendKeepAlive( tr_peer_t * peer )
  **********************************************************************/
 static void sendChoke( tr_peer_t * peer, int yes )
 {
-    uint8_t * p;
-    int       id;
+    int id;
 
     id = ( yes ? PEER_MSG_CHOKE : PEER_MSG_UNCHOKE );
-    p = getMessagePointer( peer, 0, id );
+    getMessagePointer( peer, 0, id );
 
     peer->amChoking = yes;
 
@@ -227,11 +224,10 @@ static void sendChoke( tr_peer_t * peer, int yes )
  **********************************************************************/
 static void sendInterest( tr_peer_t * peer, int yes )
 {
-    uint8_t * p;
-    int       id;
+    int id;
 
     id = ( yes ? PEER_MSG_INTERESTED : PEER_MSG_UNINTERESTED );
-    p = getMessagePointer( peer, 0, id );
+    getMessagePointer( peer, 0, id );
 
     peer->amInterested = yes;
 
@@ -264,12 +260,13 @@ static void sendHave( tr_peer_t * peer, int piece )
  **********************************************************************/
 static void sendBitfield( tr_torrent_t * tor, tr_peer_t * peer )
 {
-    uint8_t * p;
-    int       bitfieldSize = ( tor->info.pieceCount + 7 ) / 8;
+    uint8_t       * p;
+    tr_bitfield_t * bitfield;
 
-    p = getMessagePointer( peer, bitfieldSize, PEER_MSG_BITFIELD );
+    bitfield = tr_cpPieceBitfield( tor->completion );
+    p = getMessagePointer( peer, bitfield->len, PEER_MSG_BITFIELD );
 
-    memcpy( p, tr_cpPieceBitfield( tor->completion ), bitfieldSize );
+    memcpy( p, bitfield->bits, bitfield->len );
 
     peer_dbg( "SEND bitfield" );
 }

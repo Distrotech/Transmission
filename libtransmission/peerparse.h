@@ -731,12 +731,6 @@ static inline int parseBuf( tr_torrent_t * tor, tr_peer_t * peer )
         peer->pos -= ret;
         assert( 0 <= peer->pos );
 
-        /* don't try to parse zero-length messages */
-        if( !len )
-        {
-            continue;
-        }
-
         if( ( ret = parseMessage( tor, peer, msgid, p, len ) ) )
         {
             return ret;
