@@ -2,7 +2,7 @@ NEWS file for Transmission <http://transmission.m0k.org/>
 
 0.7 ()
  - New icon
- - Automatic NAT traversal through NAT-PMP or UPnP
+ - Automatic port configuration (NAT-PMP and UPnP)
  - Peer exchange (PEX) compatible with Azureus and uTorrent
  - Multitracker support
  - Listen to trackers announce and min-announce intervals
@@ -14,13 +14,15 @@ NEWS file for Transmission <http://transmission.m0k.org/>
    + Speed Limit: Second set of bandwidth limits that can be toggled or 
      scheduled
    + Individual torrent bandwidth limits
-   + Separate complete and incomplete folders
+   + Separate complete and incomplete download folders
    + Filter and search bar
    + Expanded Inspector with many additional views and stats
-   + Settable watch folder to auto add torrent files
+   + Fragment status view in Inspector shows downloaded or availability
+   + Watch folder to auto add torrent files
    + Auto resizing of the main window
    + Minimal view to take up less space
    + Sounds when downloading and seeding complete
+   + Warnings for directory unavailable or not enough space
    + Message log window
    + New toolbar icons
    + Built-in help files
