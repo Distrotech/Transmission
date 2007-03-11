@@ -5,7 +5,7 @@ NEWS file for Transmission <http://transmission.m0k.org/>
  - Automatic port configuration (NAT-PMP and UPnP)
  - Peer exchange (PEX) compatible with Azureus and uTorrent
  - Multitracker support
- - Listen to trackers announce and min-announce intervals
+ - Listen to tracker's announce and min-announce intervals
  - Fix for sending invalid stats to trackers
  - Better scrape support
  - Bugfixes and improvements
