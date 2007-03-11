@@ -492,9 +492,9 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
             [torrent update];
         }
     
-    //wait for NAT to be disabled (5 second timeout)
-    while (tr_handleStatus(fLib)->natTraversalStatus != TR_NAT_TRAVERSAL_DISABLED
-            && !([start timeIntervalSinceNow] < -5.0))
+    //wait for NAT to be disabled (same 5 second timeout)
+    while (!([start timeIntervalSinceNow] < -5.0)
+                && tr_handleStatus(fLib)->natTraversalStatus != TR_NAT_TRAVERSAL_DISABLED)
         usleep(100000);
 }
 
