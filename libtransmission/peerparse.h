@@ -522,6 +522,8 @@ static inline int parseMessage( tr_torrent_t * tor, tr_peer_t * peer,
                 peer_dbg( "Unknown extended message '%hhu'", extid );
             }
             return 1;
+        case AZ_MSG_BT_KEEP_ALIVE:
+            return TR_OK;
         case AZ_MSG_AZ_PEER_EXCHANGE:
             if( peer->azproto && peer->pexStatus )
             {
