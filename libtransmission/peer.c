@@ -25,10 +25,14 @@
 #include "transmission.h"
 #include "peertree.h"
 
-#define MAX_REQUEST_COUNT 32
-#define OUR_REQUEST_COUNT 8  /* TODO: we should detect if we are on a
-                                high-speed network and adapt */
-#define PEX_INTERVAL            60
+#define MAX_REQUEST_COUNT       32
+#define OUR_REQUEST_COUNT       8  /* TODO: we should detect if we are on a
+                                      high-speed network and adapt */
+#define PEX_PEER_CUTOFF         50 /* only try to add new peers from pex if
+                                      we have fewer existing peers than this */
+#define PEX_INTERVAL            60 /* don't send pex messages more frequently
+                                      than PEX_INTERVAL +
+                                      rand( PEX_INTERVAL / 10 ) seconds */
 #define PEER_SUPPORTS_EXTENDED_MESSAGES( bits ) ( (bits)[5] & 0x10 )
 #define PEER_SUPPORTS_AZUREUS_PROTOCOL( bits )  ( (bits)[0] & 0x80 )
 

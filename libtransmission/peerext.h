@@ -257,7 +257,7 @@ parseUTPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
 {
     benc_val_t val, * sub;
 
-    if( peer->private )
+    if( peer->private || PEX_PEER_CUTOFF <= tor->peerCount )
     {
         return TR_OK;
     }

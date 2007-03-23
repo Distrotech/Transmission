@@ -439,7 +439,7 @@ parseAZPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
     benc_val_t  val, * list, * pair;
     int         ii;
 
-    if( peer->private )
+    if( peer->private || PEX_PEER_CUTOFF <= tor->peerCount )
     {
         return TR_OK;
     }
