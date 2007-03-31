@@ -12,6 +12,7 @@ MATH=no
 PTHREAD=no
 OPENSSL=
 GTK=
+LIBEVENT=
 PREFIX=/usr/local
 CC="${CC-cc}"
 CFLAGS="${CFLAGS}"
@@ -30,6 +31,7 @@ usage()
 Options:
   --disable-openssl      Disable OpenSSL, use built-in SHA1 implementation
   --disable-gtk          Don't build the GTK+ GUI
+  --disable-daemon       Don't build the daemon
   --prefix=PATH          Installation path
   --verbose              Display additional information for debugging
 
@@ -212,6 +214,44 @@ EOF
   fi
 }
 
+libevent_test()
+{
+  verbose libevent_test
+  cat > testconf.c <<EOF
+#include <sys/time.h>
+#include <event.h>
+int main()
+{
+    event_init();
+    return 0;
+}
+EOF
+
+  if runcmd $CC $CFLAGS -levent $LDFLAGS -o testconf testconf.c
+  then
+    LIBEVENT=yes
+    LDFLAGS_EVENT="-levent"
+    rm -f testconf*
+    return 0
+  fi
+
+  for event_testdir in $PREFIX /usr/local /usr/X11R6 /usr/pkg
+  do
+    if runcmd $CC $CFLAGS -I$event_testdir/include $LDFLAGS -levent \
+        -L$event_testdir/lib -o testconf testconf.c
+    then
+      LIBEVENT=yes
+      CFLAGS_EVENT="-I$event_testdir/include"
+      LDFLAGS_EVENT="-levent -L$event_testdir/lib"
+      rm -f testconf*
+      return 0
+    fi
+  done
+  LIBEVENT=no
+  rm -f testconf*
+  return 1
+}
+
 #
 # Parse options
 #
@@ -221,6 +261,9 @@ while [ $# -ne 0 ]; do
   case "x$1" in
     x--disable-openssl|x--without-openssl)
       OPENSSL=no
+      ;;
+    x--disable-daemon|x--without-daemon)
+      LIBEVENT=no
       ;;
     x--disable-gtk|x--without-gtk)
       GTK=no
@@ -331,6 +374,20 @@ else
 fi
 
 #
+# libevent settings
+#
+echo -n "Daemon:  "
+if [ "$LIBEVENT" = no ]; then
+  echo "disabled"
+else
+  if libevent_test; then
+      echo "yes"
+  else
+      echo "no (can't find libevent)"
+  fi
+fi
+
+#
 # Math functions
 #
 lm_test
@@ -348,6 +405,7 @@ BEOS_NETSERVER = $BEOS_NETSERVER
 PTHREAD        = $PTHREAD
 OPENSSL        = $OPENSSL
 GTK            = $GTK
+DAEMON         = $LIBEVENT
 CC             = $CC
 CFLAGS         = $CFLAGS
 CXX            = $CXX
@@ -355,6 +413,8 @@ CXXFLAGS       = $CXXFLAGS
 LDFLAGS        = $LDFLAGS
 CFLAGS_GTK     = $CFLAGS_GTK
 LDFLAGS_GTK    = $LDFLAGS_GTK
+CFLAGS_EVENT   = $CFLAGS_EVENT
+LDFLAGS_EVENT  = $LDFLAGS_EVENT
 EOF
 
 echo
