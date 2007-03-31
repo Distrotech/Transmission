@@ -216,7 +216,7 @@ usage( const char * msg, ... )
   "  -S --stop <hash>          Stop the torrent with the given hash\n"
   "  -S --stop all             Stop all running torrents\n"
   "  -t --type daemon          Use the daemon frontend, transmission-daemon\n"
-  "  -t --type gtk             Use the GTK+ drontend, transmission-gtk\n"
+  "  -t --type gtk             Use the GTK+ frontend, transmission-gtk\n"
   "  -u --upload-limit <int>   Max upload rate in KiB/s\n"
   "  -U --upload-unlimited     No upload rate limit\n",
             getmyname(), VERSION_STRING, VERSION_REVISION );
