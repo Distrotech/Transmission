@@ -756,7 +756,7 @@ lookmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
             msgresp( client, tag, IPC_MSG_NOTSUP );
             return;
         }
-        found = torrent_lookup( hash->val.s.s );
+        found = torrent_lookup( ( uint8_t * )hash->val.s.s );
         if( !TORRENT_ID_VALID( found ) )
         {
             continue;

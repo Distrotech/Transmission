@@ -25,7 +25,6 @@
 #ifndef TR_DAEMON_IPC_H
 #define TR_DAEMON_IPC_H
 
-#include <sys/stdint.h>
 #include <stdint.h>
 
 /* yay for typedefs, we can't forward declare benc_val_t or tr_info_t

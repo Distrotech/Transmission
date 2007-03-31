@@ -218,6 +218,7 @@ libevent_test()
 {
   verbose libevent_test
   cat > testconf.c <<EOF
+#include <sys/types.h>
 #include <sys/time.h>
 #include <event.h>
 int main()

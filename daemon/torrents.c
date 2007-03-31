@@ -750,7 +750,7 @@ savestate( void )
                         tr_torrentGetFolder( ii->tor ), -1, 1 );
     }
 
-    buf = tr_bencSaveMalloc( &top, &len );
+    buf = ( uint8_t * )tr_bencSaveMalloc( &top, &len );
     SAFEBENCFREE( &top );
     if( NULL == buf )
     {
