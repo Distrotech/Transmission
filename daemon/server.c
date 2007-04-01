@@ -65,7 +65,8 @@ static int  queuemsg ( struct client *, uint8_t *, size_t );
 static void msgresp  ( struct client *, int64_t, enum ipc_msg );
 static void defmsg   ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void noopmsg  ( enum ipc_msg, benc_val_t *, int64_t, void * );
-static void addmsg   ( enum ipc_msg, benc_val_t *, int64_t, void * );
+static void addmsg1  ( enum ipc_msg, benc_val_t *, int64_t, void * );
+static void addmsg2  ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void quitmsg  ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void intmsg   ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void strmsg   ( enum ipc_msg, benc_val_t *, int64_t, void * );
@@ -97,7 +98,8 @@ server_init( struct event_base * base )
         return -1;
     }
 
-    if( 0 > ipc_addmsg( gl_tree, IPC_MSG_ADDFILES,     addmsg  ) ||
+    if( 0 > ipc_addmsg( gl_tree, IPC_MSG_ADDMANYFILES, addmsg1 ) ||
+        0 > ipc_addmsg( gl_tree, IPC_MSG_ADDONEFILE,   addmsg2 ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_AUTOMAP,      intmsg  ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_AUTOSTART,    intmsg  ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_DOWNLIMIT,    intmsg  ) ||
@@ -108,6 +110,7 @@ server_init( struct event_base * base )
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETDIR,       prefmsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETINFO,      infomsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETINFOALL,   infomsg ) ||
+        0 > ipc_addmsg( gl_tree, IPC_MSG_GETPEX,       prefmsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETPORT,      prefmsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETSTAT,      infomsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETSTATALL,   infomsg ) ||
@@ -115,6 +118,7 @@ server_init( struct event_base * base )
         0 > ipc_addmsg( gl_tree, IPC_MSG_GETSUP,       supmsg  ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_LOOKUP,       lookmsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_NOOP,         noopmsg ) ||
+        0 > ipc_addmsg( gl_tree, IPC_MSG_PEX,          intmsg  ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_PORT,         intmsg  ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_QUIT,         quitmsg ) ||
         0 > ipc_addmsg( gl_tree, IPC_MSG_REMOVE,       tormsg  ) ||
@@ -389,14 +393,14 @@ noopmsg( enum ipc_msg id UNUSED, benc_val_t * val UNUSED, int64_t tag,
 }
 
 void
-addmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
+addmsg1( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
 {
     struct client * client = arg;
-    benc_val_t    * file;
-    int64_t       * added, tor;
-    int             ii;
-    size_t          count, buflen;
+    benc_val_t      pk, * added, * file;
+    int             ii, tor;
+    size_t          buflen;
     uint8_t       * buf;
+    tr_info_t     * inf;
 
     if( NULL == val || TYPE_LIST != val->type )
     {
@@ -404,16 +408,11 @@ addmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         return;
     }
 
-    if( 0 < tag )
+    if( 0 > ipc_initinfo( &client->ipc, IPC_MSG_INFO, tag, &pk, &added ) )
     {
-        added = calloc( val->val.l.count, sizeof( added[0] ) );
-        if( NULL == added )
-        {
-            mallocmsg( val->val.l.count * sizeof( added[0] ) );
-            byebye( client->ev, EVBUFFER_EOF, NULL );
-            return;
-        }
-        count = 0;
+        errnomsg( "failed to build message" );
+        byebye( client->ev, EVBUFFER_EOF, NULL );
+        return;
     }
 
     for( ii = 0; ii < val->val.l.count; ii++ )
@@ -424,21 +423,91 @@ addmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
             continue;
         }
         /* XXX need to somehow inform client of skipped or failed files */
-        tor = torrent_add( file->val.s.s );
-        if( 0 < tag )
+        tor = torrent_add( file->val.s.s, NULL, -1 );
+        if( TORRENT_ID_VALID( tor ) )
         {
-            added[count] = tor;
-            count++;
+            inf = torrent_info( tor );
+            if( 0 > ipc_addinfo( added, tor, inf, 0 ) )
+            {
+                errnomsg( "failed to build message" );
+                tr_bencFree( &pk );
+                byebye( client->ev, EVBUFFER_EOF, NULL );
+                return;
+            }
         }
     }
 
-    if( 0 < tag )
+    buf = ipc_mkinfo( &pk, &buflen );
+    tr_bencFree( &pk );
+    queuemsg( client, buf, buflen );
+    free( buf );
+}
+
+void
+addmsg2( enum ipc_msg id UNUSED, benc_val_t * dict, int64_t tag, void * arg )
+{
+    struct client * client = arg;
+    benc_val_t    * val, pk;
+    int             tor, start;
+    size_t          buflen;
+    uint8_t       * buf;
+    const char    * dir;
+    tr_info_t     * inf;
+
+    if( NULL == dict || TYPE_DICT != dict->type )
     {
-        buf = ipc_mkints( &client->ipc, &buflen, tag, IPC_MSG_INFO,
-                          count, added );
+        msgresp( client, tag, IPC_MSG_NOTSUP );
+        return;
+    }
+
+    val   = tr_bencDictFind( dict, "directory" );
+    dir   = ( NULL == val || TYPE_STR != val->type ? NULL : val->val.s.s );
+    val   = tr_bencDictFind( dict, "autostart" );
+    start = ( NULL == val || TYPE_INT != val->type ? -1 :
+              ( val->val.i ? 1 : 0 ) );
+    val   = tr_bencDictFind( dict, "data" );
+    if( NULL != val && TYPE_STR == val->type )
+    {
+        /* XXX not quite yet */
+        msgresp( client, tag, IPC_MSG_NOTSUP );
+        return;
+    }
+    else
+    {
+        val = tr_bencDictFind( dict, "file" );
+        if( NULL == val || TYPE_STR != val->type )
+        {
+            msgresp( client, tag, IPC_MSG_NOTSUP );
+            return;
+        }
+        /* XXX detect duplicates and return a message indicating so */
+        tor = torrent_add( val->val.s.s, dir, start );
+    }
+
+    if( TORRENT_ID_VALID( tor ) )
+    {
+        if( 0 > ipc_initinfo( &client->ipc, IPC_MSG_INFO, tag, &pk, &val ) )
+        {
+            errnomsg( "failed to build message" );
+            byebye( client->ev, EVBUFFER_EOF, NULL );
+            return;
+        }
+        inf = torrent_info( tor );
+        if( 0 > ipc_addinfo( val, tor, inf, 0 ) )
+        {
+            errnomsg( "failed to build message" );
+            tr_bencFree( &pk );
+            byebye( client->ev, EVBUFFER_EOF, NULL );
+            return;
+        }
+        buf = ipc_mkinfo( &pk, &buflen );
+        tr_bencFree( &pk );
         queuemsg( client, buf, buflen );
-        free( added );
         free( buf );
+    }
+    else
+    {
+        msgresp( client, tag, IPC_MSG_FAIL );
     }
 }
 
@@ -481,6 +550,9 @@ intmsg( enum ipc_msg id, benc_val_t * val, int64_t tag, void * arg )
             break;
         case IPC_MSG_DOWNLIMIT:
             torrent_set_downlimit( num );
+            break;
+        case IPC_MSG_PEX:
+            torrent_set_pex( num ? 1 : 0 );
             break;
         case IPC_MSG_PORT:
             torrent_set_port( num );
@@ -801,6 +873,10 @@ prefmsg( enum ipc_msg id, benc_val_t * val UNUSED, int64_t tag, void * arg )
         case IPC_MSG_GETDOWNLIMIT:
             buf = ipc_mkint( &client->ipc, &buflen, IPC_MSG_DOWNLIMIT, tag,
                              torrent_get_downlimit() );
+            break;
+        case IPC_MSG_GETPEX:
+            buf = ipc_mkint( &client->ipc, &buflen, IPC_MSG_PEX, tag,
+                             torrent_get_pex() );
             break;
         case IPC_MSG_GETPORT:
             buf = ipc_mkint( &client->ipc, &buflen, IPC_MSG_PORT, tag,

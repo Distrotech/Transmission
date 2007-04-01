@@ -77,7 +77,8 @@ struct ipc_funcs
 
 static struct msg gl_msgs[] =
 {
-    { "addfiles",            1, IPC_MSG_ADDFILES,     RB_ENTRY_INITIALIZER() },
+    { "addfiles",            1, IPC_MSG_ADDMANYFILES, RB_ENTRY_INITIALIZER() },
+    { "addfile-detailed",    2, IPC_MSG_ADDONEFILE,   RB_ENTRY_INITIALIZER() },
     { "automap",             2, IPC_MSG_AUTOMAP,      RB_ENTRY_INITIALIZER() },
     { "autostart",           2, IPC_MSG_AUTOSTART,    RB_ENTRY_INITIALIZER() },
     { "directory",           2, IPC_MSG_DIR,          RB_ENTRY_INITIALIZER() },
@@ -89,6 +90,7 @@ static struct msg gl_msgs[] =
     { "get-downlimit",       2, IPC_MSG_GETDOWNLIMIT, RB_ENTRY_INITIALIZER() },
     { "get-info",            2, IPC_MSG_GETINFO,      RB_ENTRY_INITIALIZER() },
     { "get-info-all",        2, IPC_MSG_GETINFOALL,   RB_ENTRY_INITIALIZER() },
+    { "get-pex",             2, IPC_MSG_GETPEX,       RB_ENTRY_INITIALIZER() },
     { "get-port",            2, IPC_MSG_GETPORT,      RB_ENTRY_INITIALIZER() },
     { "get-status",          2, IPC_MSG_GETSTAT,      RB_ENTRY_INITIALIZER() },
     { "get-status-all",      2, IPC_MSG_GETSTATALL,   RB_ENTRY_INITIALIZER() },
@@ -98,6 +100,7 @@ static struct msg gl_msgs[] =
     { "info",                2, IPC_MSG_INFO,         RB_ENTRY_INITIALIZER() },
     { "noop",                2, IPC_MSG_NOOP,         RB_ENTRY_INITIALIZER() },
     { "not-supported",       2, IPC_MSG_NOTSUP,       RB_ENTRY_INITIALIZER() },
+    { "pex",                 2, IPC_MSG_PORT,         RB_ENTRY_INITIALIZER() },
     { "port",                2, IPC_MSG_PORT,         RB_ENTRY_INITIALIZER() },
     { "quit",                1, IPC_MSG_QUIT,         RB_ENTRY_INITIALIZER() },
     { "remove",              2, IPC_MSG_REMOVE,       RB_ENTRY_INITIALIZER() },

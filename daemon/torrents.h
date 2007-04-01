@@ -33,7 +33,7 @@
 struct event_base;
 
 void         torrent_init                ( struct event_base * );
-int          torrent_add                 ( const char * );
+int          torrent_add                 ( const char *, const char *, int );
 void         torrent_start               ( int );
 void         torrent_stop                ( int );
 void         torrent_remove              ( int );
@@ -47,6 +47,8 @@ void         torrent_set_autostart       ( int );
 int          torrent_get_autostart       ( void );
 void         torrent_set_port            ( int );
 int          torrent_get_port            ( void );
+void         torrent_set_pex             ( int );
+int          torrent_get_pex             ( void );
 void         torrent_enable_port_mapping ( int );
 int          torrent_get_port_mapping    ( void );
 void         torrent_set_uplimit         ( int );

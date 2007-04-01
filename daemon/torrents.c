@@ -56,6 +56,8 @@ struct tor
     int             deleting;
     uint8_t         hash[SHA_DIGEST_LENGTH];
     tr_torrent_t  * tor;
+    int             pexset;
+    int             pex;
     RB_ENTRY( tor ) idlinks;
     RB_ENTRY( tor ) hashlinks;
 };
@@ -63,7 +65,7 @@ struct tor
 RB_HEAD( tortree, tor );
 RB_HEAD( hashtree, tor );
 
-static struct tor * opentorrent ( const char *, const char * );
+static struct tor * opentorrent ( const char *, const char *, const char * );
 static void         closetorrent( struct tor *, int );
 static void         starttimer  ( int );
 static void         timerfunc   ( int, short, void * );
@@ -75,6 +77,7 @@ static int          writefile   ( const char *, uint8_t *, ssize_t );
 static uint8_t    * readfile    ( const char *, size_t * );
 static struct tor * idlookup    ( int, int );
 static struct tor * hashlookup  ( const uint8_t *, int );
+static struct tor * iterate     ( struct tor * );
 
 static struct event_base * gl_base      = NULL;
 static tr_handle_t       * gl_handle    = NULL;
@@ -88,6 +91,7 @@ static char                gl_state[MAXPATHLEN];
 static char                gl_newstate[MAXPATHLEN];
 
 static int                 gl_autostart = 1;
+static int                 gl_pex       = 1;
 static int                 gl_port      = TR_DEFAULT_PORT;
 static int                 gl_mapping   = 0;
 static int                 gl_uplimit   = -1;
@@ -112,31 +116,27 @@ torrent_init( struct event_base * base )
     absolutify( gl_dir, sizeof gl_dir, "." );
 
     loadstate();
-
-    if( TR_DEFAULT_PORT != gl_port )
-    {
-        tr_setBindPort( gl_handle, gl_port );
-    }
-    tr_natTraversalEnable( gl_handle, gl_mapping );
-    tr_setGlobalUploadLimit( gl_handle, gl_uplimit );
-    tr_setGlobalDownloadLimit( gl_handle, gl_downlimit );
 }
 
 int
-torrent_add( const char * path )
+torrent_add( const char * path, const char * dir, int autostart )
 {
     struct tor * tor;
 
     assert( NULL != gl_handle );
     assert( !gl_exiting );
 
-    tor = opentorrent( path, NULL );
+    tor = opentorrent( path, NULL, dir );
     if( NULL == tor )
     {
         return -1;
     }
 
-    if( gl_autostart )
+    if( 0 > autostart )
+    {
+        autostart = gl_autostart;
+    }
+    if( autostart )
     {
         tr_torrentStart( tor->tor );
     }
@@ -283,19 +283,7 @@ torrent_iter( void * iter, int * id )
     assert( NULL != gl_handle );
     assert( !gl_exiting );
 
-    if( NULL == tor )
-    {
-        tor = RB_MIN( tortree, &gl_tree );
-    }
-    else
-    {
-        tor = RB_NEXT( tortree, &gl_tree, tor );
-    }
-
-    while( NULL != tor && tor->deleting )
-    {
-        tor = RB_NEXT( tortree, &gl_tree, tor );
-    }
+    tor = iterate( tor );
 
     if( NULL != tor )
     {
@@ -356,6 +344,38 @@ int
 torrent_get_port( void )
 {
     return gl_port;
+}
+
+void
+torrent_set_pex( int pex )
+{
+    struct tor * tor;
+
+    assert( NULL != gl_handle );
+    assert( !gl_exiting );
+
+    if( pex == gl_pex )
+    {
+        return;
+    }
+    gl_pex = pex;
+
+    for( tor = iterate( NULL ); NULL != tor; tor = iterate( tor ) )
+    {
+        if( tor->pexset )
+        {
+            continue;
+        }
+        tr_torrentDisablePex( tor->tor, !gl_pex );
+    }
+
+    savestate();
+}
+
+int
+torrent_get_pex( void )
+{
+    return gl_pex;
 }
 
 void
@@ -423,7 +443,7 @@ torrent_get_directory( void )
 }
 
 struct tor *
-opentorrent( const char * path, const char * hash )
+opentorrent( const char * path, const char * hash, const char * dir )
 {
     struct tor * tor, * found;
     int          errcode;
@@ -431,6 +451,14 @@ opentorrent( const char * path, const char * hash )
 
     assert( NULL == path || NULL == hash );
     assert( NULL != path || NULL != hash );
+
+    /* XXX should probably wrap around back to 1 and avoid duplicates */
+    if( INT_MAX == gl_lastid )
+    {
+        errmsg( "Congratulations, you're the %ith torrent! Your prize the "
+                "inability to load any more torrents, enjoy!", INT_MAX );
+        return NULL;
+    }
 
     tor = calloc( 1, sizeof *tor );
     if( NULL == tor )
@@ -472,14 +500,25 @@ opentorrent( const char * path, const char * hash )
         free( tor );
         return found;
     }
-    tor->id       = ++gl_lastid;
+    gl_lastid++;
+    tor->id       = gl_lastid;
     tor->deleting = 0;
 
     assert( sizeof( inf->hash ) == sizeof( tor->hash ) );
     inf = tr_torrentInfo( tor->tor );
     memcpy( tor->hash, inf->hash, sizeof tor->hash );
 
-    tr_torrentSetFolder( tor->tor, gl_dir );
+    tr_torrentSetFolder( tor->tor, ( NULL == dir ? gl_dir : dir ) );
+
+    if( TR_FLAG_PRIVATE & inf->flags )
+    {
+        tor->pexset = 1;
+        tor->pex    = 0;
+    }
+    else
+    {
+        tr_torrentDisablePex( tor->tor, !gl_pex );
+    }
 
     found = RB_INSERT( tortree, &gl_tree, tor );
     assert( NULL == found );
@@ -599,9 +638,10 @@ loadstate( void )
 {
     uint8_t   *  buf;
     size_t       len;
-    benc_val_t   top, * num, * str, * list, * dict, * hash, * pause, * dir;
+    benc_val_t   top, * num, * str, * list, * dict;
     int          ii;
     struct tor * tor;
+    const char * dir;
 
     buf = readfile( gl_state, &len );
     if( NULL == buf )
@@ -620,29 +660,44 @@ loadstate( void )
     num = tr_bencDictFind( &top, "autostart" );
     if( NULL != num && TYPE_INT == num->type )
     {
-        gl_autostart = num->val.i;
+        gl_autostart = ( num->val.i ? 1 : 0 );
     }
+
     num = tr_bencDictFind( &top, "port" );
     if( NULL != num && TYPE_INT == num->type &&
         0 < num->val.i && 0xffff > num->val.i )
     {
         gl_port = num->val.i;
     }
+    tr_setBindPort( gl_handle, gl_port );
+
+    num = tr_bencDictFind( &top, "default-pex" );
+    if( NULL != num && TYPE_INT == num->type )
+    {
+        gl_pex = ( num->val.i ? 1 : 0 );
+    }
+
     num = tr_bencDictFind( &top, "port-mapping" );
     if( NULL != num && TYPE_INT == num->type )
     {
-        gl_mapping = num->val.i;
+        gl_mapping = ( num->val.i ? 1 : 0 );
     }
+    tr_natTraversalEnable( gl_handle, gl_mapping );
+
     num = tr_bencDictFind( &top, "upload-limit" );
     if( NULL != num && TYPE_INT == num->type )
     {
         gl_uplimit = num->val.i;
     }
+    tr_setGlobalUploadLimit( gl_handle, gl_uplimit );
+
     num = tr_bencDictFind( &top, "download-limit" );
     if( NULL != num && TYPE_INT == num->type )
     {
         gl_downlimit = num->val.i;
     }
+    tr_setGlobalDownloadLimit( gl_handle, gl_downlimit );
+
     str = tr_bencDictFind( &top, "default-directory" );
     if( NULL != str && TYPE_STR == str->type )
     {
@@ -650,36 +705,47 @@ loadstate( void )
     }
 
     list = tr_bencDictFind( &top, "torrents" );
-    if( NULL != list && TYPE_LIST == list->type )
+    if( NULL == list || TYPE_LIST != list->type )
     {
-        for( ii = 0; ii < list->val.l.count; ii++ )
+        return 0;
+    }
+
+    for( ii = 0; ii < list->val.l.count; ii++ )
+    {
+        dict = &list->val.l.vals[ii];
+        if( TYPE_DICT != dict->type )
         {
-            dict = &list->val.l.vals[ii];
-            if( TYPE_DICT != dict->type )
-            {
-                continue;
-            }
-            hash = tr_bencDictFind( dict, "hash" );
-            if( NULL == hash || TYPE_STR != hash->type ||
-                2 * SHA_DIGEST_LENGTH != hash->val.s.i )
-            {
-                continue;
-            }
-            tor = opentorrent( NULL, hash->val.s.s );
-            if( NULL == tor )
-            {
-                continue;
-            }
-            dir = tr_bencDictFind( dict, "directory" );
-            if( NULL != dir && TYPE_STR == dir->type )
-            {
-                tr_torrentSetFolder( tor->tor, dir->val.s.s );
-            }
-            pause = tr_bencDictFind( dict, "paused" );
-            if( NULL != pause && TYPE_INT == pause->type && !pause->val.i )
-            {
-                tr_torrentStart( tor->tor );
-            }
+            continue;
+        }
+
+        str = tr_bencDictFind( dict, "directory" );
+        dir = ( NULL != str && TYPE_STR == str->type ? str->val.s.s : NULL );
+
+        str = tr_bencDictFind( dict, "hash" );
+        if( NULL == str || TYPE_STR != str->type ||
+            2 * SHA_DIGEST_LENGTH != str->val.s.i )
+        {
+            continue;
+        }
+
+        tor = opentorrent( NULL, str->val.s.s, dir );
+        if( NULL == tor )
+        {
+            continue;
+        }
+
+        num = tr_bencDictFind( dict, "pex" );
+        if( NULL != num && TYPE_INT == num->type )
+        {
+            tor->pexset = 1;
+            tor->pex = ( num->val.i ? 1 : 0 );
+        }
+        tr_torrentDisablePex( tor->tor, !( tor->pexset ? tor->pex : gl_pex ) );
+
+        num = tr_bencDictFind( dict, "paused" );
+        if( NULL != num && TYPE_INT == num->type && !num->val.i )
+        {
+            tr_torrentStart( tor->tor );
         }
     }
 
@@ -694,7 +760,7 @@ savestate( void )
     tr_info_t  * inf;
     tr_stat_t  * st;
     uint8_t    * buf;
-    int          len;
+    int          len, pexset;
 
     tr_bencInit( &top, TYPE_DICT );
     if( tr_bencDictReserve( &top, 7 ) )
@@ -706,6 +772,7 @@ savestate( void )
     }
     tr_bencInitInt( tr_bencDictAdd( &top, "autostart" ),      gl_autostart );
     tr_bencInitInt( tr_bencDictAdd( &top, "port" ),           gl_port );
+    tr_bencInitInt( tr_bencDictAdd( &top, "default-pex" ),    gl_pex );
     tr_bencInitInt( tr_bencDictAdd( &top, "port-mapping" ),   gl_mapping );
     tr_bencInitInt( tr_bencDictAdd( &top, "upload-limit" ),   gl_uplimit );
     tr_bencInitInt( tr_bencDictAdd( &top, "download-limit" ), gl_downlimit );
@@ -736,18 +803,23 @@ savestate( void )
         tor = tr_bencListAdd( list );
         assert( NULL != tor );
         tr_bencInit( tor, TYPE_DICT );
-        if( tr_bencDictReserve( tor, 3 ) )
+        inf    = tr_torrentInfo( ii->tor );
+        st     = tr_torrentStat( ii->tor );
+        pexset = ( ii->pexset && !( TR_FLAG_PRIVATE & inf->flags ) );
+        if( tr_bencDictReserve( tor, ( pexset ? 4 : 3 ) ) )
         {
             goto nomem;
         }
-        inf = tr_torrentInfo( ii->tor );
-        st  = tr_torrentStat( ii->tor );
         tr_bencInitStr( tr_bencDictAdd( tor, "hash" ),
                         inf->hashString, 2 * SHA_DIGEST_LENGTH, 1 );
         tr_bencInitInt( tr_bencDictAdd( tor, "paused" ),
                         ( TR_STATUS_INACTIVE & st->status ? 1 : 0 ) );
         tr_bencInitStr( tr_bencDictAdd( tor, "directory" ),
                         tr_torrentGetFolder( ii->tor ), -1, 1 );
+        if( pexset )
+        {
+            tr_bencInitInt( tr_bencDictAdd( tor, "pex" ), ii->pex );
+        }
     }
 
     buf = ( uint8_t * )tr_bencSaveMalloc( &top, &len );
@@ -892,4 +964,27 @@ hashlookup( const uint8_t * hash, int wantdel )
     }
 
     return found;
+}
+
+struct tor *
+iterate( struct tor * tor )
+{
+    assert( NULL != gl_handle );
+    assert( !gl_exiting );
+
+    if( NULL == tor )
+    {
+        tor = RB_MIN( tortree, &gl_tree );
+    }
+    else
+    {
+        tor = RB_NEXT( tortree, &gl_tree, tor );
+    }
+
+    while( NULL != tor && tor->deleting )
+    {
+        tor = RB_NEXT( tortree, &gl_tree, tor );
+    }
+
+    return tor;
 }

@@ -82,6 +82,16 @@ except a NUL (0x00) is valid. A server or client need not support
 every possible key and should silently ignore any that it does not
 understand.
 
+If a reference to a boolean is seen, it should be taken to mean an
+integer with a value of 0 representing false, 1 representing true, and
+any other value undefined.
+
+Individual torrents are identified by a unique integer. This integer
+is only valid for the current connection and may be invalid or refer
+to another torrent in a future connection. If a torrent is closed it's
+ID will never be reused to refer to another torrent for at least the
+duration of the connection. Negative integers or 0 are not valid IDs.
+
 A list of keys and the format of their values follows. Also listed is
 the minimum protocol version that the key may be used with.
 
@@ -90,15 +100,27 @@ Key:     "addfiles"
 Version: 1
 Format:  list of strings
 Example: 8:addfilesl21:/torrents/foo.torrent20:/home/me/bar.torrente
-Details: Each string is the absolute path to a torrent file for the
-         server to add. Note that whether or not the torrent file is
-         copied (allowing the original to be moved or deleted safely)
-         is implementation dependent and may not currently be known or
-         changed with this protocol.
+Details: Each string is the absolute path to a torrent metainfo file
+         for the server to add. Note that whether or not the torrent
+         metainfo file is copied (allowing the original to be moved or
+         deleted safely) is implementation dependent and may not
+         currently be known or changed with this protocol.
+
+Key:     "addfile-detailed"
+Version: 2
+Format:  dict
+Example: 16:addfile-detailedde
+Details: Dictionary containing information about a torrent for the
+         server to add. Valid keys include:
+           "file"       string, filename of torrent metainfo file
+           "data"       string, contents of a torrent metainfo file
+           "directory"  string, directory for data files for the torrent
+           "autostart"  boolean, start the torrent automatically
+         Either "file" or "data" is required, but both are not allowed.
 
 Key:     "automap"
 Version: 2
-Format:  int, 0 or 1
+Format:  boolean
 Example: 7:automapi1e
 Details: Enable (1) or disable (0) automatic port mapping on the
          server. Other integer values will likely be treated as 1 but
@@ -106,7 +128,7 @@ Details: Enable (1) or disable (0) automatic port mapping on the
 
 Key:     "autostart"
 Version: 2
-Format:  int, 0 or 1
+Format:  boolean
 Example: 9:autostarti0e
 Details: Enable (1) or disable (0) automatic starting of new torrents
          added via "addfiles" message.
@@ -172,6 +194,12 @@ Format:  list of strings
 Example: 12:get-info-alll4:hash4:namee
 Details: Same as "getinfo" message with all torrent IDs specified.
 
+Key:     "get-pex"
+Version: 2
+Format:  value is ignored
+Example: 7:get-pex0:
+Details: Requests that a "pex" message be sent back.
+
 Key:     "get-port"
 Version: 2
 Format:  value is ignored
@@ -233,6 +261,12 @@ Format:  value is ignored
 Example: 13:not-supported0:
 Details: Sent in response to a tagged message to indicated that the
          message was not supported.
+
+Key:     "pex"
+Version: 2
+Format:  boolean
+Example: 3:pexi0e
+Details: Enables or disables peer exchange.
 
 Key:     "port"
 Version: 2
@@ -314,19 +348,6 @@ Example: 7:uplimiti20e
 Details: Set the server's upload limit in kilobytes per second.
          Negative values are interpreted as no limit.
 
-Key:     "version"
-Version: 1
-Format:  dict containing int "min" and "max"
-Example: 7:versiond3:mini1e3:maxi2ee
-Details: Described above.
-
-
-Individual torrents are identified by a unique integer. This integer
-is only valid for the current connection and may be invalid or refer
-to another torrent in a future connection. If a torrent is closed it's
-ID will never be reused to refer to another torrent for at least the
-duration of the connection. Negative integers or 0 are not valid IDs.
-
 
 Info types for "get-info" and "info" messages. The only type for which
 support is mandatory is "id".
@@ -335,8 +356,8 @@ support is mandatory is "id".
 "hash"     SHA-1 info hash as a 40-char hex string
 "name"     string, torrent name
 "path"     string, path to .torrent file
-"saved"    integer, 1 if a copy of this torrent was saved, 0 otherwise
-"private"  integer, 1 if the torrent is private, 0 otherwise
+"saved"    boolean, true if a copy of this torrent was saved
+"private"  boolean, true if the torrent is private
 "trackers" a list of lists of dictionaries containing tracker info:
              "address"  string, hostname or ip address of tracker
              "port"     integer, port for tracker
@@ -377,7 +398,7 @@ which support is mandatory is "id".
                       "pex"         peers discovered via peer exchange
 "peers-total"       integer, total connected peers
 "peers-uploading"   integer, peers uploading to us
-"running"           integer, 0 if torrent is stopped or stopping, 1 otherwise
+"running"           boolean, false if torrent is stopped or stopping
 "state"             string, one of the following:
                       "checking"    performing hash check on file data
                       "downloading" downloading file data

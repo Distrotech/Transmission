@@ -330,7 +330,7 @@ client_addfiles( struct strlist * list )
 {
     struct req * req;
 
-    req = addreq( IPC_MSG_ADDFILES, -1, NULL );
+    req = addreq( IPC_MSG_ADDMANYFILES, -1, NULL );
     if( NULL == req )
     {
         return -1;
@@ -695,7 +695,7 @@ flushreqs( struct con * con )
             case IPC_MSG_REMOVEALL:
                 buf = ipc_mkempty( &con->ipc, &buflen, req->id, req->tag );
                 break;
-            case IPC_MSG_ADDFILES:
+            case IPC_MSG_ADDMANYFILES:
                 buf = ipc_mkstrlist( &con->ipc, &buflen, req->id, -1,
                                      req->strs );
                 SAFEFREESTRLIST( req->strs );

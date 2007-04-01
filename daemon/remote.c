@@ -65,6 +65,7 @@ struct opts
     int               removeall;
     struct strlist    remove;
     char              dir[MAXPATHLEN];
+    int               pex;
 };
 
 struct torinfo
