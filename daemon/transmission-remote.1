@@ -30,10 +30,13 @@
 and
 .Xr transmission-gtk 1
 .Sh SYNOPSIS
+.Bk -words
 .Nm transmission-remote
 .Fl h
 .Nm
-.Bk -words
+.Oo
+.Fl t Ar daemon | Ar gtk
+.Oc
 .Op Fl a Ar torrent-file
 .Op Fl d Ar download-rate
 .Op Fl D
@@ -53,12 +56,34 @@ and
 .Oo
 .Fl S Ar all | Ar info-hash
 .Oc
-.Oo
-.Fl t Ar daemon | Ar gtk
-.Oc
 .Op Fl u Ar upload-rate
 .Op Fl U
 .Op Ar torrent-file ...
+.Nm
+.Fl x
+.Op Fl a Ar torrent-file
+.Op Fl d Ar download-rate
+.Op Fl D
+.Op Fl f Ar directory
+.Op Fl i
+.Op Fl l
+.Op Fl m
+.Op Fl M
+.Op Fl p Ar port
+.Op Fl q
+.Oo
+.Fl r Ar all | Ar info-hash
+.Oc
+.Oo
+.Fl s Ar all | Ar info-hash
+.Oc
+.Oo
+.Fl S Ar all | Ar info-hash
+.Oc
+.Op Fl u Ar upload-rate
+.Op Fl U
+.Ar command
+.Op Ar argument ...
 .Ek
 .Sh DESCRIPTION
 The
@@ -84,9 +109,9 @@ as the default location for newly added torrents to download files to.
 .It Fl h Fl -help
 Print command-line option descriptions.
 .It Fl i Fl -info
-Print a listing of all torrent names with size and current status.
-.It Fl l Fl -list
 Print a listing of all torrent info hashes and names.
+.It Fl l Fl -list
+Print a listing of all torrent names with size and current status.
 .It Fl m Fl -port-mapping
 Enable automatic port mapping via NAT-PMP or UPnP IGD.
 .It Fl M Fl -no-port-mapping
@@ -121,9 +146,40 @@ Set maximum upload rate to
 in kilobytes per second.
 .It Fl U Fl -upload-unlimited
 Remove the upload limit.
+.It Fl x Fl -proxy
+Proxy the connection to
+.Xr transmission-daemon 1
+or
+.Xr transmission-gtk 1
+through
+.Ar command .
 .El
 .Sh FILES
 .Pa ~/.transmission
+.Sh EXAMPLES
+Show status for all torrents:
+.Pp
+.Dl transmission-remote -l
+.Pp
+Pause a torrent:
+.Pp
+.Dl transmission-remote -S ca6ac4bbd971d3902935dbcfc2d3ea25b428a547
+.Pp
+Set download and upload limits to 100 KiB/sec and 20 KiB/sec:
+.Pp
+.Dl transmission-remote -d 100 -u 20
+.Pp
+Quit the GTK+ frontend:
+.Pp
+.Dl transmission-remote -t gtk -q
+.Pp
+Add two torrents:
+.Pp
+.Dl transmission-remote foo.torrent bar.torrent
+.Pp
+Show the info hashes of all the torrents on jade:
+.Pp
+.Dl transmission-remote -x -i ssh jade transmission-proxy
 .Sh AUTHORS
 .An -nosplit
 The
