@@ -212,8 +212,8 @@ usage( const char * msg, ... )
   "  -D --download-unlimited   No download rate limit\n"
   "  -f --folder <path>        Folder to set for new torrents\n"
   "  -h --help                 Display this message and exit\n"
-  "  -i --info                 Info for all torrents\n"
-  "  -l --list                 List all torrent names and hashes\n"
+  "  -i --info                 List all torrents with info hashes\n"
+  "  -l --list                 List all torrents with status\n"
   "  -m --port-mapping         Automatic port mapping via NAT-PMP or UPnP\n"
   "  -M --no-port-mapping      Disable automatic port mapping\n"
   "  -p --port <int>           Port to listen for incoming connections on\n"
@@ -292,10 +292,10 @@ readargs( int argc, char ** argv, struct opts * opts )
                 absolutify( opts->dir, sizeof opts->dir, optarg );
                 break;
             case 'i':
-                opts->listfull  = 1;
+                opts->listquick = 1;
                 break;
             case 'l':
-                opts->listquick = 1;
+                opts->listfull  = 1;
                 break;
             case 'm':
                 opts->map       = 1;
