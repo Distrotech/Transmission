@@ -45,6 +45,8 @@
 
 struct opts
 {
+    int               proxy;
+    char           ** proxycmd;
     enum confpathtype type;
     struct strlist    files;
     int               sendquit;
@@ -138,10 +140,17 @@ main( int argc, char ** argv )
     }
 
     evbase = event_init();
-
-    confpath( sockpath, sizeof sockpath, CONF_FILE_SOCKET, o.type );
     client_init( evbase );
-    client_connect( sockpath );
+
+    if( o.proxy )
+    {
+        client_new_cmd( o.proxycmd );
+    }
+    else
+    {
+        confpath( sockpath, sizeof sockpath, CONF_FILE_SOCKET, o.type );
+        client_new_sock( sockpath );
+    }
 
     if( ( o.sendquit                &&   0 > client_quit     (           ) ) ||
         ( '\0' != o.dir[0]          &&   0 > client_dir      ( o.dir     ) ) ||
@@ -193,7 +202,7 @@ usage( const char * msg, ... )
     }
 
     printf(
-  "usage: %s [options] [files]...\n"
+  "usage: %s [options]\n"
   "\n"
   "Transmission %s (r%d) http://transmission.m0k.org/\n"
   "A free, lightweight BitTorrent client with a simple, intuitive interface.\n"
@@ -218,7 +227,8 @@ usage( const char * msg, ... )
   "  -t --type daemon          Use the daemon frontend, transmission-daemon\n"
   "  -t --type gtk             Use the GTK+ frontend, transmission-gtk\n"
   "  -u --upload-limit <int>   Max upload rate in KiB/s\n"
-  "  -U --upload-unlimited     No upload rate limit\n",
+  "  -U --upload-unlimited     No upload rate limit\n"
+  "  -x --proxy                Use proxy command to connect to frontend\n",
             getmyname(), VERSION_STRING, VERSION_REVISION );
     exit( 0 );
 }
@@ -226,7 +236,7 @@ usage( const char * msg, ... )
 int
 readargs( int argc, char ** argv, struct opts * opts )
 {
-    char optstr[] = "a:d:Df:hilmMp:qr:s:S:t:u:U";
+    char optstr[] = "a:d:Df:hilmMp:qr:s:S:t:u:Ux";
     struct option longopts[] =
     {
         { "add",                required_argument, NULL, 'a' },
@@ -246,6 +256,7 @@ readargs( int argc, char ** argv, struct opts * opts )
         { "type",               required_argument, NULL, 't' },
         { "upload-limit",       required_argument, NULL, 'u' },
         { "upload-unlimited",   no_argument,       NULL, 'U' },
+        { "proxy",              no_argument,       NULL, 'U' },
         { NULL, 0, NULL, 0 }
     };
     int opt, gotmsg;
@@ -342,6 +353,9 @@ readargs( int argc, char ** argv, struct opts * opts )
                 opts->uplimit   = 1;
                 opts->up        = -1;
                 break;
+            case 'x':
+                opts->proxy     = 1;
+                break;
             default:
                 usage( NULL );
                 break;
@@ -354,7 +368,11 @@ readargs( int argc, char ** argv, struct opts * opts )
         usage( NULL );
     }
 
-    if( 0 > fileargs( &opts->files, argc - optind, argv + optind ) )
+    if( opts->proxy )
+    {
+        opts->proxycmd = argv + optind;
+    }
+    else if( 0 > fileargs( &opts->files, argc - optind, argv + optind ) )
     {
         return -1;
     }

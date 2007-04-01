@@ -48,9 +48,11 @@
 
 struct con
 {
-    int                  fd;
+    int                  infd;
+    int                  outfd;
     struct ipc_info      ipc;
-    struct bufferevent * ev;
+    struct bufferevent * evin;
+    struct bufferevent * evout;
 };
 
 struct req
@@ -82,11 +84,13 @@ RB_HEAD( resptree, resp );
 
 static struct req * addreq   ( enum ipc_msg, int64_t, struct resp ** );
 static int     addintlistreq ( enum ipc_msg, size_t, const int * );
+static void    noop          ( struct bufferevent *, void * );
+static void    noway         ( struct bufferevent *, void * );
 static void    didwrite      ( struct bufferevent *, void * );
 static void    ohshit        ( struct bufferevent *, short, void * );
 static void    canread       ( struct bufferevent *, void * );
 static void    flushreqs     ( struct con * );
-static int     sendvers      ( struct bufferevent * );
+static int     sendvers      ( struct con * );
 static void    infomsg       ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void    statmsg       ( enum ipc_msg, benc_val_t *, int64_t, void * );
 static void    defmsg        ( enum ipc_msg, benc_val_t *, int64_t, void * );
@@ -127,7 +131,7 @@ client_init( struct event_base * base )
 }
 
 int
-client_connect( const char * path )
+client_new_sock( const char * path )
 {
     struct sockaddr_un sun;
     int                fd;
@@ -161,19 +165,119 @@ client_connect( const char * path )
         return -1;
     }
     ipc_newcon( &con->ipc, gl_tree );
-    con->fd   = fd;
-    con->ev   = bufferevent_new( fd, canread, didwrite, ohshit, con );
-    if( NULL == con->ev )
+    con->infd = fd;
+    con->evin = bufferevent_new( fd, canread, didwrite, ohshit, con );
+    if( NULL == con->evin )
     {
         mallocmsg( -1 );
         close( fd );
         free( con );
         return -1;
     }
-    bufferevent_base_set( gl_base, con->ev );
-    bufferevent_settimeout( con->ev, SERVER_TIMEOUT, SERVER_TIMEOUT );
-    bufferevent_enable( con->ev, EV_READ );
-    if( 0 > sendvers( con->ev ) )
+    con->outfd = con->infd;
+    con->evout = con->evin;
+    bufferevent_base_set( gl_base, con->evin );
+    bufferevent_settimeout( con->evin, SERVER_TIMEOUT, SERVER_TIMEOUT );
+    bufferevent_enable( con->evin, EV_READ );
+    if( 0 > sendvers( con ) )
+    {
+        exit( 1 );
+    }
+
+    return 0;
+}
+
+int
+client_new_cmd( char * const * cmd )
+{
+    struct con * con;
+    int          tocmd[2], fromcmd[2];
+    pid_t        kid;
+
+    assert( NULL != gl_base );
+    assert( NULL != cmd && NULL != cmd[0] );
+
+    if( 0 > pipe( tocmd ) )
+    {
+        errnomsg( "failed to create pipe" );
+        return -1;
+    }
+
+    if( 0 > pipe( fromcmd ) )
+    {
+        errnomsg( "failed to create pipe" );
+        close( tocmd[0] );
+        close( tocmd[1] );
+        return -1;
+    }
+
+    kid = fork();
+    if( 0 > kid )
+    {
+        close( tocmd[0] );
+        close( tocmd[1] );
+        close( fromcmd[0] );
+        close( fromcmd[1] );
+        return -1;
+    }
+    else if( 0 == kid )
+    {
+        if( 0 > dup2( tocmd[0], STDIN_FILENO ) ||
+            0 > dup2( fromcmd[1], STDOUT_FILENO ) )
+        {
+            errnomsg( "failed to duplicate descriptors" );
+            _exit( 1 );
+        }
+        close( tocmd[0] );
+        close( tocmd[1] );
+        close( fromcmd[0] );
+        close( fromcmd[1] );
+        execvp( cmd[0], cmd );
+        errnomsg( "failed to execute: %s", cmd[0] );
+        _exit( 1 );
+    }
+
+    close( tocmd[0] );
+    close( fromcmd[1] );
+
+    con = calloc( 1, sizeof *con );
+    if( NULL == con )
+    {
+        mallocmsg( sizeof *con );
+        close( tocmd[1] );
+        close( fromcmd[0] );
+        return -1;
+    }
+
+    con->infd = fromcmd[0];
+    con->evin = bufferevent_new( con->infd, canread, noop, ohshit, con );
+    if( NULL == con->evin )
+    {
+        free( con );
+        close( tocmd[1] );
+        close( fromcmd[0] );
+        return -1;
+    }
+    bufferevent_base_set( gl_base, con->evin );
+    bufferevent_settimeout( con->evin, SERVER_TIMEOUT, SERVER_TIMEOUT );
+    bufferevent_enable( con->evin, EV_READ );
+
+    con->outfd = tocmd[1];
+    con->evout = bufferevent_new( con->outfd, noway, didwrite, ohshit, con );
+    if( NULL == con->evout )
+    {
+        bufferevent_free( con->evin );
+        free( con );
+        close( tocmd[1] );
+        close( fromcmd[0] );
+        return -1;
+    }
+    bufferevent_base_set( gl_base, con->evout );
+    bufferevent_settimeout( con->evout, SERVER_TIMEOUT, SERVER_TIMEOUT );
+    bufferevent_enable( con->evout, EV_READ );
+
+    ipc_newcon( &con->ipc, gl_tree );
+    if( 0 > sendvers( con ) )
     {
         exit( 1 );
     }
@@ -468,11 +572,25 @@ client_status( cl_statfunc func )
 }
 
 void
-didwrite( struct bufferevent * ev, void * arg )
+noop( struct bufferevent * ev UNUSED, void * arg UNUSED )
+{
+    /* libevent prior to 1.2 couldn't handle a NULL write callback */
+}
+
+void
+noway( struct bufferevent * evin, void * arg UNUSED )
+{
+    /* this shouldn't happen, but let's drain the buffer anyway */
+    evbuffer_drain( EVBUFFER_INPUT( evin ),
+                    EVBUFFER_LENGTH( EVBUFFER_INPUT( evin ) ) );
+}
+
+void
+didwrite( struct bufferevent * evout, void * arg )
 {
     struct con * con = arg;
 
-    assert( ev == con->ev );
+    assert( evout == con->evout );
     flushreqs( con );
 }
 
@@ -507,15 +625,16 @@ ohshit( struct bufferevent * ev UNUSED, short what, void * arg UNUSED )
 }
 
 void
-canread( struct bufferevent * ev, void * arg )
+canread( struct bufferevent * evin, void * arg )
 {
     struct con * con = arg;
     uint8_t    * buf;
     size_t       len;
     ssize_t      res;
 
-    buf = EVBUFFER_DATA( EVBUFFER_INPUT( ev ) );
-    len = EVBUFFER_LENGTH( EVBUFFER_INPUT( ev ) );
+    assert( evin == con->evin );
+    buf = EVBUFFER_DATA( EVBUFFER_INPUT( evin ) );
+    len = EVBUFFER_LENGTH( EVBUFFER_INPUT( evin ) );
 
     if( IPC_MIN_MSG_LEN > len )
     {
@@ -542,7 +661,7 @@ canread( struct bufferevent * ev, void * arg )
 
     if( 0 < res )
     {
-        evbuffer_drain( EVBUFFER_INPUT( ev ), res );
+        evbuffer_drain( EVBUFFER_INPUT( evin ), res );
         flushreqs( con );
     }
 }
@@ -621,7 +740,7 @@ flushreqs( struct con * con )
             }
             exit( 1 );
         }
-        if( 0 > bufferevent_write( con->ev, buf, buflen ) )
+        if( 0 > bufferevent_write( con->evout, buf, buflen ) )
         {
             errmsg( "failed to buffer %zd bytes of data for write", buflen );
             exit( 1 );
@@ -631,7 +750,7 @@ flushreqs( struct con * con )
 }
 
 int
-sendvers( struct bufferevent * ev )
+sendvers( struct con * con )
 {
     uint8_t   * buf;
     size_t      len;
@@ -650,7 +769,7 @@ sendvers( struct bufferevent * ev )
         return -1;
     }
 
-    if( 0 > bufferevent_write( ev, buf, len ) )
+    if( 0 > bufferevent_write( con->evout, buf, len ) )
     {
         free( buf );
         errmsg( "failed to buffer %i bytes of data for write", ( int )len );

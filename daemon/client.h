@@ -35,7 +35,8 @@ typedef void ( * cl_statfunc )( int, const char *, int64_t, int64_t, int64_t,
 typedef void ( * cl_hashfunc )( int, const char * );
 
 int  client_init     ( struct event_base * );
-int  client_connect  ( const char * );
+int  client_new_sock ( const char * );
+int  client_new_cmd  ( char * const * );
 int  client_quit     ( void );
 int  client_addfiles ( struct strlist * );
 int  client_port     ( int );
