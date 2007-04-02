@@ -20,11 +20,11 @@ FORCE:
 # OS X has its special Makefile that wraps to Xcode
 
 -include mk/config.mk
-ifneq ($(SYSTEM),Darwin)
+#ifneq ($(SYSTEM),Darwin)
 MAKEARGS += -f mk/default.mk
-else
-MAKEARGS += -f mk/osx.mk
-endif
+#else
+#MAKEARGS += -f mk/osx.mk
+#endif
 
 all: required
 	@$(MAKE) $(MAKEARGS) all
