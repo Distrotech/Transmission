@@ -64,6 +64,7 @@ struct req
     char             * str;
     size_t             listlen;
     int64_t          * numlist;
+    uint8_t          * buf;
     int                types;
     SLIST_ENTRY( req ) next;
 };
@@ -107,6 +108,7 @@ static struct ipc_funcs  * gl_tree   = NULL;
 static struct reqlist      gl_reqs   = SLIST_HEAD_INITIALIZER( &gl_reqs );
 static struct resptree     gl_resps  = RB_INITIALIZER( &gl_resps );
 static int64_t             gl_tag    = 0;
+static int                 gl_proxy  = -1;
 
 int
 client_init( struct event_base * base )
@@ -138,7 +140,10 @@ client_new_sock( const char * path )
     struct con       * con;
 
     assert( NULL != gl_base );
+    assert( 0 > gl_proxy );
     assert( NULL != path );
+
+    gl_proxy = 0;
 
     bzero( &sun, sizeof sun );
     sun.sun_family = AF_LOCAL;
@@ -195,7 +200,10 @@ client_new_cmd( char * const * cmd )
     pid_t        kid;
 
     assert( NULL != gl_base );
+    assert( 0 > gl_proxy );
     assert( NULL != cmd && NULL != cmd[0] );
+
+    gl_proxy = 1;
 
     if( 0 > pipe( tocmd ) )
     {
@@ -328,16 +336,37 @@ client_quit( void )
 int
 client_addfiles( struct strlist * list )
 {
-    struct req * req;
+    struct stritem * ii;
+    uint8_t        * buf;
+    size_t           size;
+    struct req     * req;
 
-    req = addreq( IPC_MSG_ADDMANYFILES, -1, NULL );
-    if( NULL == req )
+    if( gl_proxy )
     {
-        return -1;
+        SLIST_FOREACH( ii, list, next )
+        {
+            buf = readfile( ii->str, &size );
+            req = addreq( IPC_MSG_ADDONEFILE, -1, NULL );
+            if( NULL == req )
+            {
+                free( buf );
+                return -1;
+            }
+            req->buf     = buf;
+            req->listlen = size;
+        }
     }
+    else
+    {
+        req = addreq( IPC_MSG_ADDMANYFILES, -1, NULL );
+        if( NULL == req )
+        {
+            return -1;
+        }
 
-    /* XXX need to move arg parsing back here or something */
-    req->strs = list;
+        /* XXX need to move arg parsing back here or something */
+        req->strs = list;
+    }
 
     return 0;
 }
@@ -354,6 +383,22 @@ client_automap( int automap )
     }
 
     req->num = ( automap ? 1 : 0 );
+
+    return 0;
+}
+
+int
+client_pex( int pex )
+{
+    struct req * req;
+
+    req = addreq( IPC_MSG_PEX, -1, NULL );
+    if( NULL == req )
+    {
+        return -1;
+    }
+
+    req->num = ( pex ? 1 : 0 );
 
     return 0;
 }
@@ -669,9 +714,11 @@ canread( struct bufferevent * evin, void * arg )
 void
 flushreqs( struct con * con )
 {
-    struct req * req;
-    uint8_t    * buf;
-    size_t       buflen;
+    struct req     * req;
+    uint8_t        * buf;
+    size_t           buflen, ii;
+    benc_val_t       pk, * val;
+    struct stritem * jj;
 
     if( !HASVERS( &con->ipc ) )
     {
@@ -687,6 +734,7 @@ flushreqs( struct con * con )
     {
         req = SLIST_FIRST( &gl_reqs );
         SLIST_REMOVE_HEAD( &gl_reqs, next );
+        buf = NULL;
         switch( req->id )
         {
             case IPC_MSG_QUIT:
@@ -696,9 +744,34 @@ flushreqs( struct con * con )
                 buf = ipc_mkempty( &con->ipc, &buflen, req->id, req->tag );
                 break;
             case IPC_MSG_ADDMANYFILES:
-                buf = ipc_mkstrlist( &con->ipc, &buflen, req->id, -1,
-                                     req->strs );
+                ii = 0;
+                SLIST_FOREACH( jj, req->strs, next )
+                {
+                    ii++;
+                }
+                val = ipc_initval( &con->ipc, req->id, -1, &pk, TYPE_LIST );
+                if( NULL != val && !tr_bencListReserve( val, ii ) )
+                {
+                    SLIST_FOREACH( jj, req->strs, next )
+                    {
+                        tr_bencInitStr( tr_bencListAdd( val ),
+                                        jj->str, -1, 1 );
+                    }
+                    buf = ipc_mkval( &pk, &buflen );
+                    SAFEBENCFREE( &pk );
+                }
                 SAFEFREESTRLIST( req->strs );
+                break;
+            case IPC_MSG_ADDONEFILE:
+                val = ipc_initval( &con->ipc, req->id, -1, &pk, TYPE_DICT );
+                if( NULL != val && !tr_bencDictReserve( val, 1 ) )
+                {
+                    tr_bencInitStr( tr_bencDictAdd( val, "data" ),
+                                    req->buf, req->listlen, 1 );
+                    buf = ipc_mkval( &pk, &buflen );
+                    SAFEBENCFREE( &pk );
+                }
+                SAFEFREE( req->buf );
                 break;
             case IPC_MSG_AUTOMAP:
             case IPC_MSG_PORT:
@@ -713,8 +786,17 @@ flushreqs( struct con * con )
             case IPC_MSG_START:
             case IPC_MSG_STOP:
             case IPC_MSG_REMOVE:
-                buf = ipc_mkints( &con->ipc, &buflen, req->id, req->tag,
-                                  req->listlen, req->numlist );
+                val = ipc_initval( &con->ipc, req->id, -1, &pk, TYPE_LIST );
+                if( NULL != val && !tr_bencListReserve( val, req->listlen ) )
+                {
+                    for( ii = 0; ii < req->listlen; ii++ )
+                    {
+                        tr_bencInitInt( tr_bencListAdd( val ),
+                                        req->numlist[ii] );
+                    }
+                    buf = ipc_mkval( &pk, &buflen );
+                    SAFEBENCFREE( &pk );
+                }
                 SAFEFREE( req->numlist );
                 break;
             case IPC_MSG_GETINFOALL:

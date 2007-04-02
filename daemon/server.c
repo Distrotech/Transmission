@@ -408,7 +408,8 @@ addmsg1( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         return;
     }
 
-    if( 0 > ipc_initinfo( &client->ipc, IPC_MSG_INFO, tag, &pk, &added ) )
+    added = ipc_initval( &client->ipc, IPC_MSG_INFO, tag, &pk, TYPE_LIST );
+    if( NULL == added )
     {
         errnomsg( "failed to build message" );
         byebye( client->ev, EVBUFFER_EOF, NULL );
@@ -423,7 +424,7 @@ addmsg1( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
             continue;
         }
         /* XXX need to somehow inform client of skipped or failed files */
-        tor = torrent_add( file->val.s.s, NULL, -1 );
+        tor = torrent_add_file( file->val.s.s, NULL, -1 );
         if( TORRENT_ID_VALID( tor ) )
         {
             inf = torrent_info( tor );
@@ -437,7 +438,7 @@ addmsg1( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         }
     }
 
-    buf = ipc_mkinfo( &pk, &buflen );
+    buf = ipc_mkval( &pk, &buflen );
     tr_bencFree( &pk );
     queuemsg( client, buf, buflen );
     free( buf );
@@ -468,9 +469,8 @@ addmsg2( enum ipc_msg id UNUSED, benc_val_t * dict, int64_t tag, void * arg )
     val   = tr_bencDictFind( dict, "data" );
     if( NULL != val && TYPE_STR == val->type )
     {
-        /* XXX not quite yet */
-        msgresp( client, tag, IPC_MSG_NOTSUP );
-        return;
+        /* XXX detect duplicates and return a message indicating so */
+        tor = torrent_add_data( val->val.s.s, val->val.s.i, dir, start );
     }
     else
     {
@@ -481,12 +481,13 @@ addmsg2( enum ipc_msg id UNUSED, benc_val_t * dict, int64_t tag, void * arg )
             return;
         }
         /* XXX detect duplicates and return a message indicating so */
-        tor = torrent_add( val->val.s.s, dir, start );
+        tor = torrent_add_file( val->val.s.s, dir, start );
     }
 
     if( TORRENT_ID_VALID( tor ) )
     {
-        if( 0 > ipc_initinfo( &client->ipc, IPC_MSG_INFO, tag, &pk, &val ) )
+        val = ipc_initval( &client->ipc, IPC_MSG_INFO, tag, &pk, TYPE_LIST );
+        if( NULL == val )
         {
             errnomsg( "failed to build message" );
             byebye( client->ev, EVBUFFER_EOF, NULL );
@@ -500,7 +501,7 @@ addmsg2( enum ipc_msg id UNUSED, benc_val_t * dict, int64_t tag, void * arg )
             byebye( client->ev, EVBUFFER_EOF, NULL );
             return;
         }
-        buf = ipc_mkinfo( &pk, &buflen );
+        buf = ipc_mkval( &pk, &buflen );
         tr_bencFree( &pk );
         queuemsg( client, buf, buflen );
         free( buf );
@@ -627,7 +628,8 @@ infomsg( enum ipc_msg id, benc_val_t * val, int64_t tag, void * arg )
     }
 
     /* initialize packet */
-    if( 0 > ipc_initinfo( &client->ipc, respid, tag, &pk, &pkinf ) )
+    pkinf = ipc_initval( &client->ipc, respid, tag, &pk, TYPE_LIST );
+    if( NULL == pkinf )
     {
         errnomsg( "failed to build message" );
         byebye( client->ev, EVBUFFER_EOF, NULL );
@@ -649,6 +651,7 @@ infomsg( enum ipc_msg id, benc_val_t * val, int64_t tag, void * arg )
         {
             if( 0 > addfunc( pkinf, tor, types ) )
             {
+                errnomsg( "failed to build message" );
                 tr_bencFree( &pk );
                 byebye( client->ev, EVBUFFER_EOF, NULL );
                 return;
@@ -684,6 +687,7 @@ infomsg( enum ipc_msg id, benc_val_t * val, int64_t tag, void * arg )
             tor = idval->val.i;
             if( 0 > addfunc( pkinf, idval->val.i, types ) )
             {
+                errnomsg( "failed to build message" );
                 tr_bencFree( &pk );
                 byebye( client->ev, EVBUFFER_EOF, NULL );
                 return;
@@ -692,10 +696,10 @@ infomsg( enum ipc_msg id, benc_val_t * val, int64_t tag, void * arg )
     }
 
     /* generate packet data and send it */
-    buf = ipc_mkinfo( &pk, &buflen );
+    buf = ipc_mkval( &pk, &buflen );
+    tr_bencFree( &pk );
     queuemsg( client, buf, buflen );
     free( buf );
-    tr_bencFree( &pk );
 }
 
 int
@@ -812,8 +816,10 @@ lookmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         return;
     }
 
-    if( 0 > ipc_initinfo( &client->ipc, IPC_MSG_INFO, tag, &pk, &pkinf ) )
+    pkinf = ipc_initval( &client->ipc, IPC_MSG_INFO, tag, &pk, TYPE_LIST );
+    if( NULL == pkinf )
     {
+        errnomsg( "failed to build message" );
         byebye( client->ev, EVBUFFER_EOF, NULL );
         return;
     }
@@ -837,13 +843,14 @@ lookmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         assert( NULL != inf );
         if( 0 > ipc_addinfo( pkinf, found, inf, IPC_INF_HASH ) )
         {
+            errnomsg( "failed to build message" );
             tr_bencFree( &pk );
             byebye( client->ev, EVBUFFER_EOF, NULL );
             return;
         }
     }
 
-    buf = ipc_mkinfo( &pk, &buflen );
+    buf = ipc_mkval( &pk, &buflen );
     tr_bencFree( &pk );
     queuemsg( client, buf, buflen );
     free( buf );
@@ -901,10 +908,8 @@ supmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
     struct client  * client = arg;
     uint8_t        * buf;
     size_t           buflen;
-    int              ii, used;
-    benc_val_t     * name;
-    struct stritem * strs;
-    struct strlist   strlist;
+    int              ii;
+    benc_val_t       pk, *pkval, * name;
     enum ipc_msg     found;
 
     if( NULL == val || TYPE_LIST != val->type )
@@ -913,20 +918,28 @@ supmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         return;
     }
 
-    strs = calloc( val->val.l.count, sizeof *strs );
-    if( NULL == strs )
+    pkval = ipc_initval( &client->ipc, IPC_MSG_SUP, tag, &pk, TYPE_LIST );
+    if( NULL == pkval )
     {
+        errnomsg( "failed to build message" );
         byebye( client->ev, EVBUFFER_EOF, NULL );
         return;
     }
-    used = 0;
+    /* XXX look at other initval to make sure we free pk */
+    if( tr_bencListReserve( pkval, val->val.l.count ) )
+    {
+        errnomsg( "failed to build message" );
+        tr_bencFree( &pk );
+        byebye( client->ev, EVBUFFER_EOF, NULL );
+        return;
+    }
 
     for( ii = 0; val->val.l.count > ii; ii++ )
     {
         name = &val->val.l.vals[ii];
         if( NULL == name || TYPE_STR != name->type )
         {
-            free( strs );
+            tr_bencFree( &pk );
             msgresp( client, tag, IPC_MSG_NOTSUP );
             return;
         }
@@ -935,17 +948,12 @@ supmsg( enum ipc_msg id UNUSED, benc_val_t * val, int64_t tag, void * arg )
         {
             continue;
         }
-        strs[used].str = name->val.s.s;
-        used++;
+        tr_bencInitStr( tr_bencListAdd( pkval ),
+                        name->val.s.s, name->val.s.i, 1 );
     }
 
-    SLIST_INIT( &strlist );
-    while( 0 < used )
-    {
-        SLIST_INSERT_HEAD( &strlist, &strs[used-1], next );
-        used--;
-    }
-    buf = ipc_mkstrlist( &client->ipc, &buflen, IPC_MSG_SUP, tag, &strlist );
+    buf = ipc_mkval( &pk, &buflen );
+    tr_bencFree( &pk );
     queuemsg( client, buf, buflen );
-    free( strs );
+    free( buf );
 }

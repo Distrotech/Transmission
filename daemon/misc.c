@@ -23,7 +23,11 @@
  *****************************************************************************/
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <assert.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
@@ -114,4 +118,85 @@ absolutify( char * buf, size_t len, const char * path )
         buf[off] = '\0';
     }
     strlcat( buf, path, len );
+}
+
+int
+writefile( const char * name, uint8_t * buf, ssize_t len )
+{
+    int     fd;
+    ssize_t res;
+
+    fd = open( name, O_WRONLY | O_CREAT | O_TRUNC, 0666 );
+    if( 0 > fd )
+    {
+        errnomsg( "failed to open %s for writing", name );
+        return -1;
+    }
+
+    res = write( fd, buf, len );
+    if( 0 > res )
+    {
+        errnomsg( "failed to write to %s", name );
+        return -1;
+    }
+    if( len > res )
+    {
+        errmsg( "failed to write all data to %s", name );
+        return -1;
+    }
+
+    close( fd );
+
+    return 0;
+}
+
+uint8_t *
+readfile( const char * name, size_t * len )
+{
+    struct stat sb;
+    int         fd;
+    uint8_t   * buf;
+    ssize_t     res;
+
+    fd = open( name, O_RDONLY );
+    if( 0 > fd )
+    {
+        if( ENOENT != errno )
+        {
+            errnomsg( "failed to open %s for reading", name );
+        }
+        return NULL;
+    }
+
+    if( 0 > fstat( fd, &sb ) )
+    {
+        errnomsg( "failed to stat %s", name );
+        return NULL;
+    }
+
+    buf = malloc( sb.st_size );
+    if( NULL == buf )
+    {
+        mallocmsg( sb.st_size );
+        return NULL;
+    }
+
+    res = read( fd, buf, sb.st_size );
+    if( 0 > res )
+    {
+        errnomsg( "failed to read from %s", name );
+        free( buf );
+        return NULL;
+    }
+    if( res < sb.st_size )
+    {
+        errmsg( "failed to read all data from %s", name );
+        free( buf );
+        return NULL;
+    }
+
+    close( fd );
+    *len = res;
+
+    return buf;
 }

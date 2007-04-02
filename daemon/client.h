@@ -41,6 +41,7 @@ int  client_quit     ( void );
 int  client_addfiles ( struct strlist * );
 int  client_port     ( int );
 int  client_automap  ( int );
+int  client_pex      ( int );
 int  client_downlimit( int );
 int  client_uplimit  ( int );
 int  client_dir      ( const char * );

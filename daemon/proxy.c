@@ -39,19 +39,21 @@
 #include "misc.h"
 #include "transmission.h"
 
-#define TIMEOUT                 ( 60 )
+static void              usage    ( const char *, ... );
+static enum confpathtype readargs ( int, char ** );
+static int               makesock ( enum confpathtype );
+static void              inread   ( struct bufferevent *, void * );
+static void              noop     ( struct bufferevent *, void * );
+static void              inerr    ( struct bufferevent *, short, void * );
+static void              wtf      ( struct bufferevent *, void * );
+static void              outerr   ( struct bufferevent *, short, void * );
+static void              sockread ( struct bufferevent *, void * );
+static void              sockwrite( struct bufferevent *, void * );
+static void              sockerr  ( struct bufferevent *, short, void * );
 
-static void                 usage    ( const char *, ... );
-static enum confpathtype    readargs ( int, char ** );
-static int                  makesock ( enum confpathtype );
-static struct bufferevent * setupev  ( struct event_base *, int,
-                                       void ( * )( struct bufferevent *, short,
-                                                   void * ), void * );
-static void                 noop     ( struct bufferevent *, void * );
-static void                 relay    ( struct bufferevent *, void * );
-static void                 outerr   ( struct bufferevent *, short, void * );
-static void                 inerr    ( struct bufferevent *, short, void * );
-static void                 sockerr  ( struct bufferevent *, short, void * );
+static struct bufferevent * gl_in   = NULL;
+static struct bufferevent * gl_out  = NULL;
+static struct bufferevent * gl_sock = NULL;
 
 int
 main( int argc, char ** argv )
@@ -59,7 +61,6 @@ main( int argc, char ** argv )
     struct event_base  * base;
     enum confpathtype    type;
     int                  sockfd;
-    struct bufferevent * outev, * inev, * sockev;
 
     setmyname( argv[0] );
     type = readargs( argc, argv );
@@ -71,21 +72,35 @@ main( int argc, char ** argv )
         return EXIT_FAILURE;
     }
 
-    outev  = setupev( base, STDOUT_FILENO, outerr,  NULL );
-    sockev = setupev( base, sockfd,        sockerr, outev );
-    inev   = setupev( base, STDIN_FILENO,  inerr,   sockev );
-
-    if( NULL == outev || NULL == inev || NULL == sockev )
+    gl_in = bufferevent_new( STDIN_FILENO, inread, noop, inerr, NULL );
+    if( NULL == gl_in )
     {
+        errnomsg( "failed to set up event buffer for stdin" );
         return EXIT_FAILURE;
     }
+    bufferevent_base_set( base, gl_in );
+    bufferevent_enable( gl_in, EV_READ );
+    bufferevent_disable( gl_in, EV_WRITE );
 
-    bufferevent_disable( outev,  EV_READ );
-    bufferevent_enable(  outev,  EV_WRITE );
-    bufferevent_enable(  inev,   EV_READ );
-    bufferevent_disable( inev,   EV_WRITE );
-    bufferevent_enable(  sockev, EV_READ );
-    bufferevent_enable(  sockev, EV_WRITE );
+    gl_out  = bufferevent_new( STDOUT_FILENO, wtf, noop, outerr,  NULL );
+    if( NULL == gl_in )
+    {
+        errnomsg( "failed to set up event buffer for stdin" );
+        return EXIT_FAILURE;
+    }
+    bufferevent_base_set( base, gl_out );
+    bufferevent_disable( gl_out, EV_READ );
+    bufferevent_enable( gl_out, EV_WRITE );
+
+    gl_sock = bufferevent_new( sockfd, sockread, sockwrite, sockerr, NULL );
+    if( NULL == gl_in )
+    {
+        errnomsg( "failed to set up event buffer for stdin" );
+        return EXIT_FAILURE;
+    }
+    bufferevent_base_set( base, gl_sock );
+    bufferevent_enable( gl_sock, EV_READ );
+    bufferevent_enable( gl_sock, EV_WRITE );
 
     event_base_dispatch( base );
 
@@ -188,46 +203,54 @@ makesock( enum confpathtype type )
     return fd;
 }
 
-struct bufferevent *
-setupev( struct event_base * base, int fd,
-         void ( * efunc )( struct bufferevent *, short, void * ), void * arg )
+void
+inread( struct bufferevent * ev UNUSED, void * arg UNUSED )
 {
-    struct bufferevent * ev;
-
-    ev = bufferevent_new( fd, relay, noop, efunc, arg );
-    if( NULL == ev )
-    {
-        mallocmsg( -1 );
-        return NULL;
-    }
-
-    bufferevent_base_set( base, ev );
-    bufferevent_settimeout( ev, TIMEOUT, TIMEOUT );
-
-    return ev;
+    bufferevent_write_buffer( gl_sock, EVBUFFER_INPUT( gl_in ) );
 }
 
 void
 noop( struct bufferevent * ev UNUSED, void * arg UNUSED )
 {
-    /* libevent prior to 1.2 couldn't handle a NULL write callback */
 }
 
 void
-relay( struct bufferevent * in, void * arg )
+inerr( struct bufferevent * ev UNUSED, short what, void * arg UNUSED )
 {
-    struct bufferevent * out = arg;
-
-    if( NULL == arg )
+    if( EVBUFFER_EOF & what )
     {
-        /* this shouldn't happen, but let's drain the buffer anyway */
-        evbuffer_drain( EVBUFFER_INPUT( in ),
-                        EVBUFFER_LENGTH( EVBUFFER_INPUT( in ) ) );
+        bufferevent_free( gl_in );
+        gl_in = NULL;
+        sockwrite( NULL, NULL );
+        return;
+    }
+
+    if( EVBUFFER_TIMEOUT & what )
+    {
+        errmsg( "timed out reading from stdin" );
+    }
+    else if( EVBUFFER_READ & what )
+    {
+        errmsg( "read error on stdin" );
+    }
+    else if( EVBUFFER_ERROR & what )
+    {
+        errmsg( "error on stdin" );
     }
     else
     {
-        bufferevent_write_buffer( out, EVBUFFER_INPUT( in ) );
+        errmsg( "unknown error on stdin: 0x%x", what );
     }
+
+    exit( EXIT_FAILURE );
+}
+
+void
+wtf( struct bufferevent * ev, void * arg UNUSED )
+{
+    /* this shouldn't happen, but let's drain the buffer anyway */
+    evbuffer_drain( EVBUFFER_INPUT( ev ),
+                    EVBUFFER_LENGTH( EVBUFFER_INPUT( ev ) ) );
 }
 
 void
@@ -254,30 +277,18 @@ outerr( struct bufferevent * ev UNUSED, short what, void * arg UNUSED )
 }
 
 void
-inerr( struct bufferevent * ev UNUSED, short what, void * arg UNUSED )
+sockread( struct bufferevent * ev UNUSED, void * arg UNUSED )
 {
-    if( EVBUFFER_EOF & what )
+    bufferevent_write_buffer( gl_out, EVBUFFER_INPUT( gl_sock ) );
+}
+
+void
+sockwrite( struct bufferevent * ev UNUSED, void * arg UNUSED )
+{
+    if( NULL == gl_in && 0 == EVBUFFER_LENGTH( EVBUFFER_OUTPUT( gl_sock ) ) )
     {
         exit( EXIT_SUCCESS );
     }
-    else if( EVBUFFER_TIMEOUT & what )
-    {
-        errmsg( "timed out reading from stdin" );
-    }
-    else if( EVBUFFER_READ & what )
-    {
-        errmsg( "read error on stdin" );
-    }
-    else if( EVBUFFER_ERROR & what )
-    {
-        errmsg( "error on stdin" );
-    }
-    else
-    {
-        errmsg( "unknown error on stdin: 0x%x", what );
-    }
-
-    exit( EXIT_FAILURE );
 }
 
 void

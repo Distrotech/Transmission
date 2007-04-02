@@ -161,6 +161,7 @@ main( int argc, char ** argv )
         ( o.removeall               &&   0 > client_remove   ( 0, NULL   ) ) ||
         ( o.port                    &&   0 > client_port     ( o.port    ) ) ||
         ( 0 <= o.map                &&   0 > client_automap  ( o.map     ) ) ||
+        ( 0 <= o.pex                &&   0 > client_pex      ( o.pex     ) ) ||
         ( o.uplimit                 &&   0 > client_uplimit  ( o.up      ) ) ||
         ( o.downlimit               &&   0 > client_downlimit( o.down    ) ) ||
         ( o.listquick               &&   0 > client_list     ( listmsg   ) ) ||
@@ -211,6 +212,8 @@ usage( const char * msg, ... )
   "  -a --add <torrent>        Add a torrent\n"
   "  -d --download-limit <int> Max download rate in KiB/s\n"
   "  -D --download-unlimited   No download rate limit\n"
+  "  -e --enable-pex           Enable peer exchange\n"
+  "  -E --disable-pex          Disable peer exchange\n"
   "  -f --folder <path>        Folder to set for new torrents\n"
   "  -h --help                 Display this message and exit\n"
   "  -i --info                 List all torrents with info hashes\n"
@@ -237,12 +240,14 @@ usage( const char * msg, ... )
 int
 readargs( int argc, char ** argv, struct opts * opts )
 {
-    char optstr[] = "a:d:Df:hilmMp:qr:s:S:t:u:Ux";
+    char optstr[] = "a:d:DeEf:hilmMp:qr:s:S:t:u:Ux";
     struct option longopts[] =
     {
         { "add",                required_argument, NULL, 'a' },
         { "download-limit",     required_argument, NULL, 'd' },
         { "download-unlimited", no_argument,       NULL, 'D' },
+        { "enable-pex",         no_argument,       NULL, 'e' },
+        { "disable-pex",        no_argument,       NULL, 'E' },
         { "folder",             required_argument, NULL, 'f' },
         { "help",               no_argument,       NULL, 'h' },
         { "info",               no_argument,       NULL, 'i' },
@@ -267,6 +272,7 @@ readargs( int argc, char ** argv, struct opts * opts )
     opts->type = CONF_PATH_TYPE_DAEMON;
     SLIST_INIT( &opts->files );
     opts->map = -1;
+    opts->pex = -1;
     SLIST_INIT( &opts->start );
     SLIST_INIT( &opts->stop );
     SLIST_INIT( &opts->remove );
@@ -288,6 +294,12 @@ readargs( int argc, char ** argv, struct opts * opts )
             case 'D':
                 opts->downlimit = 1;
                 opts->down      = -1;
+                break;
+            case 'e':
+                opts->pex       = 1;
+                break;
+            case 'E':
+                opts->pex       = 0;
                 break;
             case 'f':
                 absolutify( opts->dir, sizeof opts->dir, optarg );
@@ -875,7 +887,7 @@ printlisting( void )
         upspeed   = fmtsize( ii->up, &upunits );
         downspeed = fmtsize( ii->down, &downunits );
         name      = ( NULL == ii->name ? "???" : ii->name );
-        progress  = ( float )ii->done / ( float )ii->size;
+        progress  = ( float )ii->done / ( float )ii->size * 100.0;
         progress  = MIN( 100.0, progress );
         progress  = MAX( 0.0, progress );
 

@@ -33,7 +33,8 @@
 struct event_base;
 
 void         torrent_init                ( struct event_base * );
-int          torrent_add                 ( const char *, const char *, int );
+int          torrent_add_file            ( const char *, const char *, int );
+int          torrent_add_data            ( uint8_t *, size_t, const char *, int );
 void         torrent_start               ( int );
 void         torrent_stop                ( int );
 void         torrent_remove              ( int );

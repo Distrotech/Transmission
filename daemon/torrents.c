@@ -65,19 +65,18 @@ struct tor
 RB_HEAD( tortree, tor );
 RB_HEAD( hashtree, tor );
 
-static struct tor * opentorrent ( const char *, const char *, const char * );
-static void         closetorrent( struct tor *, int );
-static void         starttimer  ( int );
-static void         timerfunc   ( int, short, void * );
-static int          loadstate   ( void );
-static int          savestate   ( void );
-static int          toridcmp    ( struct tor *, struct tor * );
-static int          torhashcmp  ( struct tor *, struct tor * );
-static int          writefile   ( const char *, uint8_t *, ssize_t );
-static uint8_t    * readfile    ( const char *, size_t * );
-static struct tor * idlookup    ( int, int );
-static struct tor * hashlookup  ( const uint8_t *, int );
-static struct tor * iterate     ( struct tor * );
+static struct tor * opentor    ( const char *, const char *, uint8_t *, size_t,
+                                  const char * );
+static void         closetor   ( struct tor *, int );
+static void         starttimer ( int );
+static void         timerfunc  ( int, short, void * );
+static int          loadstate  ( void );
+static int          savestate  ( void );
+static int          toridcmp   ( struct tor *, struct tor * );
+static int          torhashcmp ( struct tor *, struct tor * );
+static struct tor * idlookup   ( int, int );
+static struct tor * hashlookup ( const uint8_t *, int );
+static struct tor * iterate    ( struct tor * );
 
 static struct event_base * gl_base      = NULL;
 static tr_handle_t       * gl_handle    = NULL;
@@ -119,14 +118,42 @@ torrent_init( struct event_base * base )
 }
 
 int
-torrent_add( const char * path, const char * dir, int autostart )
+torrent_add_file( const char * path, const char * dir, int autostart )
 {
     struct tor * tor;
 
     assert( NULL != gl_handle );
     assert( !gl_exiting );
 
-    tor = opentorrent( path, NULL, dir );
+    tor = opentor( path, NULL, NULL, 0, dir );
+    if( NULL == tor )
+    {
+        return -1;
+    }
+
+    if( 0 > autostart )
+    {
+        autostart = gl_autostart;
+    }
+    if( autostart )
+    {
+        tr_torrentStart( tor->tor );
+    }
+
+    savestate();
+
+    return tor->id;
+}
+
+int
+torrent_add_data( uint8_t * data, size_t size, const char * dir, int autostart )
+{
+    struct tor * tor;
+
+    assert( NULL != gl_handle );
+    assert( !gl_exiting );
+
+    tor = opentor( NULL, NULL, data, size, dir );
     if( NULL == tor )
     {
         return -1;
@@ -206,7 +233,7 @@ torrent_remove( int id )
         return;
     }
 
-    closetorrent( tor, 1 );
+    closetor( tor, 1 );
     savestate();
 }
 
@@ -305,7 +332,7 @@ torrent_exit( int exitval )
 
     RB_FOREACH( tor, tortree, &gl_tree )
     {
-        closetorrent( tor, 0 );
+        closetor( tor, 0 );
     }
 
     tr_natTraversalEnable( gl_handle, 0 );
@@ -443,14 +470,16 @@ torrent_get_directory( void )
 }
 
 struct tor *
-opentorrent( const char * path, const char * hash, const char * dir )
+opentor( const char * path, const char * hash, uint8_t * data, size_t size,
+         const char * dir )
 {
     struct tor * tor, * found;
     int          errcode;
     tr_info_t  * inf;
 
-    assert( NULL == path || NULL == hash );
-    assert( NULL != path || NULL != hash );
+    assert( ( NULL != path && NULL == hash && NULL == data ) ||
+            ( NULL == path && NULL != hash && NULL == data ) ||
+            ( NULL == path && NULL == hash && NULL != data ) );
 
     /* XXX should probably wrap around back to 1 and avoid duplicates */
     if( INT_MAX == gl_lastid )
@@ -472,9 +501,14 @@ opentorrent( const char * path, const char * hash, const char * dir )
         tor->tor = tr_torrentInit( gl_handle, path, tor->hash,
                                    TR_FLAG_SAVE, &errcode );
     }
-    else
+    else if( NULL != hash )
     {
         tor->tor = tr_torrentInitSaved( gl_handle, hash, 0, &errcode );
+    }
+    else
+    {
+        tor->tor = tr_torrentInitData( gl_handle, data, size, tor->hash,
+                                       TR_FLAG_SAVE, &errcode );
     }
 
     if( NULL == tor->tor )
@@ -483,10 +517,24 @@ opentorrent( const char * path, const char * hash, const char * dir )
         switch( errcode )
         {
             case TR_EINVALID:
-                errmsg( "invalid torrent file: %s", path );
+                if( NULL == path )
+                {
+                    errmsg( "invalid torrent file" );
+                }
+                else
+                {
+                    errmsg( "invalid torrent file: %s", path );
+                }
                 break;
             case TR_EUNSUPPORTED:
-                errmsg( "unsupported torrent file: %s", path );
+                if( NULL == path )
+                {
+                    errmsg( "unsupported torrent file" );
+                }
+                else
+                {
+                    errmsg( "unsupported torrent file: %s", path );
+                }
                 break;
             case TR_EDUPLICATE:
                 found = hashlookup( tor->hash, 1 );
@@ -494,7 +542,14 @@ opentorrent( const char * path, const char * hash, const char * dir )
                 found->deleting = 0;
                 break;
             default:
-                errmsg( "torrent file failed to load: %s", path );
+                if( NULL == path )
+                {
+                    errmsg( "torrent file failed to load" );
+                }
+                else
+                {
+                    errmsg( "torrent file failed to load: %s", path );
+                }
                 break;
         }
         free( tor );
@@ -529,7 +584,7 @@ opentorrent( const char * path, const char * hash, const char * dir )
 }
 
 void
-closetorrent( struct tor * tor, int calltimer )
+closetor( struct tor * tor, int calltimer )
 {
     tr_stat_t  * st;
 
@@ -728,7 +783,7 @@ loadstate( void )
             continue;
         }
 
-        tor = opentorrent( NULL, str->val.s.s, dir );
+        tor = opentor( NULL, str->val.s.s, NULL, 0, dir );
         if( NULL == tor )
         {
             continue;
@@ -851,87 +906,6 @@ int
 torhashcmp( struct tor * left, struct tor * right )
 {
     return memcmp( left->hash, right->hash, sizeof left->hash );
-}
-
-int
-writefile( const char * name, uint8_t * buf, ssize_t len )
-{
-    int     fd;
-    ssize_t res;
-
-    fd = open( name, O_WRONLY | O_CREAT | O_TRUNC, 0666 );
-    if( 0 > fd )
-    {
-        errnomsg( "failed to open %s for writing", name );
-        return -1;
-    }
-
-    res = write( fd, buf, len );
-    if( 0 > res )
-    {
-        errnomsg( "failed to write to %s", name );
-        return -1;
-    }
-    if( len > res )
-    {
-        errmsg( "failed to write all data to %s", name );
-        return -1;
-    }
-
-    close( fd );
-
-    return 0;
-}
-
-uint8_t *
-readfile( const char * name, size_t * len )
-{
-    struct stat sb;
-    int         fd;
-    uint8_t   * buf;
-    ssize_t     res;
-
-    fd = open( name, O_RDONLY );
-    if( 0 > fd )
-    {
-        if( ENOENT != errno )
-        {
-            errnomsg( "failed to open %s for reading", name );
-        }
-        return NULL;
-    }
-
-    if( 0 > fstat( fd, &sb ) )
-    {
-        errnomsg( "failed to stat %s", name );
-        return NULL;
-    }
-
-    buf = malloc( sb.st_size );
-    if( NULL == buf )
-    {
-        mallocmsg( sb.st_size );
-        return NULL;
-    }
-
-    res = read( fd, buf, sb.st_size );
-    if( 0 > res )
-    {
-        errnomsg( "failed to read from %s", name );
-        free( buf );
-        return NULL;
-    }
-    if( res < sb.st_size )
-    {
-        errmsg( "failed to read all data from %s", name );
-        free( buf );
-        return NULL;
-    }
-
-    close( fd );
-    *len = res;
-
-    return buf;
 }
 
 struct tor *

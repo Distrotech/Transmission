@@ -100,7 +100,7 @@ static struct msg gl_msgs[] =
     { "info",                2, IPC_MSG_INFO,         RB_ENTRY_INITIALIZER() },
     { "noop",                2, IPC_MSG_NOOP,         RB_ENTRY_INITIALIZER() },
     { "not-supported",       2, IPC_MSG_NOTSUP,       RB_ENTRY_INITIALIZER() },
-    { "pex",                 2, IPC_MSG_PORT,         RB_ENTRY_INITIALIZER() },
+    { "pex",                 2, IPC_MSG_PEX,          RB_ENTRY_INITIALIZER() },
     { "port",                2, IPC_MSG_PORT,         RB_ENTRY_INITIALIZER() },
     { "quit",                1, IPC_MSG_QUIT,         RB_ENTRY_INITIALIZER() },
     { "remove",              2, IPC_MSG_REMOVE,       RB_ENTRY_INITIALIZER() },
@@ -156,9 +156,6 @@ static struct inf gl_stat[] =
     { "upload-total",           IPC_ST_UPTOTAL,       RB_ENTRY_INITIALIZER() },
 };
 
-static int          pkinit     ( struct ipc_info *, benc_val_t *, enum ipc_msg,
-                                 benc_val_t **, int64_t );
-static uint8_t *    pkgenerate ( benc_val_t *, size_t * );
 static int          handlevers ( struct ipc_info *, benc_val_t * );
 static int          handlemsgs ( struct ipc_info *, benc_val_t *, void * );
 static int          gotmsg     ( struct ipc_info *, benc_val_t *, benc_val_t *,
@@ -244,16 +241,18 @@ ipc_newcon( struct ipc_info * info, struct ipc_funcs * funcs )
     info->vers  = -1;
 }
 
-int
-pkinit( struct ipc_info * info, benc_val_t * pk, enum ipc_msg id,
-        benc_val_t ** val, int64_t tag )
+benc_val_t *
+ipc_initval( struct ipc_info * info, enum ipc_msg id, int64_t tag,
+             benc_val_t * pk, int type )
 {
+    benc_val_t * ret;
+
     assert( MSGVALID( id ) );
 
     if( !ipc_havemsg( info, id ) || ( 0 < tag && !ipc_havetags( info ) ) )
     {
         errno = EPERM;
-        return -1;
+        return NULL;
     }
 
     if( DICTPAYLOAD( info ) )
@@ -261,30 +260,32 @@ pkinit( struct ipc_info * info, benc_val_t * pk, enum ipc_msg id,
         tr_bencInit( pk, TYPE_DICT );
         if( tr_bencDictReserve( pk, 1 ) )
         {
-            return -1;
+            return NULL;
         }
-        *val = tr_bencDictAdd( pk, MSGNAME( id ) );
+        ret = tr_bencDictAdd( pk, MSGNAME( id ) );
     }
     else
     {
         tr_bencInit( pk, TYPE_LIST );
         if( tr_bencListReserve( pk, ( 0 < tag ? 3 : 2 ) ) )
         {
-            return -1;
+            return NULL;
         }
         tr_bencInitStr( tr_bencListAdd( pk ), MSGNAME( id ), -1, 1 );
-        *val = tr_bencListAdd( pk );
+        ret = tr_bencListAdd( pk );
         if( 0 < tag )
         {
             tr_bencInitInt( tr_bencListAdd( pk ), tag );
         }
     }
 
-    return 0;
+    tr_bencInit( ret, type );
+
+    return ret;
 }
 
 uint8_t *
-pkgenerate( benc_val_t * pk, size_t * len )
+ipc_mkval( benc_val_t * pk, size_t * len )
 {
     char * buf, hex[IPC_MIN_MSG_LEN+1];
     int    used, max;
@@ -321,81 +322,18 @@ pkgenerate( benc_val_t * pk, size_t * len )
 }
 
 uint8_t *
-ipc_mkstr( struct ipc_info * info, size_t * len, enum ipc_msg id, int64_t tag,
-           const char * str )
-{
-    benc_val_t pk, * strval;
-    uint8_t  * ret;
-
-    if( 0 > pkinit( info, &pk, id, &strval, tag ) )
-    {
-        return NULL;
-    }
-
-    tr_bencInitStr( strval, str, -1, 1 );
-
-    ret = pkgenerate( &pk, len );
-    SAFEBENCFREE( &pk );
-
-    return ret;
-}
-
-uint8_t *
-ipc_mkstrlist( struct ipc_info * info, size_t * len, enum ipc_msg id,
-               int64_t tag, struct strlist * strs )
-{
-    benc_val_t       pk, * list;
-    struct stritem * ii;
-    uint8_t        * ret;
-    int              count;
-
-    if( 0 > pkinit( info, &pk, id, &list, tag ) )
-    {
-        return NULL;
-    }
-
-    count = 0;
-    SLIST_FOREACH( ii, strs, next )
-    {
-        count++;
-    }
-
-    tr_bencInit( list, TYPE_LIST );
-    if( tr_bencListReserve( list, count ) )
-    {
-        SAFEBENCFREE( &pk );
-        return NULL;
-    }
-
-    SLIST_FOREACH( ii, strs, next )
-    {
-        if( tr_bencInitStrDup( tr_bencListAdd( list ), ii->str ) )
-        {
-            SAFEBENCFREE( &pk );
-            return NULL;
-        }
-    }
-
-    ret = pkgenerate( &pk, len );
-    SAFEBENCFREE( &pk );
-
-    return ret;
-}
-
-uint8_t *
 ipc_mkempty( struct ipc_info * info, size_t * len, enum ipc_msg id,
              int64_t tag )
 {
-    benc_val_t pk, * empty;
+    benc_val_t pk;
     uint8_t  * ret;
 
-    if( 0 > pkinit( info, &pk, id, &empty, tag ) )
+    if( NULL == ipc_initval( info, id, tag, &pk, TYPE_STR ) )
     {
         return NULL;
     }
 
-    tr_bencInitStr( empty, NULL, 0, 1 );
-    ret = pkgenerate( &pk, len );
+    ret = ipc_mkval( &pk, len );
     SAFEBENCFREE( &pk );
 
     return ret;
@@ -408,44 +346,34 @@ ipc_mkint( struct ipc_info * info, size_t * len, enum ipc_msg id, int64_t tag,
     benc_val_t pk, * val;
     uint8_t  * ret;
 
-    if( 0 > pkinit( info, &pk, id, &val, tag ) )
+    val = ipc_initval( info, id, tag, &pk, TYPE_INT );
+    if( NULL == val )
     {
         return NULL;
     }
 
-    tr_bencInitInt( val, num );
-    ret = pkgenerate( &pk, len );
+    val->val.i = num;
+    ret = ipc_mkval( &pk, len );
     SAFEBENCFREE( &pk );
 
     return ret;
 }
 
 uint8_t *
-ipc_mkints( struct ipc_info * info, size_t * len, enum ipc_msg id, int64_t tag,
-            size_t count, const int64_t * nums )
+ipc_mkstr( struct ipc_info * info, size_t * len, enum ipc_msg id, int64_t tag,
+           const char * str )
 {
-    benc_val_t pk, * list;
-    size_t     ii;
+    benc_val_t pk, * val;
     uint8_t  * ret;
 
-    if( 0 > pkinit( info, &pk, id, &list, tag ) )
+    val = ipc_initval( info, id, tag, &pk, TYPE_STR );
+    if( NULL == val )
     {
         return NULL;
     }
 
-    tr_bencInit( list, TYPE_LIST );
-    if( tr_bencListReserve( list, count ) )
-    {
-        SAFEBENCFREE( &pk );
-        return NULL;
-    }
-
-    for( ii = 0; count > ii; ii++ )
-    {
-        tr_bencInitInt( tr_bencListAdd( list ), nums[ii] );
-    }
-
-    ret = pkgenerate( &pk, len );
+    tr_bencInitStr( val, str, -1, 1 );
+    ret = ipc_mkval( &pk, len );
     SAFEBENCFREE( &pk );
 
     return ret;
@@ -473,7 +401,7 @@ ipc_mkvers( size_t * len )
     tr_bencInitInt( tr_bencDictAdd( dict, "min" ), PROTO_VERS_MIN );
     tr_bencInitInt( tr_bencDictAdd( dict, "max" ), PROTO_VERS_MAX );
 
-    ret = pkgenerate( &pk, len );
+    ret = ipc_mkval( &pk, len );
     SAFEBENCFREE( &pk );
 
     return ret;
@@ -488,20 +416,23 @@ ipc_mkgetinfo( struct ipc_info * info, size_t * len, enum ipc_msg id,
     struct inf * typearray;
     uint8_t    * ret;
 
-    if( 0 > pkinit( info, &pk, id, &top, tag ) )
-    {
-        return NULL;
-    }
-
     /* no ID list, send an -all message */
     if( NULL == ids )
     {
-        typelist = top;
+        typelist = ipc_initval( info, id, tag, &pk, TYPE_LIST );
+        if( NULL == typelist )
+        {
+            return NULL;
+        }
     }
     else
     {
+        top = ipc_initval( info, id, tag, &pk, TYPE_DICT );
+        if( NULL == top )
+        {
+            return NULL;
+        }
         /* add the requested IDs */
-        tr_bencInit( top, TYPE_DICT );
         if( tr_bencDictReserve( top, 2 ) )
         {
             SAFEBENCFREE( &pk );
@@ -510,6 +441,7 @@ ipc_mkgetinfo( struct ipc_info * info, size_t * len, enum ipc_msg id,
         idlist   = tr_bencDictAdd( top, "id" );
         typelist = tr_bencDictAdd( top, "type" );
         tr_bencInit( idlist, TYPE_LIST );
+        tr_bencInit( typelist, TYPE_LIST );
         for( ii = 0; TORRENT_ID_VALID( ids[ii] ); ii++ )
         {
         }
@@ -543,7 +475,6 @@ ipc_mkgetinfo( struct ipc_info * info, size_t * len, enum ipc_msg id,
     }        
 
     /* add the type names */
-    tr_bencInit( typelist, TYPE_LIST );
     for( ii = used = 0; typecount > ii; ii++ )
     {
         if( types & ( 1 << ii ) )
@@ -568,26 +499,10 @@ ipc_mkgetinfo( struct ipc_info * info, size_t * len, enum ipc_msg id,
     }
 
     /* generate packet */
-    ret = pkgenerate( &pk, len );
+    ret = ipc_mkval( &pk, len );
     SAFEBENCFREE( &pk );
 
     return ret;
-}
-
-int
-ipc_initinfo( struct ipc_info * info, enum ipc_msg id, int64_t tag,
-              benc_val_t * pk, benc_val_t ** val )
-{
-    assert( IPC_MSG_INFO == id || IPC_MSG_STAT == id );
-
-    if( 0 > pkinit( info, pk, id, val, tag ) )
-    {
-        return -1;
-    }
-
-    tr_bencInit( *val, TYPE_LIST );
-
-    return 0;
 }
 
 int
@@ -915,12 +830,6 @@ ipc_addstat( benc_val_t * list, int tor, tr_info_t * inf,
     }
 
     return 0;
-}
-
-uint8_t *
-ipc_mkinfo( benc_val_t * pk, size_t * len )
-{
-    return pkgenerate( pk, len );
 }
 
 ssize_t

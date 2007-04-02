@@ -139,24 +139,20 @@ void         ipc_newcon   ( struct ipc_info *, struct ipc_funcs * );
 
 /* message creation */
 /* sets errno to EPERM if requested message not supported by protocol vers */
-uint8_t *    ipc_mkstr    ( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
-                            const char * );
-uint8_t *    ipc_mkstrlist( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
-                            struct strlist * );
+benc_val_t * ipc_initval  ( struct ipc_info *, enum ipc_msg, int64_t,
+                            benc_val_t *, int );
+uint8_t *    ipc_mkval    ( benc_val_t *, size_t * );
 uint8_t *    ipc_mkempty  ( struct ipc_info *, size_t *, enum ipc_msg,
                             int64_t );
-uint8_t *    ipc_mkint    ( struct ipc_info *, size_t *, enum ipc_msg,
-                            int64_t, int64_t );
-uint8_t *    ipc_mkints   ( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
-                            size_t, const int64_t * );
+uint8_t *    ipc_mkint    ( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
+                            int64_t );
+uint8_t *    ipc_mkstr    ( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
+                            const char * );
 uint8_t *    ipc_mkvers   ( size_t * );
 uint8_t *    ipc_mkgetinfo( struct ipc_info *, size_t *, enum ipc_msg, int64_t,
                             int, const int * );
-int          ipc_initinfo ( struct ipc_info *, enum ipc_msg, int64_t,
-                            benc_val_t *, benc_val_t ** );
 int          ipc_addinfo  ( benc_val_t *, int, tr_info_t *, int );
 int          ipc_addstat  ( benc_val_t *, int, tr_info_t *, tr_stat_t *, int );
-uint8_t *    ipc_mkinfo   ( benc_val_t *, size_t * );
 
 /* sets errno to EINVAL on parse error or
    EPERM for unsupported protocol version */
