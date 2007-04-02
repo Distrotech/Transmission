@@ -470,7 +470,8 @@ addmsg2( enum ipc_msg id UNUSED, benc_val_t * dict, int64_t tag, void * arg )
     if( NULL != val && TYPE_STR == val->type )
     {
         /* XXX detect duplicates and return a message indicating so */
-        tor = torrent_add_data( val->val.s.s, val->val.s.i, dir, start );
+        tor = torrent_add_data( ( uint8_t * )val->val.s.s, val->val.s.i,
+                                dir, start );
     }
     else
     {
