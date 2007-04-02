@@ -818,7 +818,7 @@ savestate( void )
     int          len, pexset;
 
     tr_bencInit( &top, TYPE_DICT );
-    if( tr_bencDictReserve( &top, 7 ) )
+    if( tr_bencDictReserve( &top, 8 ) )
     {
       nomem:
         tr_bencFree( &top );
