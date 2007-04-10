@@ -42,6 +42,7 @@
 #include "errors.h"
 #include "ipc.h"
 #include "misc.h"
+#include "trcompat.h"
 
 /* time out server after this many seconds */
 #define SERVER_TIMEOUT          ( 15 )

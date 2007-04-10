@@ -44,6 +44,7 @@
 #include "misc.h"
 #include "server.h"
 #include "torrents.h"
+#include "trcompat.h"
 #include "version.h"
 
 static void usage       ( const char *, ... );

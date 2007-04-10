@@ -40,6 +40,7 @@
 #include "errors.h"
 #include "misc.h"
 #include "transmission.h"
+#include "trcompat.h"
 
 #define BESTDECIMAL(d)          (10.0 > (d) ? 2 : (100.0 > (d) ? 1 : 0))
 

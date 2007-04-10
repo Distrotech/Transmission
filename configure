@@ -140,6 +140,46 @@ EOF
   rm -f testconf*
 }
 
+strlcpy_test()
+{
+  verbose strlcpy_test
+  cat > testconf.c << EOF
+#include <string.h>
+int main()
+{
+  char buf[] = "1234:p";
+  strlcpy( buf, "foo", sizeof buf );
+  return ( 0 == memcmp( buf, "foo\0:p, 6 ) ? 0 : 1 );
+}
+EOF
+  if runcmd $CC -o testconf testconf.c && runcmd ./testconf
+  then
+    CFLAGS="$CFLAGS -DHAVE_STRLCPY"
+  fi
+  rm -f testconf*
+}
+
+strlcat_test()
+{
+  verbose strlcat_test
+  cat > testconf.c << EOF
+#include <string.h>
+int main()
+{
+  char buf[] = "1234567:p";
+  buf[0] = '\0';
+  strlcat( buf, "foo", sizeof buf );
+  strlcat( buf, "bar", sizeof buf );
+  return ( 0 == memcmp( buf, "foobar\0:p, 6 ) ? 0 : 1 );
+}
+EOF
+  if runcmd $CC -o testconf testconf.c && runcmd ./testconf
+  then
+    CFLAGS="$CFLAGS -DHAVE_STRLCAT"
+  fi
+  rm -f testconf*
+}
+
 gettext_test()
 {
   verbose gettext_test

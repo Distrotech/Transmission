@@ -45,6 +45,7 @@
 #include "misc.h"
 #include "torrents.h"
 #include "transmission.h"
+#include "trcompat.h"
 
 #define EXIT_TIMEOUT 10         /* how many seconds to wait on exit */
 #define TIMER_SECS   1          /* timer interval seconds */

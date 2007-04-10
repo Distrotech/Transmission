@@ -26,6 +26,7 @@
 #define TR_DAEMON_MISC_H
 
 #include <sys/types.h>
+#include <inttypes.h>
 #include <limits.h>
 
 #include "bsdqueue.h"

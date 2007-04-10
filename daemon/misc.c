@@ -34,6 +34,7 @@
 #include "errors.h"
 #include "misc.h"
 #include "transmission.h"
+#include "trcompat.h"
 
 static void pushdir ( char *, const char *, size_t );
 
