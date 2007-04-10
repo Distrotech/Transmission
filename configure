@@ -149,7 +149,7 @@ int main()
 {
   char buf[] = "1234:p";
   strlcpy( buf, "foo", sizeof buf );
-  return ( 0 == memcmp( buf, "foo\0:p, 6 ) ? 0 : 1 );
+  return ( 0 == memcmp( buf, "foo\0:p", 6 ) ? 0 : 1 );
 }
 EOF
   if runcmd $CC -o testconf testconf.c && runcmd ./testconf
@@ -170,7 +170,7 @@ int main()
   buf[0] = '\0';
   strlcat( buf, "foo", sizeof buf );
   strlcat( buf, "bar", sizeof buf );
-  return ( 0 == memcmp( buf, "foobar\0:p, 6 ) ? 0 : 1 );
+  return ( 0 == memcmp( buf, "foobar\0:p", 6 ) ? 0 : 1 );
 }
 EOF
   if runcmd $CC -o testconf testconf.c && runcmd ./testconf
@@ -433,6 +433,12 @@ fi
 #
 lm_test
 lrintf_test
+
+#
+# String functions
+#
+strlcpy_test
+strlcat_test
 
 #
 # Generate config.mk
