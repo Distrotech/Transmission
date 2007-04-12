@@ -538,9 +538,12 @@ opentor( const char * path, const char * hash, uint8_t * data, size_t size,
                 }
                 break;
             case TR_EDUPLICATE:
+                /* XXX not yet
                 found = hashlookup( tor->hash, 1 );
                 assert( NULL != found );
                 found->deleting = 0;
+                */
+                errmsg( "XXX loaded duplicate torrent" );
                 break;
             default:
                 if( NULL == path )
