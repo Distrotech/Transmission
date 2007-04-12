@@ -28,11 +28,30 @@
 struct event_base;
 struct strlist;
 
-typedef void ( * cl_listfunc )( int, const char *, const char * );
-typedef void ( * cl_infofunc )( int, const char *, int64_t );
-typedef void ( * cl_statfunc )( int, const char *, int64_t, int64_t, int64_t,
-                                int64_t, const char *, const char * );
-typedef void ( * cl_hashfunc )( int, const char * );
+struct cl_info
+{
+    int          id;
+    const char * name;
+    const char * hash;
+    int64_t      size;
+};
+
+struct cl_stat
+{
+    int          id;
+    const char * state;
+    int64_t      eta;
+    int64_t      done;
+    int64_t      ratedown;
+    int64_t      rateup;
+    int64_t      totaldown;
+    int64_t      totalup;
+    const char * error;
+    const char * errmsg;
+};
+
+typedef void ( * cl_infofunc )( const struct cl_info * );
+typedef void ( * cl_statfunc )( const struct cl_stat * );
 
 int  client_init     ( struct event_base * );
 int  client_new_sock ( const char * );
@@ -48,9 +67,9 @@ int  client_dir      ( const char * );
 int  client_start    ( size_t, const int * );
 int  client_stop     ( size_t, const int * );
 int  client_remove   ( size_t, const int * );
-int  client_list     ( cl_listfunc );
+int  client_list     ( cl_infofunc );
 int  client_info     ( cl_infofunc );
-int  client_hashids  ( cl_hashfunc );
+int  client_hashids  ( cl_infofunc );
 int  client_status   ( cl_statfunc );
 
 #endif /* TR_DAEMON_CLIENT_H */

@@ -77,8 +77,10 @@ struct torinfo
     char  * state;
     int64_t eta;
     int64_t done;
-    int64_t down;
-    int64_t up;
+    int64_t ratedown;
+    int64_t rateup;
+    int64_t totaldown;
+    int64_t totalup;
     char  * errorcode;
     char  * errormsg;
     RB_ENTRY( torinfo ) idlinks;
@@ -102,11 +104,10 @@ static int    readargs     ( int, char **, struct opts * );
 static int    numarg       ( const char * );
 static int    hasharg      ( const char *, struct strlist *, int * );
 static int    fileargs     ( struct strlist *, int, char * const * );
-static void   listmsg      ( int, const char *, const char * );
-static void   infomsg      ( int, const char *, int64_t );
-static void   statmsg      ( int, const char *, int64_t, int64_t, int64_t,
-                             int64_t, const char *, const char * );
-static void   hashmsg      ( int, const char * );
+static void   listmsg      ( const struct cl_info * );
+static void   infomsg      ( const struct cl_info * );
+static void   statmsg      ( const struct cl_stat * );
+static void   hashmsg      ( const struct cl_info * );
 static float  fmtsize      ( int64_t, const char ** );
 static char * strdup_noctrl( const char * );
 static void   print_eta    ( int64_t );
@@ -532,38 +533,38 @@ fileargs( struct strlist * list, int argc, char * const * argv )
 }
 
 void
-listmsg( int id, const char * name, const char * hash )
+listmsg( const struct cl_info * inf )
 {
     char * newname;
     size_t ii;
 
-    if( !TORRENT_ID_VALID( id ) )
+    if( NULL == inf )
     {
         return;
     }
 
-    if( NULL == name )
+    if( NULL == inf->name )
     {
         errmsg( "missing torrent name from server" );
         return;
     }
-    else if( NULL == hash )
+    else if( NULL == inf->hash )
     {
         errmsg( "missing torrent hash from server" );
         return;
     }
 
-    newname = strdup_noctrl( name );
+    newname = strdup_noctrl( inf->name );
     if( NULL == newname )
     {
         return;
     }
 
-    for( ii = 0; '\0' != hash[ii]; ii++ )
+    for( ii = 0; '\0' != inf->hash[ii]; ii++ )
     {
-        if( isxdigit( hash[ii] ) )
+        if( isxdigit( inf->hash[ii] ) )
         {
-            putchar( tolower( hash[ii] ) );
+            putchar( tolower( inf->hash[ii] ) );
         }
     }
     putchar( ' ' );
@@ -572,13 +573,13 @@ listmsg( int id, const char * name, const char * hash )
 }
 
 void
-infomsg( int id, const char * name, int64_t size )
+infomsg( const struct cl_info * cinfo )
 {
-    struct torinfo * info, key;
+    struct torinfo * tinfo, key;
 
     gl_gotlistinfo = 1;
 
-    if( !TORRENT_ID_VALID( id ) )
+    if( NULL == cinfo )
     {
         if( gl_gotliststat )
         {
@@ -587,41 +588,40 @@ infomsg( int id, const char * name, int64_t size )
         return;
     }
 
-    if( NULL == name || 0 >= size )
+    if( NULL == cinfo->name || 0 >= cinfo->size )
     {
         errmsg( "missing torrent info from server" );
         return;
     }
 
     bzero( &key, sizeof key );
-    key.id = id;
-    info = RB_FIND( torlist, &gl_torinfo, &key );
-    if( NULL == info )
+    key.id = cinfo->id;
+    tinfo = RB_FIND( torlist, &gl_torinfo, &key );
+    if( NULL == tinfo )
     {
-        info = calloc( 1, sizeof *info );
-        if( NULL == info )
+        tinfo = calloc( 1, sizeof *tinfo );
+        if( NULL == tinfo )
         {
-            mallocmsg( sizeof *info );
+            mallocmsg( sizeof *tinfo );
             return;
         }
-        info->id = id;
-        RB_INSERT( torlist, &gl_torinfo, info );
+        tinfo->id = cinfo->id;
+        RB_INSERT( torlist, &gl_torinfo, tinfo );
     }
 
-    free( info->name );
-    info->name = strdup_noctrl( name );
-    info->size = size;
+    free( tinfo->name );
+    tinfo->name = strdup_noctrl( cinfo->name );
+    tinfo->size = cinfo->size;
 }
 
 void
-statmsg( int id, const char * state, int64_t eta, int64_t done,
-         int64_t down, int64_t up, const char * terr, const char * terrmsg )
+statmsg( const struct cl_stat * st )
 {
     struct torinfo * info, key;
 
     gl_gotliststat = 1;
 
-    if( !TORRENT_ID_VALID( id ) )
+    if( NULL == st )
     {
         if( gl_gotlistinfo )
         {
@@ -630,14 +630,16 @@ statmsg( int id, const char * state, int64_t eta, int64_t done,
         return;
     }
 
-    if( NULL == state || 0 > done || 0 > down || 0 > up )
+    if( NULL == st->state || 0 > st->done ||
+        0 > st->ratedown  || 0 > st->rateup ||
+        0 > st->totaldown || 0 > st->totalup )
     {
         errmsg( "missing torrent status from server" );
         return;
     }
 
     bzero( &key, sizeof key );
-    key.id = id;
+    key.id = st->id;
     info = RB_FIND( torlist, &gl_torinfo, &key );
     if( NULL == info )
     {
@@ -647,49 +649,51 @@ statmsg( int id, const char * state, int64_t eta, int64_t done,
             mallocmsg( sizeof *info );
             return;
         }
-        info->id = id;
+        info->id = st->id;
         RB_INSERT( torlist, &gl_torinfo, info );
     }
 
     free( info->state );
-    info->state = strdup_noctrl( state );
-    info->eta   = eta;
-    info->done  = done;
-    info->down  = down;
-    info->up    = up;
-    if( NULL != terr && '\0' != terr[0] )
+    info->state     = strdup_noctrl( st->state );
+    info->eta       = st->eta;
+    info->done      = st->done;
+    info->ratedown  = st->ratedown;
+    info->rateup    = st->rateup;
+    info->totaldown = st->totaldown;
+    info->totalup   = st->totalup;
+    if( NULL != st->error && '\0' != st->error[0] )
     {
-        info->errorcode = strdup_noctrl( terr );
+        info->errorcode = strdup_noctrl( st->error );
     }
-    if( NULL != terrmsg && '\0' != terrmsg[0] )
+    if( NULL != st->errmsg && '\0' != st->errmsg[0] )
     {
-        info->errormsg = strdup_noctrl( terrmsg );
+        info->errormsg = strdup_noctrl( st->errmsg );
     }
 }
 
 void
-hashmsg( int id, const char * hash )
+hashmsg( const struct cl_info * inf )
 {
     struct torhash key, * found;
 
-    if( !TORRENT_ID_VALID( id ) )
+    if( NULL == inf )
     {
         sendidreqs();
         return;
     }
 
-    if( NULL == hash )
+    if( NULL == inf->hash )
     {
         errmsg( "missing torrent hash from server" );
         return;
     }
 
     bzero( &key, sizeof key );
-    strlcpy( key.hash, hash, sizeof key.hash );
+    strlcpy( key.hash, inf->hash, sizeof key.hash );
     found = RB_FIND( torhashes, &gl_hashids, &key );
     if( NULL != found )
     {
-        found->id = id;
+        found->id = inf->id;
     }
 }
 
@@ -867,7 +871,7 @@ printlisting( void )
     struct tornames  names;
     struct torinfo * ii, * next;
     const char     * units, * name, * upunits, * downunits;
-    float            size, progress, upspeed, downspeed;
+    float            size, progress, upspeed, downspeed, ratio;
 
     /* sort the torrents by name */
     RB_INIT( &names );
@@ -885,8 +889,8 @@ printlisting( void )
 
         /* massage some numbers into a better format for printing */
         size      = fmtsize( ii->size, &units );
-        upspeed   = fmtsize( ii->up, &upunits );
-        downspeed = fmtsize( ii->down, &downunits );
+        upspeed   = fmtsize( ii->rateup, &upunits );
+        downspeed = fmtsize( ii->ratedown, &downunits );
         name      = ( NULL == ii->name ? "???" : ii->name );
         progress  = ( float )ii->done / ( float )ii->size * 100.0;
         progress  = MIN( 100.0, progress );
@@ -914,8 +918,23 @@ printlisting( void )
         /* print seeding speed */
         else if( 0 == strcasecmp( "seeding", ii->state ) )
         {
-            printf( "100%% seeding at %.*f %s/s",
-                    BESTDECIMAL( upspeed ), upspeed, upunits );
+            if( 0 == ii->totalup && 0 == ii->totaldown )
+            {
+                printf( "100%% seeding at %.*f %s/s [N/A]",
+                        BESTDECIMAL( upspeed ), upspeed, upunits );
+            }
+            else if( 0 == ii->totaldown )
+            {
+                printf( "100%% seeding at %.*f %s/s [INF]",
+                        BESTDECIMAL( upspeed ), upspeed, upunits );
+            }
+            else
+            {
+                ratio = ( float )ii->totalup / ( float )ii->totaldown;
+                printf( "100%% seeding at %.*f %s/s [%.*f]",
+                        BESTDECIMAL( upspeed ), upspeed, upunits,
+                        BESTDECIMAL( ratio ), ratio );
+            }
         }
         /* print stopping message */
         else if( 0 == strcasecmp( "stopping", ii->state ) )

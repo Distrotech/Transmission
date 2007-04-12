@@ -75,9 +75,7 @@ SLIST_HEAD( reqlist, req );
 struct resp
 {
     int64_t            tag;
-    cl_listfunc        listcb;
     cl_infofunc        infocb;
-    cl_hashfunc        hashcb;
     cl_statfunc        statcb;
     RB_ENTRY( resp )   links;
 };
@@ -545,7 +543,7 @@ client_remove( size_t len, const int * list )
 }
 
 int
-client_list( cl_listfunc func )
+client_list( cl_infofunc func )
 {
     struct req  * req;
     struct resp * resp;
@@ -556,7 +554,7 @@ client_list( cl_listfunc func )
         return -1;
     }
 
-    resp->listcb = func;
+    resp->infocb = func;
     req->types   = IPC_INF_NAME | IPC_INF_HASH;
 
     return 0;
@@ -581,7 +579,7 @@ client_info( cl_infofunc func )
 }
 
 int
-client_hashids( cl_hashfunc func )
+client_hashids( cl_infofunc func )
 {
     struct req  * req;
     struct resp * resp;
@@ -592,7 +590,7 @@ client_hashids( cl_hashfunc func )
         return -1;
     }
 
-    resp->hashcb = func;
+    resp->infocb = func;
     req->types   = IPC_INF_HASH;
 
     return 0;
@@ -612,7 +610,8 @@ client_status( cl_statfunc func )
 
     resp->statcb = func;
     req->types   = IPC_ST_STATE | IPC_ST_ETA | IPC_ST_COMPLETED |
-        IPC_ST_DOWNSPEED | IPC_ST_UPSPEED | IPC_ST_ERROR | IPC_ST_ERRMSG;
+        IPC_ST_DOWNSPEED | IPC_ST_UPSPEED | IPC_ST_DOWNTOTAL | IPC_ST_UPTOTAL |
+        IPC_ST_ERROR | IPC_ST_ERRMSG;
 
     return 0;
 }
@@ -868,15 +867,15 @@ void
 infomsg( enum ipc_msg msgid, benc_val_t * list, int64_t tag,
          void * arg UNUSED )
 {
-    benc_val_t  * dict;
-    int           ii;
-    int64_t       id, size;
-    char        * name, * hash;
-    struct resp * resp, key;
+    benc_val_t   * dict;
+    int            ii;
+    struct cl_info inf;
+    int64_t        id;
+    struct resp  * resp, key;
 
     assert( IPC_MSG_INFO == msgid );
 
-    if( TYPE_LIST != list->type )
+    if( TYPE_LIST != list->type || NULL == resp->infocb )
     {
         return;
     }
@@ -898,28 +897,18 @@ infomsg( enum ipc_msg msgid, benc_val_t * list, int64_t tag,
             continue;
         }
 
-        id   = getinfoint( msgid, dict, IPC_INF_ID,   -1   );
-        name = getinfostr( msgid, dict, IPC_INF_NAME, NULL );
-        hash = getinfostr( msgid, dict, IPC_INF_HASH, NULL );
-        size = getinfoint( msgid, dict, IPC_INF_SIZE, -1   );
+        id       = getinfoint( msgid, dict, IPC_INF_ID,   -1   );
+        inf.name = getinfostr( msgid, dict, IPC_INF_NAME, NULL );
+        inf.hash = getinfostr( msgid, dict, IPC_INF_HASH, NULL );
+        inf.size = getinfoint( msgid, dict, IPC_INF_SIZE, -1   );
 
         if( !TORRENT_ID_VALID( id ) )
         {
             continue;
         }
 
-        if( NULL != resp->infocb )
-        {
-            resp->infocb( id, name, size );
-        }
-        else if( NULL != resp->listcb )
-        {
-            resp->listcb( id, name, hash );
-        }
-        else if( NULL != resp->hashcb )
-        {
-            resp->hashcb( id, hash );
-        }
+        inf.id = id;
+        resp->infocb( &inf );
     }
 
     cbdone( resp );
@@ -930,15 +919,15 @@ void
 statmsg( enum ipc_msg msgid, benc_val_t * list, int64_t tag,
          void * arg UNUSED )
 {
-    benc_val_t  * dict;
-    int           ii;
-    int64_t       id, eta, done, down, up;
-    char        * state, * error, * errmsg;
-    struct resp * resp, key;
+    benc_val_t   * dict;
+    int            ii;
+    int64_t        id;
+    struct cl_stat st;
+    struct resp  * resp, key;
 
     assert( IPC_MSG_STAT == msgid );
 
-    if( TYPE_LIST != list->type )
+    if( TYPE_LIST != list->type || NULL == resp->statcb )
     {
         return;
     }
@@ -960,24 +949,24 @@ statmsg( enum ipc_msg msgid, benc_val_t * list, int64_t tag,
             continue;
         }
 
-        id     = getinfoint( msgid, dict, IPC_ST_ID,        -1   );
-        state  = getinfostr( msgid, dict, IPC_ST_STATE,     NULL );
-        eta    = getinfoint( msgid, dict, IPC_ST_ETA,       -1   );
-        done   = getinfoint( msgid, dict, IPC_ST_COMPLETED, -1   );
-        down   = getinfoint( msgid, dict, IPC_ST_DOWNSPEED, -1   );
-        up     = getinfoint( msgid, dict, IPC_ST_UPSPEED,   -1   );
-        error  = getinfostr( msgid, dict, IPC_ST_ERROR,     NULL );
-        errmsg = getinfostr( msgid, dict, IPC_ST_ERRMSG,    NULL );
+        id           = getinfoint( msgid, dict, IPC_ST_ID,        -1   );
+        st.state     = getinfostr( msgid, dict, IPC_ST_STATE,     NULL );
+        st.eta       = getinfoint( msgid, dict, IPC_ST_ETA,       -1   );
+        st.done      = getinfoint( msgid, dict, IPC_ST_COMPLETED, -1   );
+        st.ratedown  = getinfoint( msgid, dict, IPC_ST_DOWNSPEED, -1   );
+        st.rateup    = getinfoint( msgid, dict, IPC_ST_UPSPEED,   -1   );
+        st.totaldown = getinfoint( msgid, dict, IPC_ST_DOWNTOTAL, -1   );
+        st.totalup   = getinfoint( msgid, dict, IPC_ST_UPTOTAL,   -1   );
+        st.error     = getinfostr( msgid, dict, IPC_ST_ERROR,     NULL );
+        st.errmsg    = getinfostr( msgid, dict, IPC_ST_ERRMSG,    NULL );
 
         if( !TORRENT_ID_VALID( id ) )
         {
             continue;
         }
 
-        if( NULL != resp->statcb )
-        {
-            resp->statcb( id, state, eta, done, down, up, error, errmsg );
-        }
+        st.id = id;
+        resp->statcb( &st );
     }
 
     cbdone( resp );
@@ -1026,19 +1015,11 @@ cbdone( struct resp * resp )
 {
     if( NULL != resp->infocb )
     {
-        resp->infocb( -1, NULL, -1 );
-    }
-    else if( NULL != resp->listcb )
-    {
-        resp->listcb( -1, NULL, NULL );
-    }
-    else if( NULL != resp->hashcb )
-    {
-        resp->hashcb( -1, NULL );
+        resp->infocb( NULL );
     }
     else if( NULL != resp->statcb )
     {
-        resp->statcb( -1, NULL, -1, -1, -1, -1, NULL, NULL );
+        resp->statcb( NULL );
     }
 }
 
