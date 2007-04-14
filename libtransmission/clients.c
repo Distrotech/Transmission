@@ -122,7 +122,12 @@ char * tr_clientForId( uint8_t * id )
                       charToInt( id[3] ), charToInt( id[4] ),
                       charToInt( id[5] ), charToInt( id[6] ) );
         }
-        else if( !memcmp( &id[1], "ES", 2 ) )
+        else if( !memcmp( &id[1], "TT", 2 ) )
+        {
+            asprintf( &ret, "TuoTu %c.%c.%c",
+                      id[3], id[4], id[5] );
+        }
+		else if( !memcmp( &id[1], "ES", 2 ) )
         {
             asprintf( &ret, "Electric Sheep %c.%c.%c",
                       id[3], id[4], id[5] );
@@ -171,6 +176,17 @@ char * tr_clientForId( uint8_t * id )
         {
             asprintf( &ret, "BTG %c.%c.%c.%c",
                       id[3], id[4], id[5], id[6] );
+        }
+		else if( !memcmp( &id[1], "BB", 2 ) )
+        {
+            asprintf( &ret, "BitBuddy %c.%c%c%c",
+                      id[3], id[4], id[5], id[6] );
+        }
+		else if( !memcmp( &id[1], "qB", 2 ) )
+        {
+            asprintf( &ret, "qBittorrent %d.%d.%d",
+                      charToInt( id[3] ), charToInt( id[4] ),
+                      charToInt( id[5] ) );
         }
         
         if( ret )
@@ -310,14 +326,17 @@ char * tr_clientForId( uint8_t * id )
     /* No match */
     if( !ret )
     {
-        if( id[0] != 0 )
+        if( isprint( id[0] ) && isprint( id[1] ) && isprint( id[2] ) &&
+            isprint( id[3] ) && isprint( id[4] ) && isprint( id[5] ) &&
+            isprint( id[6] ) && isprint( id[7] ) )
         {
             asprintf( &ret, "unknown client (%c%c%c%c%c%c%c%c)",
                   id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7] );
         }
         else
         {
-            asprintf( &ret, "unknown client" );
+            asprintf( &ret, "unknown client (0x%02x%02x%02x%02x%02x%02x%02x%02x)",
+                  id[0], id[1], id[2], id[3], id[4], id[5], id[6], id[7] );
         }
     }
 

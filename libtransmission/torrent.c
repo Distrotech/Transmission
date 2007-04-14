@@ -425,6 +425,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
 
     s->progress = tr_cpCompletionAsFloat( tor->completion );
+    s->left     = tr_cpLeftBytes( tor->completion );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
         s->rateDownload = tr_rcRate( tor->download );
@@ -497,8 +498,7 @@ tr_peer_stat_t * tr_torrentPeers( tr_torrent_t * tor, int * peerCount )
                            sizeof( peers[i].addr ) );
             }
             
-            peers[i].client = tr_clientForId(tr_peerId(peer));
-            
+            peers[i].client        = tr_peerClient( peer );
             peers[i].isConnected   = tr_peerIsConnected( peer );
             peers[i].from          = tr_peerIsFrom( peer );
             peers[i].progress      = tr_peerProgress( peer );
@@ -521,15 +521,10 @@ tr_peer_stat_t * tr_torrentPeers( tr_torrent_t * tor, int * peerCount )
     return peers;
 }
 
-void tr_torrentPeersFree( tr_peer_stat_t * peers, int peerCount )
+void tr_torrentPeersFree( tr_peer_stat_t * peers, int peerCount UNUSED )
 {
-    int i;
-
     if (peers == NULL)
         return;
-
-    for (i = 0; i < peerCount; i++)
-        free( peers[i].client );
 
     free( peers );
 }

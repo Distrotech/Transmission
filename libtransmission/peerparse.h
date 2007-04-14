@@ -54,6 +54,17 @@ static inline int parseChoke( tr_torrent_t * tor, tr_peer_t * peer,
         {
             r = &peer->inRequests[i];
             tr_cpDownloaderRem( tor->completion, tr_block(r->index,r->begin) );
+
+            /* According to the spec, all requests are dropped when you
+               are choked, however some clients seem to remember those
+               the next time they unchoke you. Also, if you get quickly
+               choked and unchoked while you are sending requests, you
+               can't know when the other peer received them and how it
+               handled it.
+               This can cause us to receive blocks multiple times and
+               overdownload, so we send 'cancel' messages to try and
+               reduce that. */
+            sendCancel( peer, r->index, r->begin, r->length );
         }
         peer->inRequestCount = 0;
     }
@@ -242,11 +253,10 @@ static inline int parseRequest( tr_torrent_t * tor, tr_peer_t * peer,
     return TR_OK;
 }
 
-static inline void updateRequests( tr_torrent_t * tor, tr_peer_t * peer,
-                                   int index, int begin )
+static inline void updateRequests( tr_peer_t * peer, int index, int begin )
 {
     tr_request_t * r;
-    int i, j;
+    int i;
 
     /* Find this block in the requests list */
     for( i = 0; i < peer->inRequestCount; i++ )
@@ -258,29 +268,20 @@ static inline void updateRequests( tr_torrent_t * tor, tr_peer_t * peer,
         }
     }
 
-    /* Usually i should be 0, but some clients don't handle multiple
-       request well and drop previous requests */
+    /* Usually 'i' would be 0, but some clients don't handle multiple
+       requests and drop previous requests, some other clients don't
+       send blocks in the same order we sent the requests */
     if( i < peer->inRequestCount )
     {
-        if( i > 0 )
-        {
-            peer_dbg( "not expecting this block yet (%d requests dropped)", i );
-        }
-        i++;
-        for( j = 0; j < i; j++ )
-        {
-            r = &peer->inRequests[j];
-            tr_cpDownloaderRem( tor->completion,
-                                tr_block( r->index, r->begin ) );
-        }
-        peer->inRequestCount -= i;
-        memmove( &peer->inRequests[0], &peer->inRequests[i],
-                 peer->inRequestCount * sizeof( tr_request_t ) );
+        peer->inRequestCount--;
+        memmove( &peer->inRequests[i], &peer->inRequests[i+1],
+                 ( peer->inRequestCount - i ) * sizeof( tr_request_t ) );
     }
     else
     {
         /* Not in the list. Probably because of a cancel that arrived
            too late */
+        peer_dbg( "wasn't expecting this block" );
     }
 }
 
@@ -315,8 +316,8 @@ static inline int parsePiece( tr_torrent_t * tor, tr_peer_t * peer,
     peer_dbg( "GET  piece %d/%d (%d bytes)",
               index, begin, len - 8 );
 
-    updateRequests( tor, peer, index, begin );
-    tor->downloadedCur += len;
+    updateRequests( peer, index, begin );
+    tor->downloadedCur += len - 8;
 
     /* Sanity checks */
     if( len - 8 != tr_blockSize( block ) )
@@ -343,7 +344,7 @@ static inline int parsePiece( tr_torrent_t * tor, tr_peer_t * peer,
         return ret;
     }
     tr_cpBlockAdd( tor->completion, block );
-    sendCancel( tor, block );
+    broadcastCancel( tor, index, begin, len - 8 );
 
     if( !tr_cpPieceHasAllBlocks( tor->completion, index ) )
     {
@@ -540,6 +541,18 @@ static inline int parseMessage( tr_torrent_t * tor, tr_peer_t * peer,
 
 static inline int parseBufHeader( tr_peer_t * peer )
 {
+    static uint8_t badproto_http[] =
+"HTTP/1.0 400 Nice try...\015\012"
+"Content-type: text/plain\015\012"
+"\015\012";
+    static uint8_t badproto_tinfoil[] =
+"This is not a rootkit or other backdoor, it's a BitTorrent\015\012"
+"client. Really. Why should you be worried, can't you read this\015\012"
+"reassuring message? Now just listen to this social engi, er, I mean,\015\012"
+"completely truthful statement, and go about your business. Your box is\015\012"
+"safe and completely impregnable, the marketing hype for your OS even\015\012"
+"says so. You can believe everything you read. Now move along, nothing\015\012"
+"to see here.";
     uint8_t * p   = peer->buf;
 
     if( 4 > peer->pos )
@@ -552,7 +565,11 @@ static inline int parseBufHeader( tr_peer_t * peer )
         /* Don't wait until we get 68 bytes, this is wrong
            already */
         peer_dbg( "GET  handshake, invalid" );
-        tr_netSend( peer->socket, (uint8_t *) "Nice try...\r\n", 13 );
+        if( 0 == memcmp( p, "GET ", 4 ) || 0 == memcmp( p, "HEAD", 4 ) )
+        {
+            tr_netSend( peer->socket, badproto_http, sizeof badproto_http - 1 );
+        }
+        tr_netSend( peer->socket, badproto_tinfoil, sizeof badproto_tinfoil - 1 );
         return TR_ERROR;
     }
     if( peer->pos < 68 )
@@ -584,7 +601,6 @@ static inline int parseHandshake( tr_torrent_t * tor, tr_peer_t * peer )
 {
     tr_info_t * inf = &tor->info;
     int         ii;
-    char      * client;
 
     if( memcmp( &peer->buf[28], inf->hash, SHA_DIGEST_LENGTH ) )
     {
@@ -614,13 +630,12 @@ static inline int parseHandshake( tr_torrent_t * tor, tr_peer_t * peer )
         }
     }
 
-    client = tr_clientForId( (uint8_t *) peer->id );
     if( PEER_SUPPORTS_EXTENDED_MESSAGES( &peer->buf[20] ) )
     {
         peer->status = PEER_STATUS_CONNECTED;
         peer->extStatus = EXTENDED_SUPPORTED;
         peer_dbg( "GET  handshake, ok (%s) extended messaging supported",
-                  client );
+                  tr_peerClient( peer ) );
     }
     else if( PEER_SUPPORTS_AZUREUS_PROTOCOL( &peer->buf[20] ) )
     {
@@ -628,14 +643,13 @@ static inline int parseHandshake( tr_torrent_t * tor, tr_peer_t * peer )
         peer->azproto = 1;
         peer->date    = tr_date();
         peer_dbg( "GET  handshake, ok (%s) will use azureus protocol",
-                  client );
+                  tr_peerClient( peer ) );
     }
     else
     {
         peer->status = PEER_STATUS_CONNECTED;
-        peer_dbg( "GET  handshake, ok (%s)", client );
+        peer_dbg( "GET  handshake, ok (%s)", tr_peerClient( peer ) );
     }
-    free( client );
 
     return TR_OK;
 }

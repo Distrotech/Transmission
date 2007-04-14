@@ -440,6 +440,7 @@ struct tr_stat_s
     int                 leechers;
     int                 completedFromTracker;
 
+    uint64_t            left;
     uint64_t            downloaded;
     uint64_t            uploaded;
     float               swarmspeed;
@@ -452,7 +453,7 @@ struct tr_stat_s
 struct tr_peer_stat_s
 {
     char    addr[INET_ADDRSTRLEN];
-    char *  client;
+    const char * client;
     
     int     isConnected;
     int     from;
