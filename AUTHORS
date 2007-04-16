@@ -19,16 +19,28 @@ Mitchell Livingston <livings124@gmail.com>
 Bryan Varner <bryan@varnernet.com>
  + BeOS interface
 
-Michael Demars <keul@m0k.org>
- + OS X interface (Growl notifications, AppleScript)
-
 
 Translators:
+
+Cédric Luthi
+ + French Mac OS X translation
+
+Jorge Carrasco Perez
+ + Spanish Mac OS X translation
+
+Ontje Helmich
+ + German Mac OS X translation
+
+Thermaikos
+ + Greek Mac OS X translation
 
 Calorì Alessandro
  + Italian GTK+ translation
 
 Pierre-Henri Quelen
+ + French GTK+ translation
+
+Robert-André Mauchin
  + French GTK+ translation
 
 Vicente Carro Fernandez
@@ -40,6 +52,9 @@ Tomasz Dominikowski
 Nickolay V. Shmyrev
  + Russian GTK+ translation
 
+Pavel Shevchuk
+ + Russian GTK+ translation
+
 Lubomir Marinov
  + Bulgarian GTK+ translation
 
@@ -48,6 +63,7 @@ Mircea Suciu
 
 Daniel Nylander
  + Swedish GTK+ translation
+
 
 Thanks to:
 
@@ -84,6 +100,9 @@ FOOOD
 
 Nick Pucius
  + Mac OS X Help documentation
+
+Michael Demars <keul@m0k.org>
+ + OS X interface (Growl notifications, AppleScript)
 
 Rashid Eissing
  + Transfers preferences icon

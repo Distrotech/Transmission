@@ -13,7 +13,7 @@
 .\"  ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\"  OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.Dd April 22, 2006
+.Dd April 3, 2007
 .Dt TRANSMISSIONCLI 1
 .Os
 .Sh NAME
@@ -76,11 +76,12 @@ no download limit.
 Specifies a shell script to be executed upon successful download.
 .El
 .Sh FILES
-.Pa ~/.transmission
-.Pp
+.Bl -tag -width Ds -compact
+.It ~/.transmission
 Directory where
 .Nm
 keeps torrent information for future seeding and resume operations.
+.El
 .Sh AUTHORS
 The
 .Nm
@@ -97,8 +98,3 @@ and
 .Xr transmission-remote 1
 .Pp
 http://transmission.m0k.org
-.Sh CAVEATS 
-.Nm
-currently saves its downloads into the directory from which it was
-called.  If this directory is not writable by the user, the program
-will terminate unexpectedly.

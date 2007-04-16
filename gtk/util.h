@@ -65,8 +65,8 @@ typedef void (*callbackfunc_t)(void*);
 enum {
   MC_NAME, MC_SIZE, MC_STAT, MC_ERR, MC_TERR,
   MC_PROG, MC_DRATE, MC_URATE, MC_ETA, MC_PEERS,
-  MC_UPEERS, MC_DPEERS, MC_DOWN, MC_UP,
-  MC_TORRENT, MC_ROW_COUNT,
+  MC_UPEERS, MC_DPEERS, MC_SEED, MC_LEECH, MC_DONE,
+  MC_DOWN, MC_UP, MC_LEFT, MC_TRACKER, MC_TORRENT, MC_ROW_COUNT,
 };
 
 /* try to interpret a string as a textual representation of a boolean */
@@ -153,8 +153,8 @@ action_makemenu( struct action * act, const char * actkey,
 
 /* here there be dragons */
 void
-windowsizehack( GtkWidget * wind, GtkWidget * scroll, GtkWidget * view,
-                callbackfunc_t func, void * arg );
+sizingmagic( GtkWindow * wind, GtkScrolledWindow * scroll,
+             GtkPolicyType hscroll, GtkPolicyType vscroll );
 
 /* create an error dialog, if wind is NULL or mapped then show dialog now,
    otherwise show it when wind becomes mapped */

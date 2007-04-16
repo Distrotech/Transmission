@@ -3,45 +3,47 @@
 # Russian translation of Transmission.
 # This file is distributed under the same license as the Transmission package.
 # Nickolay V. Shmyrev <nshmyrev@yandex.ru>, 2006.
+# Pavel Shevchuk <stlwrt@gmail.com>, 2007
 #
 msgid ""
 msgstr ""
 "Project-Id-Version: Transmission HEAD\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2006-06-18 00:33-0700\n"
-"PO-Revision-Date: 2006-07-16 21:55+0400\n"
-"Last-Translator: Nickolay V. Shmyrev <nshmyrev@yandex.ru>\n"
+"POT-Creation-Date: 2007-04-07 13:35-0700\n"
+"PO-Revision-Date: 2007-04-08 21:12+0300\n"
+"Last-Translator: Pavel Shevchuk <stlwrt@gmail.com>\n"
 "Language-Team: Russian <gnome-cyr@gnome.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms:  nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%"
-"10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
-#: conf.c:95 conf.c:374
+#: conf.c:91
+#: conf.c:370
+#: msgwin.c:164
 #, c-format
 msgid ""
 "Failed to open the file %s for writing:\n"
 "%s"
 msgstr ""
-"Не удалось открыть файл %s для чтения:\n"
+"Не удалось открыть файл %s для записи:\n"
 "%s"
 
-#: conf.c:110
+#: conf.c:106
 #, c-format
 msgid "Another copy of %s is already running."
-msgstr "%s уже выполняется."
+msgstr "Другая копия %s уже запущена."
 
-#: conf.c:113
+#: conf.c:109
 #, c-format
 msgid ""
 "Failed to lock the file %s:\n"
 "%s"
 msgstr ""
-"Не удалось получить приоритетный доступ к файлу %s:\n"
+"Не удалось заблокировать файл %s:\n"
 "%s"
 
-#: conf.c:136 dialogs.c:137
+#: conf.c:132
 #, c-format
 msgid ""
 "Failed to create the directory %s:\n"
@@ -50,7 +52,7 @@ msgstr ""
 "Не удалось создать каталог %s:\n"
 "%s"
 
-#: conf.c:209
+#: conf.c:205
 #, c-format
 msgid ""
 "Failed to open the file %s for reading:\n"
@@ -59,25 +61,26 @@ msgstr ""
 "Не удалось открыть файл %s для чтения:\n"
 "%s"
 
-#: conf.c:216
+#: conf.c:212
 #, c-format
 msgid ""
 "Error while reading from the file %s:\n"
 "%s"
 msgstr ""
-"Во время чтения из файла %s возникла ошибка:\n"
+"Ошибка при чтении файла %s:\n"
 "%s"
 
-#: conf.c:388
+#: conf.c:384
+#: msgwin.c:175
 #, c-format
 msgid ""
 "Error while writing to the file %s:\n"
 "%s"
 msgstr ""
-"Во время записи в файл %s возникла ошибка:\n"
+"Ошибка при записи файла %s:\n"
 "%s"
 
-#: conf.c:394
+#: conf.c:390
 #, c-format
 msgid ""
 "Failed to rename the file %s to %s:\n"
@@ -86,292 +89,232 @@ msgstr ""
 "Не удалось переименовать файл %s в %s:\n"
 "%s"
 
-#: dialogs.c:174
-#, c-format
-msgid "%s Preferences"
-msgstr "Параметры %s"
-
-#: dialogs.c:183 dialogs.c:407
-msgid "Choose a download directory"
-msgstr "Выберите каталог для хранения"
-
-#: dialogs.c:192
-msgid "_Limit download speed"
-msgstr "_Ограничить входящий поток"
-
-#: dialogs.c:194
-msgid "Maximum _download speed:"
-msgstr "Максимальная скорость _закачки:"
-
-#: dialogs.c:196
-msgid "Li_mit upload speed"
-msgstr "О_граничить исходящий поток"
-
-#: dialogs.c:198
-msgid "Maximum _upload speed:"
-msgstr "Максимальная скорость о_тправки:"
-
-#. directory label and chooser
-#: dialogs.c:246
-msgid "Download di_rectory:"
-msgstr "Каталог с_охранения"
-
-#. port label and entry
-#: dialogs.c:255
-msgid "Listening _port:"
-msgstr "_Порт:"
-
-#: dialogs.c:268
-msgid "Use the torrent file where it is"
-msgstr "Использовать существующий файл описания потока"
-
-#: dialogs.c:271
-msgid "Keep a copy of the torrent file"
-msgstr "Сохранять копию файла описания потока"
-
-#: dialogs.c:274
-msgid "Keep a copy and remove the original"
-msgstr "Сохранять копию файла описания потока и удалять оригинал"
-
-#. std
-#: dialogs.c:277
-msgid "For torrents added _normally:"
-msgstr "Для добавленных потоков по _умолчанию:"
-
-#: dialogs.c:291
-msgid ""
-"For torrents added e_xternally\n"
-"(via the command-line):"
-msgstr ""
-"Для потоков, добавленных _извне\n"
-"(из командной строки):"
-
-#: dialogs.c:394
+#: dialogs.c:138
 msgid "Add a Torrent"
-msgstr "Добавить поток"
+msgstr "Добавить торрент"
 
-#: dialogs.c:401
+#: dialogs.c:145
 msgid "Automatically _start torrent"
-msgstr "Автоматически _запускать поток"
+msgstr "Автоматически _запускать торрент"
 
-#: dialogs.c:403
+#: dialogs.c:147
 msgid "Use alternate _download directory"
-msgstr "Использовать _другой каталог закачки"
+msgstr "Использовать другой целе_вой каталог"
 
-#: dialogs.c:432
+#. PREF_ID_DIR
+#: dialogs.c:151
+#: tr_prefs.c:210
+msgid "Choose a download directory"
+msgstr "Выберите целевой каталог"
+
+#: dialogs.c:178
 msgid "Torrent files"
-msgstr "Файлы потоков"
+msgstr "Торренты"
 
-#: dialogs.c:434
+#: dialogs.c:180
 msgid "All files"
 msgstr "Все файлы"
 
-#: dialogs.c:542
+#: dialogs.c:250
 #, c-format
-msgid "%s Properties"
-msgstr "Свойства %s"
+msgid "%s - Properties for %s"
+msgstr "%s - Свойства %s"
 
-#: dialogs.c:567 dialogs.c:570
+#. add general tab
+#: dialogs.c:286
+msgid "General"
+msgstr "Общие"
+
+#. add files tab
+#: dialogs.c:292
+msgid "Files"
+msgstr "Файлы"
+
+#: dialogs.c:390
 msgid "Tracker:"
-msgstr "Координация:"
+msgstr "Трекер:"
 
-#: dialogs.c:572
+#: dialogs.c:391
 msgid "Announce:"
-msgstr "Объявление:"
+msgstr "Анонс:"
 
-#: dialogs.c:573
+#: dialogs.c:392
+msgid "Scrape:"
+msgstr "Опрос:"
+
+#: dialogs.c:394
+msgid "Info Hash:"
+msgstr "Хеш информации:"
+
+#: dialogs.c:395
 msgid "Piece Size:"
-msgstr "Размер элемента:"
+msgstr "Размер блока:"
 
-#: dialogs.c:574
+#: dialogs.c:396
 msgid "Pieces:"
-msgstr "Элементов:"
+msgstr "Блоков:"
 
-#: dialogs.c:575
+#: dialogs.c:397
 msgid "Total Size:"
 msgstr "Общий размер:"
 
-#: dialogs.c:577 dialogs.c:579
+#: dialogs.c:399
 msgid "Seeders:"
-msgstr "Отдающих:"
+msgstr "Сидеров:"
 
-#: dialogs.c:577 dialogs.c:581
-msgid "?"
-msgstr "?"
-
-#: dialogs.c:581 dialogs.c:583
+#: dialogs.c:400
 msgid "Leechers:"
-msgstr "Получающих:"
+msgstr "Личеров:"
 
-#: dialogs.c:587
+#: dialogs.c:401
+msgid "Completed:"
+msgstr "Завершено:"
+
+#: dialogs.c:403
 msgid "Directory:"
 msgstr "Каталог:"
 
-#: dialogs.c:588
+#: dialogs.c:405
 msgid "Downloaded:"
 msgstr "Получено:"
 
-#: dialogs.c:589
+#: dialogs.c:406
 msgid "Uploaded:"
 msgstr "Отправлено:"
 
-#: ipc.c:208
+#: dialogs.c:407
+msgid "Remaining:"
+msgstr "Осталось:"
+
+#: dialogs.c:497
+msgid "?"
+msgstr "?"
+
+#: dialogs.c:519
+msgid "Choose a directory"
+msgstr "Выберите целевой каталог"
+
+#: dialogs.c:575
+#, c-format
+msgid "Are you sure you want to quit %s?"
+msgstr "Вы уверены, что хотите выйти из %s?"
+
+#: dialogs.c:643
+msgid "File"
+msgstr "Файл"
+
+#: dialogs.c:656
+#: tr_window.c:406
+msgid "Progress"
+msgstr "Прогресс"
+
+#. this string is only used to determine the size of the progress bar
+#: dialogs.c:659
+#: tr_window.c:403
+msgid "  fnord    fnord  "
+msgstr ""
+
+#: ipc.c:242
 #, c-format
 msgid ""
 "Failed to set up socket:\n"
 "%s"
 msgstr ""
-"Не удалось настроить параметры сокета:\n"
+"Не удалось настроить сокет:\n"
 "%s"
 
-#: ipc.c:229
+#: ipc.c:263
 #, c-format
 msgid "failed to create socket: %s\n"
-msgstr "Не удалось создать сокет: %s\n"
+msgstr "не удалось создать сокет: %s\n"
 
-#: ipc.c:238
+#: ipc.c:272
 #, c-format
 msgid "failed to connect to %s: %s\n"
 msgstr "не удалось соединиться с %s: %s\n"
 
-#: ipc.c:403
+#: ipc.c:453
+#: ipc.c:501
 #, c-format
 msgid "bad IPC protocol version\n"
 msgstr "некорректная версия протокола взаимодействия\n"
 
-#: main.c:150
-msgid "Add"
-msgstr "Добавить"
-
-#: main.c:151
+#: main.c:113
 msgid "Add a new torrent"
-msgstr "Добавить новый поток"
+msgstr "Добавить новый торрент"
 
-#: main.c:152
+#: main.c:114
 msgid "Start"
 msgstr "Запустить"
 
-#: main.c:154
+#: main.c:115
 msgid "Start a torrent that is not running"
-msgstr "Запустить поток"
+msgstr "Запустить не запущенный торрент"
 
-#: main.c:155
-msgid "Stop"
-msgstr "Остановить"
-
-#: main.c:157
+#: main.c:117
 msgid "Stop a torrent that is running"
-msgstr "Остановить запущенный поток"
+msgstr "Остановить запущенный торрент"
 
-#: main.c:158
-msgid "Remove"
-msgstr "Удалить"
-
-#: main.c:159
+#: main.c:119
 msgid "Remove a torrent"
-msgstr "Удалить поток"
+msgstr "Удалить торрент"
 
-#: main.c:160
-msgid "Properties"
-msgstr "Свойства"
-
-#: main.c:161
+#: main.c:122
 msgid "Show additional information about a torrent"
-msgstr "Показывать дополниельную информацию о потоке"
+msgstr "Показать дополнительную информацию о торренте"
 
-#: main.c:162
-msgid "Preferences"
-msgstr "Параметры"
+#: main.c:123
+msgid "Open debug window"
+msgstr "Открыть окно отладки"
 
-#: main.c:163
+#: main.c:127
 msgid "Customize application behavior"
-msgstr "Настроить параметры приложения"
+msgstr "Настроить поведение приложения"
 
-#: main.c:200
+#: main.c:130
+msgid "Close the main window"
+msgstr "Закрыть главное окно"
+
+#: main.c:132
+msgid "Exit the program"
+msgstr "Выйти из программы"
+
+#: main.c:288
+#, c-format
+msgid ""
+"usage: %s [-hpq] [files...]\n"
+"\n"
+"Transmission %s (r%d) http://transmission.m0k.org/\n"
+"A free, lightweight BitTorrent client with a simple, intuitive interface\n"
+"\n"
+"  -h --help    display this message and exit\n"
+"  -p --paused  start with all torrents paused\n"
+"  -q --quit    request that the running %s instance quit\n"
+"\n"
+"Only one instance of %s may run at one time. Multiple\n"
+"torrent files may be loaded at startup by adding them to the command\n"
+"line. If %s is already running, those torrents will be\n"
+"opened in the running instance.\n"
+msgstr ""
+"использование: %s [-hpq] [файлы...]\n"
+"\n"
+"Transmission %s (r%d) http://transmission.m0k.org/\n"
+"Свободный, легковесный BitTorrent клиент с простым, интуитивным интерфейсом\n"
+"\n"
+"  -h --help    показать это сообщение\n"
+"  -p --paused  не запускать торренты автоматически\n"
+"  -q --quit    завершить текущий экземпляр %s\n"
+"\n"
+"Только один экземпляр %s может быть запущен. Можно загрузить\n"
+"несколько торрентов перечислив при запуске в командной строке\n"
+"Если %s уже запущен, торренты будут открыты в запущенном\n"
+"экземпляре.\n"
+
+#: main.c:354
 msgid "Transmission"
-msgstr "Передача"
-
-#: main.c:453
-msgid "Name"
-msgstr "Поток"
-
-#. this string is only used to determing the size of the progress bar
-#: main.c:461
-msgid "  fnord    fnord  "
-msgstr "  размер   размер  "
-
-#: main.c:464
-msgid "Progress"
-msgstr "Статус"
-
-#: main.c:700
-#, c-format
-msgid "Checking existing files (%.1f%%)"
-msgstr "Проверка существующих файлов (%.1f%%)"
-
-#: main.c:703
-#, c-format
-msgid "Finishing in --:--:-- (%.1f%%)"
-msgstr "Завершение через --:--:-- (%.1f%%)"
-
-#: main.c:705
-#, c-format
-msgid "Finishing in %02i:%02i:%02i (%.1f%%)"
-msgstr "Завершение в %02i:%02i:%02i (%.1f%%)"
-
-#: main.c:709
-#, c-format
-msgid "Seeding, uploading to %d of %d peer"
-msgid_plural "Seeding, uploading to %d of %d peers"
-msgstr[0] "Отправка в %d из %d точки"
-msgstr[1] "Отправка в %d из %d точек"
-msgstr[2] "Отправка в %d из %d точек"
-
-#: main.c:713
-msgid "Stopping..."
-msgstr "Остановка..."
-
-#: main.c:715
-#, c-format
-msgid "Stopped (%.1f%%)"
-msgstr "Остановлено (%.1f%%)"
-
-#: main.c:723
-msgid "Error: "
-msgstr "Ошибка: "
-
-#: main.c:727
-#, c-format
-msgid "Downloading from %i of %i peer"
-msgid_plural "Downloading from %i of %i peers"
-msgstr[0] "Получение от %i из %i точки"
-msgstr[1] "Получение от %i из %i точек"
-msgstr[2] "Получение от %i из %i точек"
-
-#: main.c:761
-#, c-format
-msgid ""
-"Ratio: %s\n"
-"UL: %s/s"
 msgstr ""
-"Отношение: %s\n"
-"Исходящий: %s/s"
 
-#: main.c:764
-#, c-format
-msgid ""
-"DL: %s/s\n"
-"UL: %s/s"
-msgstr ""
-"Входящий: %s/s\n"
-"Исходящий: %s/s"
-
-#: main.c:810
-#, c-format
-msgid "     Total DL: %s/s     Total UL: %s/s"
-msgstr "      Всего входящий %s/s   Всего исходящий: %s/s"
-
-#: main.c:1081
+#: main.c:1097
 #, c-format
 msgid ""
 "Failed to load torrent file:\n"
@@ -379,56 +322,333 @@ msgid ""
 msgid_plural ""
 "Failed to load torrent files:\n"
 "%s"
-msgstr[0] "Не удалось загрузить файл потока:\n"
+msgstr[0] ""
+"Не удалось загрузить торрент:\n"
 "%s"
-msgstr[1] "Не удалось загрузить файлы потока:\n"
+msgstr[1] ""
+"Не удалось загрузить торренты:\n"
 "%s"
-msgstr[2] "Не удалось загрузить файлы потока:\n"
+msgstr[2] ""
+"Не удалось загрузить торренты:\n"
 "%s"
 
-#: tr_torrent.c:290
+#: msgwin.c:54
+msgid "Error"
+msgstr "Ошибка"
+
+#: msgwin.c:55
+msgid "Info"
+msgstr "Информация"
+
+#: msgwin.c:56
+msgid "Debug"
+msgstr "Отладка"
+
+#: msgwin.c:142
+msgid "Save Log"
+msgstr "Сохранить журнал"
+
+#: msgwin.c:229
+msgid "???"
+msgstr "???"
+
+#: tr_prefs.c:82
+msgid "_Limit download speed"
+msgstr "_Ограничить скорость приёма"
+
+#: tr_prefs.c:83
+msgid "Restrict the download rate"
+msgstr "Ограничить скорость приёма"
+
+#: tr_prefs.c:87
+msgid "Maximum _download speed:"
+msgstr "Максимальная скорость _приёма:"
+
+#: tr_prefs.c:88
+msgid "Speed in KiB/sec for restricted download rate"
+msgstr "Скорость приёма в KiB/сек при ограничении"
+
+#: tr_prefs.c:92
+msgid "Li_mit upload speed"
+msgstr "О_граничить скорость отдачи"
+
+#: tr_prefs.c:93
+msgid "Restrict the upload rate"
+msgstr "Ограничить скорость отдачи"
+
+#: tr_prefs.c:97
+msgid "Maximum _upload speed:"
+msgstr "Максимальная скорость о_тдачи:"
+
+#: tr_prefs.c:98
+msgid "Speed in KiB/sec for restricted upload rate"
+msgstr "Скорость отдачи в KiB/сек при ограничении"
+
+#: tr_prefs.c:102
+msgid "Al_ways prompt for download directory"
+msgstr "Всегда спрашивать _целевой каталог"
+
+#: tr_prefs.c:103
+msgid "When adding a torrent, always prompt for a directory to download data files into"
+msgstr "При добавлении торрента всегда спрашивать целевой каталог"
+
+#: tr_prefs.c:108
+msgid "Download di_rectory:"
+msgstr "Целевой каталог:"
+
+#: tr_prefs.c:109
+msgid "Destination directory for downloaded data files"
+msgstr "Целевой каталог для скачиваемых файлов"
+
+#: tr_prefs.c:113
+msgid "Listening _port:"
+msgstr "_Порт:"
+
+#: tr_prefs.c:114
+msgid "TCP port number to listen for peer connections"
+msgstr "TCP порт для ожидания соединений"
+
+#: tr_prefs.c:118
+msgid "Au_tomatic port mapping via NAT-PMP or UPnP"
+msgstr "Автоматическо_е назначение порта используя NAT-PMP или UPnP"
+
+#: tr_prefs.c:119
+msgid "Attempt to bypass NAT or firewall to allow incoming peer connections"
+msgstr "Пытаться обойти NAT или брандмауэр для разрешения входящих соединений"
+
+#: tr_prefs.c:123
+msgid "Use peer _exchange if possible"
+msgstr "При возможности использовать обмен _узлами"
+
+#: tr_prefs.c:124
+msgid "Perform Azureus or µTorrent compatible peer exchange with any peers which support it"
+msgstr "Обмениваться узлами с клиентами, совместимыми с Azureus и µTorrent"
+
+#: tr_prefs.c:129
+msgid "Display an _icon in the system tray"
+msgstr "Отображать значок в системном _лотке"
+
+#: tr_prefs.c:130
+msgid "Use a system tray / dock / notification area icon"
+msgstr "Использовать значок в системном лотке / доке / обрасти уведомлений"
+
+#: tr_prefs.c:134
+msgid "Confirm _quit"
+msgstr "Подтверждать _выход"
+
+#: tr_prefs.c:135
+msgid "Prompt for confirmation when quitting"
+msgstr "Спрашивать подтверждения при выходе"
+
+#: tr_prefs.c:140
+msgid "For torrents added _normally:"
+msgstr "Для _торрентов, добавленных по умолчанию:"
+
+#: tr_prefs.c:141
+msgid "Torrent files added via the toolbar, popup menu, and drag-and-drop"
+msgstr "Торренты, добавленные с панели, через меню или перетаскиванием"
+
+#: tr_prefs.c:146
+msgid ""
+"For torrents added e_xternally\n"
+"(via the command-line):"
+msgstr ""
+"Для потоков, добавленных _извне\n"
+"(из командной строки):"
+
+#: tr_prefs.c:147
+msgid "For torrents added via the command-line only"
+msgstr "Только для торрентов, добавленных из командной строки"
+
+#: tr_prefs.c:342
+#, c-format
+msgid "%s Preferences"
+msgstr "Настройки %s"
+
+#: tr_prefs.c:858
+msgid "Use the torrent file where it is"
+msgstr "Открывать оригинальный торрент"
+
+#: tr_prefs.c:861
+msgid "Keep a copy of the torrent file"
+msgstr "Создать и использовать копию торрента"
+
+#: tr_prefs.c:864
+msgid "Keep a copy and remove the original"
+msgstr "Использовать копию торрента и удалять оригинал"
+
+#: tr_torrent.c:314
 #, c-format
 msgid "%s: not a valid torrent file"
-msgstr "%s: некорректный файл потока"
+msgstr "%s: некорректный торрент"
 
-#: tr_torrent.c:293
+#: tr_torrent.c:317
 #, c-format
 msgid "%s: torrent is already open"
-msgstr "%s: поток уже открыт"
+msgstr "%s: торрент уже открыт"
 
-#: util.c:67
+#: tr_window.c:169
+msgid "_File"
+msgstr "Ф_айл"
+
+#: tr_window.c:355
+#, c-format
+msgid "     Total DL: %s/s     Total UL: %s/s"
+msgstr "     Приём: %s/s     Отдача: %s/s"
+
+#. note that this renderer is set to ellipsize, just not here
+#: tr_window.c:393
+msgid "Name"
+msgstr "Имя"
+
+#: tr_window.c:511
+#, c-format
+msgid "Checking existing files (%.1f%%)"
+msgstr "Проверка существующих файлов (%.1f%%)"
+
+#: tr_window.c:517
+#, c-format
+msgid "Stalled (%.1f%%)"
+msgstr "Заглохло (%.1f%%)"
+
+#: tr_window.c:522
+#, c-format
+msgid "Finishing in %s (%.1f%%)"
+msgstr "Завершение через %s (%.1f%%)"
+
+#: tr_window.c:530
+#, c-format
+msgid "Seeding, uploading to %d of %d peer"
+msgid_plural "Seeding, uploading to %d of %d peers"
+msgstr[0] "Отдача %d из %d узлов"
+msgstr[1] "Отдача %d из %d узлов"
+msgstr[2] "Отдача %d из %d узлов"
+
+#: tr_window.c:536
+msgid "Stopping..."
+msgstr "Остановка..."
+
+#: tr_window.c:540
+#, c-format
+msgid "Stopped (%.1f%%)"
+msgstr "Остановлено (%.1f%%)"
+
+#: tr_window.c:551
+msgid "Error: "
+msgstr "Ошибка: "
+
+#: tr_window.c:556
+#, c-format
+msgid "Downloading from %i of %i peer"
+msgid_plural "Downloading from %i of %i peers"
+msgstr[0] "Приём от %i из %i узлов"
+msgstr[1] "Приём от %i из %i узлов"
+msgstr[2] "Приём от %i из %i узлов"
+
+#: tr_window.c:593
+#, c-format
+msgid ""
+"Ratio: %s\n"
+"UL: %s/s"
+msgstr ""
+"Ратио: %s\n"
+"Отдача: %s/s"
+
+#: tr_window.c:598
+#, c-format
+msgid ""
+"DL: %s/s\n"
+"UL: %s/s"
+msgstr ""
+"Приём: %s/s\n"
+"Отдача: %s/s"
+
+#: util.c:64
 msgid "B"
 msgstr "B"
 
-#: util.c:67
+#: util.c:64
 msgid "KiB"
 msgstr "KiB"
 
-#: util.c:67
+#: util.c:64
 msgid "MiB"
 msgstr "MiB"
 
-#: util.c:67
+#: util.c:64
 msgid "GiB"
 msgstr "GiB"
 
-#: util.c:67
+#: util.c:64
 msgid "TiB"
 msgstr "TiB"
 
-#: util.c:67
+#: util.c:64
 msgid "PiB"
 msgstr "PiB"
 
-#: util.c:67
+#: util.c:64
 msgid "EiB"
 msgstr "EiB"
 
-#: util.c:92
+#: util.c:93
+#, c-format
+msgid "%i %s"
+msgstr "%i %s"
+
+#: util.c:94
+#: util.c:98
+msgid "second"
+msgid_plural "seconds"
+msgstr[0] "секунда"
+msgstr[1] "секунды"
+msgstr[2] "секунд"
+
+#: util.c:96
+#: util.c:100
+#: util.c:104
+#: util.c:108
+#, c-format
+msgid "%i %s %i %s"
+msgstr "%i %s %i %s"
+
+#: util.c:97
+#: util.c:102
+msgid "minute"
+msgid_plural "minutes"
+msgstr[0] "минута"
+msgstr[1] "минуты"
+msgstr[2] "минут"
+
+#: util.c:101
+#: util.c:106
+#: util.c:110
+msgid "hour"
+msgid_plural "hours"
+msgstr[0] "час"
+msgstr[1] "часа"
+msgstr[2] "часов"
+
+#: util.c:105
+msgid "day"
+msgid_plural "days"
+msgstr[0] "день"
+msgstr[1] "дня"
+msgstr[2] "дней"
+
+#: util.c:109
+msgid "week"
+msgid_plural "weeks"
+msgstr[0] "неделя"
+msgstr[1] "недели"
+msgstr[2] "недель"
+
+#: util.c:118
 msgid "N/A"
-msgstr "Неиз."
+msgstr "N/A"
 
 #. this is a UTF-8 infinity symbol
-#: util.c:96
+#: util.c:122
 msgid "∞"
 msgstr "∞"
+

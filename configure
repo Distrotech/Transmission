@@ -408,10 +408,21 @@ fi
 # GTK+ settings
 #
 echo -n "GTK+:    "
-if [ "$GTK" = no ]; then
+if [ "x$GTK" = xno ]; then
   echo "disabled"
 else
   gtk_test
+  if [ "x$GTK" = xno ] && [ "x$SYSTEM" = xLinux ]; then
+      cat <<EOF
+
+*** GTK+ was not found, transmission-gtk will *NOT* be built. If you
+*** wish to use the graphical version of Transmission then you will
+*** need to install GTK+ headers and libraries. Try using your
+*** distribution's package management utility to find a package called
+*** libgtk2.0-dev, gtk2-devel, or something similar; then install it
+*** and re-run this script.
+EOF
+  fi
 fi
 
 #
