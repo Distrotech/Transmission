@@ -29,6 +29,7 @@
 #include <ctype.h>
 #include <event.h>
 #include <getopt.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
