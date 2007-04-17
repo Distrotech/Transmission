@@ -186,7 +186,8 @@ main( int argc, char ** argv )
         gl_removehashes = ( o.removeall ? NULL : &o.remove );
     }
 
-    event_base_dispatch( evbase );
+    event_dispatch();
+    /* event_base_dispatch( evbase ); */
 
     return 1;
 }

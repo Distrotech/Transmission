@@ -180,7 +180,7 @@ client_new_sock( const char * path )
     }
     con->outfd = con->infd;
     con->evout = con->evin;
-    bufferevent_base_set( gl_base, con->evin );
+    /* XXX bufferevent_base_set( gl_base, con->evin ); */
     bufferevent_settimeout( con->evin, SERVER_TIMEOUT, SERVER_TIMEOUT );
     bufferevent_enable( con->evin, EV_READ );
     if( 0 > sendvers( con ) )
@@ -265,7 +265,7 @@ client_new_cmd( char * const * cmd )
         close( fromcmd[0] );
         return -1;
     }
-    bufferevent_base_set( gl_base, con->evin );
+    /* XXX bufferevent_base_set( gl_base, con->evin ); */
     bufferevent_settimeout( con->evin, SERVER_TIMEOUT, SERVER_TIMEOUT );
     bufferevent_enable( con->evin, EV_READ );
 
@@ -279,7 +279,7 @@ client_new_cmd( char * const * cmd )
         close( fromcmd[0] );
         return -1;
     }
-    bufferevent_base_set( gl_base, con->evout );
+    /* XXX bufferevent_base_set( gl_base, con->evout ); */
     bufferevent_settimeout( con->evout, SERVER_TIMEOUT, SERVER_TIMEOUT );
     bufferevent_enable( con->evout, EV_READ );
 

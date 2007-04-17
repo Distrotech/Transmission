@@ -41,11 +41,7 @@ enum confpathtype
     CONF_PATH_TYPE_GTK,
 };
 
-struct event_base;
 struct bufferevent;
-
-/* this doesn't seem to be in the libevent header */
-int bufferevent_base_set( struct event_base *, struct bufferevent * );
 
 #ifdef __GNUC__
 #  define UNUSED __attribute__((unused))

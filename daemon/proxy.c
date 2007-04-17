@@ -78,7 +78,7 @@ main( int argc, char ** argv )
         errnomsg( "failed to set up event buffer for stdin" );
         return EXIT_FAILURE;
     }
-    bufferevent_base_set( base, gl_in );
+    /* XXX bufferevent_base_set( base, gl_in ); */
     bufferevent_enable( gl_in, EV_READ );
     bufferevent_disable( gl_in, EV_WRITE );
 
@@ -88,7 +88,7 @@ main( int argc, char ** argv )
         errnomsg( "failed to set up event buffer for stdin" );
         return EXIT_FAILURE;
     }
-    bufferevent_base_set( base, gl_out );
+    /* XXX bufferevent_base_set( base, gl_out ); */
     bufferevent_disable( gl_out, EV_READ );
     bufferevent_enable( gl_out, EV_WRITE );
 
@@ -98,11 +98,12 @@ main( int argc, char ** argv )
         errnomsg( "failed to set up event buffer for stdin" );
         return EXIT_FAILURE;
     }
-    bufferevent_base_set( base, gl_sock );
+    /* XXX bufferevent_base_set( base, gl_sock ); */
     bufferevent_enable( gl_sock, EV_READ );
     bufferevent_enable( gl_sock, EV_WRITE );
 
-    event_base_dispatch( base );
+    event_dispatch();
+    /* XXX event_base_dispatch( base ); */
 
     return EXIT_FAILURE;
 }
