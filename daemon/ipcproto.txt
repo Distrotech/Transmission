@@ -46,7 +46,10 @@ version 1 style message (ie: the payload is a dictionary and may not
 contain a tag) with the dictionary key "version" and a value formatted
 as described below. The version should be the first but not
 necessarily only key in the dictionary. Any other keys should be
-ignored and not processed as messages.
+ignored and not processed as messages. Neither the client nor the
+server should wait to receive a version message before sending one, it
+must be sent immediately. No other messages should be sent until the
+version is received.
 
 The version value should be a bencoded dictionary containing two keys,
 "max" and "min". These are the minimum and maximum supported protocol
@@ -76,6 +79,9 @@ An example tagged message and response:
 
 00000010l5:startli8eei15ee
 00000011l8:succeeded0:i15ee
+
+Some example sessions, including version handshake, are found at the
+end of this file.
 
 Dictionary keys are encoded in UTF-8 and case sensitive. Any character
 except a NUL (0x00) is valid. A server or client need not support
@@ -416,3 +422,33 @@ which support is mandatory is "id".
 "scrape-seeders"    integer, current, seeders as reported by tracker
 "upload-speed"      integer, upload speed in bytes per second
 "upload-total"      integer, total bytes uploaded so far
+
+
+Examples:
+
+Data from the client to the server is prefixed with >>> and from
+server to client with <<<. These prefixes and newlines are added for
+clarity, they are not actually sent over the socket.
+
+Quit the server. Note that this is a version 1 client and so version 1
+messages are used. The value for the quit message here is i0e instead
+of 0: as used above, however since it it unused any value is allowed.
+>>> 0000001Dd7:versiond3:mini1e3:maxi1eee
+<<< 0000001Dd7:versiond3:mini1e3:maxi2eee
+>>> 0000000Bd4:quiti0ee
+
+Pause all torrents and disable automapping. Note the server happens to
+have sendt it's version before the client.
+<<< 0000001Dd7:versiond3:mini1e3:maxi2eee
+>>> 0000001Dd7:versiond3:mini1e3:maxi2eee
+>>> 0000000El8:stop-all0:e
+
+Change upload and download limits with tagged responses. Note that the
+server is allowed to return responses out of order, even when the
+messages are not tagged.
+>>> 0000001Dd7:versiond3:mini1e3:maxi2eee
+<<< 0000001Dd7:versiond3:mini1e3:maxi2eee
+>>> 00000017l9:downlimiti100ei100el
+>>> 00000017l9:downlimiti100ei101el
+<<< 00000014l8:succeeded0:i101el
+<<< 00000014l8:succeeded0:i100el

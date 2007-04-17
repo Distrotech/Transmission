@@ -777,6 +777,7 @@ flushreqs( struct con * con )
             case IPC_MSG_PORT:
             case IPC_MSG_DOWNLIMIT:
             case IPC_MSG_UPLIMIT:
+            case IPC_MSG_PEX:
                 buf = ipc_mkint( &con->ipc, &buflen, req->id, -1, req->num );
                 break;
             case IPC_MSG_DIR:
