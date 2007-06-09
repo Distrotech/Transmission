@@ -202,8 +202,10 @@
 - (NSArray *) fileList;
 - (int) fileCount;
 - (float) fileProgress: (int) index;
-- (int) shouldDownloadFiles: (NSIndexSet *) indexSet;
-- (BOOL) canChangeDownloadCheckFiles: (NSIndexSet *) indexSet;
+- (int) shouldDownloadFile: (int) index;
+- (int) shouldDownloadFolderForFiles: (NSIndexSet *) indexSet;
+- (BOOL) canChangeDownloadCheckFile: (int) index;
+- (BOOL) canChangeDownloadCheckFoldersForFiles: (NSIndexSet *) indexSet;
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item;
 
 - (NSDate *) dateAdded;

@@ -1315,14 +1315,19 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fileProgress;
 }
 
-#warning divide
-- (int) shouldDownloadFiles: (NSIndexSet *) indexSet
+- (int) shouldDownloadFile: (int) index
+{
+    return tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0
+            ? NSOnState : NSOffState;
+}
+
+- (int) shouldDownloadFolderForFiles: (NSIndexSet *) indexSet
 {
     BOOL onState = NO, offState = NO;
     int index;
     for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
     {
-        if (tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0)
+        if ([self shouldDownloadFile: index] == NSOnState)
             onState = YES;
         else
             offState = YES;
@@ -1333,12 +1338,16 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return onState ? NSOnState : NSOffState;
 }
 
-#warning divide
-- (BOOL) canChangeDownloadCheckFiles: (NSIndexSet *) indexSet
+- (BOOL) canChangeDownloadCheckFile: (int) index
+{
+    return [self fileProgress: index] < 1.0;
+}
+
+- (BOOL) canChangeDownloadCheckFoldersForFiles: (NSIndexSet *) indexSet
 {
     int index;
     for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
-        if ([self fileProgress: index] < 1.0)
+        if ([self canChangeDownloadCheckFile: index])
             return YES;
     return NO;
 }
