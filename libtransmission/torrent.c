@@ -24,6 +24,7 @@
 
 #include "transmission.h"
 #include "shared.h"
+#define INTERVAL_MSEC 100
 
 /***********************************************************************
  * Local prototypes
@@ -215,6 +216,8 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
         tr_setBindPort( h, TR_DEFAULT_PORT );
     }
 
+    tr_torrentInitFilePieces( tor );
+
     return tor;
 }
 
@@ -240,7 +243,7 @@ void tr_torrentSetFolder( tr_torrent_t * tor, const char * path )
     }
 }
 
-const char * tr_torrentGetFolder( tr_torrent_t * tor )
+char * tr_torrentGetFolder( tr_torrent_t * tor )
 {
     return tor->destination;
 }
@@ -335,8 +338,8 @@ static void torrentReallyStop( tr_torrent_t * tor )
 
     if( tor->tracker )
     {
-        tr_trackerClose( tor->tracker );
-        tor->tracker = NULL;
+       tr_trackerClose( tor->tracker );
+       tor->tracker = NULL;
     }
 
     tr_lockLock( &tor->lock );
@@ -929,7 +932,7 @@ static void downloadLoop( void * _tor )
     while( !tor->die )
     {
         tr_lockUnlock( &tor->lock );
-        tr_wait( 20 );
+        tr_wait( INTERVAL_MSEC );
         tr_lockLock( &tor->lock );
 
         /* Are we finished ? */
@@ -1016,3 +1019,134 @@ static void downloadLoop( void * _tor )
     tor->status = TR_STATUS_STOPPED;
 }
 
+/***
+****
+****  File prioritization
+****
+***/
+
+static uint64_t
+getFileByteOffset( const tr_info_t * info, int fileIndex )
+{
+    int i;
+    uint64_t offset = 0;
+
+    assert( info != NULL );
+    assert( 0<=fileIndex && fileIndex<info->fileCount );
+
+    for( i=0; i<fileIndex; ++i )
+        offset += info->files[i].length;
+
+    return offset;
+}
+
+static int
+getBytePiece( const tr_info_t * info, uint64_t byteOffset )
+{
+    assert( info != NULL );
+    assert( info->pieceSize != 0 );
+
+    return byteOffset / info->pieceSize;
+}
+
+static void
+initFilePieces ( tr_info_t * info, int fileIndex )
+{
+    tr_file_t * file = &info->files[fileIndex];
+    uint64_t firstByte, lastByte;
+
+    assert( info != NULL );
+    assert( 0<=fileIndex && fileIndex<info->fileCount );
+
+    file = &info->files[fileIndex];
+    firstByte = getFileByteOffset( info, fileIndex );
+    lastByte = firstByte + file->length;
+    file->firstPiece = getBytePiece( info, firstByte );
+    file->lastPiece = getBytePiece( info, lastByte );
+    tr_dbg( "file #%d is in pieces [%d...%d] (%s)", fileIndex, file->firstPiece, file->lastPiece, file->name );
+}
+
+static tr_priority_t
+calculatePiecePriority ( const tr_torrent_t * tor,
+                         int                  piece )
+{
+    int i;
+    tr_priority_t priority = TR_PRI_DND;
+
+    for( i=0; i<tor->info.fileCount; ++i )
+    {
+        const tr_file_t * file = &tor->info.files[i];
+        if ( file->firstPiece <= piece
+          && file->lastPiece  >= piece
+          && file->priority   >  priority)
+              priority = file->priority;
+    }
+
+    return priority;
+}
+
+void
+tr_torrentInitFilePieces( tr_torrent_t * tor )
+{
+    int i;
+
+    assert( tor != NULL );
+
+    for( i=0; i<tor->info.fileCount; ++i )
+      initFilePieces( &tor->info, i );
+
+    for( i=0; i<tor->info.pieceCount; ++i )
+      tor->info.pieces[i].priority = calculatePiecePriority( tor, i );
+}
+
+void
+tr_torrentSetFilePriority( tr_torrent_t   * tor,
+                           int              fileIndex,
+                           tr_priority_t    priority )
+{
+    int i;
+    tr_file_t * file;
+
+    assert( tor != NULL );
+    assert( 0<=fileIndex && fileIndex<tor->info.fileCount );
+    assert( priority==TR_PRI_LOW || priority==TR_PRI_NORMAL
+         || priority==TR_PRI_HIGH || priority==TR_PRI_DND );
+
+    file = &tor->info.files[fileIndex];
+    file->priority = priority;
+    for( i=file->firstPiece; i<=file->lastPiece; ++i )
+      tor->info.pieces[i].priority = calculatePiecePriority( tor, i );
+
+    tr_dbg ( "Setting file #%d (pieces %d-%d) priority to %d (%s)",
+             fileIndex, file->firstPiece, file->lastPiece,
+             priority, tor->info.files[fileIndex].name );
+}
+
+tr_priority_t
+tr_torrentGetFilePriority( const tr_torrent_t *  tor, int file )
+{
+    assert( tor != NULL );
+    assert( 0<=file && file<tor->info.fileCount );
+
+    return tor->info.files[file].priority;
+}
+
+
+void
+tr_torrentSetFilePriorities( tr_torrent_t         * tor,
+                             const tr_priority_t  * filePriorities )
+{
+    int i;
+    for( i=0; i<tor->info.pieceCount; ++i )
+      tr_torrentSetFilePriority( tor, i, filePriorities[i] );
+}
+
+tr_priority_t*
+tr_torrentGetFilePriorities( const tr_torrent_t * tor )
+{
+    int i;
+    tr_priority_t * p = malloc( tor->info.fileCount * sizeof(tr_priority_t) );
+    for( i=0; i<tor->info.fileCount; ++i )
+        p[i] = tor->info.files[i].priority;
+    return p;
+}

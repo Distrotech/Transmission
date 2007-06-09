@@ -562,18 +562,41 @@ writeEnd:
         return TR_ERROR;
     }
 
-    if( peer->amInterested && !peer->peerChoking && !peer->banned )
+    if(     peer->amInterested
+        && !peer->peerChoking
+        && !peer->banned
+        &&  peer->inRequestCount < OUR_REQUEST_COUNT )
     {
-        int block;
-        while( peer->inRequestCount < OUR_REQUEST_COUNT )
-        {
-            block = chooseBlock( tor, peer );
-            if( block < 0 )
-            {
-                break;
-            }
-            sendRequest( tor, peer, block );
+        int i;
+        int poolSize=0, endgame=0;
+        int * pool = getPreferredPieces ( tor, peer, &poolSize, &endgame );
+
+        /* TODO: add some asserts to see if this bitfield is really necessary */
+        tr_bitfield_t * blocksAlreadyRequested = tr_bitfieldNew( 1 + tor->info.totalSize / tor->blockSize );
+        for( i=0; i<peer->inRequestCount; ++i) {
+            const tr_request_t * r = &peer->inRequests[i];
+            const int block = tr_block( r->index, r->begin );
+            tr_bitfieldAdd( blocksAlreadyRequested, block );
         }
+
+        for( i=0; i<poolSize && peer->inRequestCount<OUR_REQUEST_COUNT;  )
+        {
+            int unused;
+            const int piece = pool[i];
+            const int block = endgame
+                ? tr_cpMostMissingBlockInPiece( tor->completion, piece, &unused)
+                : tr_cpMissingBlockInPiece ( tor->completion, piece );
+
+            if( block>=0 && (endgame || !tr_bitfieldHas( blocksAlreadyRequested, block ) ) )
+            {
+                tr_bitfieldAdd( blocksAlreadyRequested, block );
+                sendRequest( tor, peer, block );
+            }
+            else ++i;
+        }
+
+        tr_bitfieldFree( blocksAlreadyRequested );
+        free( pool );
     }
 
     return TR_OK;
@@ -735,7 +758,7 @@ void tr_peerBlame( tr_peer_t * peer, int piece, int success )
     tr_bitfieldRem( peer->blamefield, piece );
 }
 
-int tr_peerGetConnectable( tr_torrent_t * tor, uint8_t ** _buf )
+int tr_peerGetConnectable( const tr_torrent_t * tor, uint8_t ** _buf )
 {
     int count = 0;
     uint8_t * buf;

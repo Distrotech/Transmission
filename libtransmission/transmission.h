@@ -177,6 +177,7 @@ void tr_setGlobalDownloadLimit( tr_handle_t *, int );
  **********************************************************************/
 int tr_torrentCount( tr_handle_t * h );
 
+
 /***********************************************************************
  * tr_torrentIterate
  ***********************************************************************
@@ -189,6 +190,44 @@ void tr_torrentIterate( tr_handle_t *, tr_callback_t, void * );
 void tr_setUseCustomLimit( tr_torrent_t * tor, int limit );
 void tr_setUploadLimit( tr_torrent_t * tor, int limit );
 void tr_setDownloadLimit( tr_torrent_t * tor, int limit );
+
+/***********************************************************************
+ * Torrent Priorities
+ **********************************************************************/
+
+enum
+{
+    TR_PRI_DND    = -2, /* Do Not Download */
+    TR_PRI_LOW    = -1,
+    TR_PRI_NORMAL =  0, /* since NORMAL is 0, memset initializes nicely */
+    TR_PRI_HIGH   =  1
+};
+
+typedef int8_t tr_priority_t;
+
+void tr_torrentInitFilePieces( tr_torrent_t * tor );
+
+/* priorities should be an array of tor->info.fileCount bytes,
+ * each holding a value of TR_PRI_NORMAL, _HIGH, _LOW, or _DND. */
+void tr_torrentSetFilePriorities ( tr_torrent_t *, const tr_priority_t * priorities );
+
+/* single-file form of tr_torrentPrioritizeFiles.
+ * priority must be one of TR_PRI_NORMAL, _HIGH, _LOW, or _DND */
+void tr_torrentSetFilePriority( tr_torrent_t *, int file, tr_priority_t priority );
+
+/* returns a malloc()ed array of tor->info.fileCount items,
+ * each holding a value of TR_PRI_NORMAL, _HIGH, _LOW, or _DND.
+   free the array when done. */
+tr_priority_t* tr_torrentGetFilePriorities( const tr_torrent_t * );
+
+/* single-file form of tr_torrentGetFilePriorities.
+ * returns one of TR_PRI_NORMAL, _HIGH, _LOW, or _DND */
+tr_priority_t tr_torrentGetFilePriority( const tr_torrent_t *, int file );
+
+/* returns the priority for the specified piece,
+ * as ranked by the number of files of various priorities in that piece.
+ * a zero priority means DND */
+tr_priority_t tr_torrentGetPiecePriority( const tr_torrent_t *, int pieceIndex );
 
 /***********************************************************************
  * tr_torrentRates
@@ -270,7 +309,7 @@ tr_info_t * tr_torrentInfo( tr_torrent_t * );
 int tr_torrentScrape( tr_torrent_t *, int * s, int * l, int * d );
 
 void   tr_torrentSetFolder( tr_torrent_t *, const char * );
-const char * tr_torrentGetFolder( tr_torrent_t * );
+char * tr_torrentGetFolder( tr_torrent_t * );
 
 int tr_torrentDuplicateDownload( tr_torrent_t * tor );
 
@@ -372,12 +411,24 @@ void tr_torrentClose( tr_torrent_t * );
 /***********************************************************************
  * tr_info_s
  **********************************************************************/
+
 typedef struct tr_file_s
 {
     uint64_t length;                /* Length of the file, in bytes */
     char     name[MAX_PATH_LENGTH]; /* Path to the file */
+    int8_t   priority;              /* TR_PRI_HIGH, _NORMAL, _LOW, or _DND */
+    int      firstPiece;            /* We need pieces [firstPiece... */
+    int      lastPiece;             /* ...lastPiece] to dl this file */
 }
 tr_file_t;
+
+typedef struct tr_piece_s
+{
+    uint8_t  hash[SHA_DIGEST_LENGTH];  /* pieces hash */
+    int8_t   priority;                 /* TR_PRI_HIGH, _NORMAL, _LOW, or _DND */
+}
+tr_piece_t;
+    
 struct tr_info_s
 {
     /* Path to torrent */
@@ -410,7 +461,7 @@ struct tr_info_s
     int                  pieceSize;
     int                  pieceCount;
     uint64_t             totalSize;
-    uint8_t            * pieces;
+    tr_piece_t         * pieces;
 
     /* Files info */
     int                  multifile;

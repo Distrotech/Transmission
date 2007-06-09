@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		002C9EE60C19CD2500C2F6F4 /* fastresume.c in Sources */ = {isa = PBXBuildFile; fileRef = 002C9EE50C19CD2500C2F6F4 /* fastresume.c */; };
 		35B038130AC5B6EB00A10FDF /* ResumeNoWaitOn.png in Resources */ = {isa = PBXBuildFile; fileRef = 35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */; };
 		35B038140AC5B6EC00A10FDF /* ResumeNoWaitOff.png in Resources */ = {isa = PBXBuildFile; fileRef = 35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */; };
 		4D043A7F090AE979009FEDA8 /* TransmissionDocument.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4D043A7E090AE979009FEDA8 /* TransmissionDocument.icns */; };
@@ -248,6 +249,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		002C9EE50C19CD2500C2F6F4 /* fastresume.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = fastresume.c; path = libtransmission/fastresume.c; sourceTree = "<group>"; };
 		089C165DFE840E0CC02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = macosx/English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		1058C7A1FEA54F0111CA2CBB /* Cocoa.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Cocoa.framework; path = /System/Library/Frameworks/Cocoa.framework; sourceTree = "<absolute>"; };
 		13E42FB307B3F0F600E4EEF1 /* CoreData.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreData.framework; path = /System/Library/Frameworks/CoreData.framework; sourceTree = "<absolute>"; };
@@ -713,6 +715,7 @@
 		4D1838DC09DEC04A0047D688 /* libtransmission */ = {
 			isa = PBXGroup;
 			children = (
+				002C9EE50C19CD2500C2F6F4 /* fastresume.c */,
 				A24D2A770C0A65C400A0ED9F /* ipcparse.c */,
 				A24D2A780C0A65C400A0ED9F /* ipcparse.h */,
 				BEFC1DEE0C07861A00B0BB3C /* xml.h */,
@@ -1201,6 +1204,7 @@
 				BEFC1E580C07861A00B0BB3C /* clients.c in Sources */,
 				BEFC1E5A0C07861A00B0BB3C /* choking.c in Sources */,
 				BEFC1E5D0C07861A00B0BB3C /* bencode.c in Sources */,
+				002C9EE60C19CD2500C2F6F4 /* fastresume.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1398,6 +1402,10 @@
 		4D18389C09DEC01E0047D688 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/build/Debug";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1421,6 +1429,10 @@
 		4DDBB71E09E16BF100284745 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/build/Debug";
 				LIBRARY_SEARCH_PATHS = "$(SRCROOT)/build/Debug";
 				OTHER_CFLAGS = (
@@ -1438,6 +1450,10 @@
 		4DF0C599089918A300DD8943 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/macosx";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1486,6 +1502,10 @@
 		BEFC1C0A0C07753800B0BB3C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/build/Debug";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1517,6 +1537,10 @@
 		BEFC1CF80C07822400B0BB3C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/build/Debug";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -1550,6 +1574,10 @@
 		BEFC1D420C0783EE00B0BB3C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					ppc,
+					i386,
+				);
 				CONFIGURATION_BUILD_DIR = "$(SRCROOT)/build/Debug";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
