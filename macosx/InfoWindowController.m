@@ -793,9 +793,9 @@
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([[item objectForKey: @"IsFolder"] boolValue])
-            return [NSNumber numberWithInt: [torrent shouldDownloadFolderForFiles: [item objectForKey: @"Indexes"]]];
+            return [NSNumber numberWithInt: [torrent checkForFileFolder: [item objectForKey: @"Indexes"]]];
         else
-            return [NSNumber numberWithInt: [torrent shouldDownloadFile: [[item objectForKey: @"Index"] intValue]]];
+            return [NSNumber numberWithInt: [torrent checkForFile: [[item objectForKey: @"Index"] intValue]]];
     }
     else
         return item;
@@ -832,7 +832,7 @@
         
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([[item objectForKey: @"IsFolder"] boolValue])
-            [cell setEnabled: [torrent canChangeDownloadCheckFoldersForFiles: [item objectForKey: @"Indexes"]]];
+            [cell setEnabled: [torrent canChangeDownloadCheckForFileFolder: [item objectForKey: @"Indexes"]]];
         else
             [cell setEnabled: [torrent canChangeDownloadCheckFile: [[item objectForKey: @"Index"] intValue]]];
     }
