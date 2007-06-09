@@ -85,21 +85,20 @@ findFileLocation ( const tr_io_t * io,
 
     int i;
     uint64_t filePos = 0;
-    const uint64_t piecePos =
-        ((uint64_t)pieceIndex * info->pieceSize) + pieceOffset;
+    uint64_t piecePos = ((uint64_t)pieceIndex * info->pieceSize) + pieceOffset;
 
     assert ( 0<=pieceIndex && pieceIndex < info->pieceCount );
     assert ( pieceOffset < (size_t)tr_pieceSize(pieceIndex) );
     assert ( piecePos < info->totalSize );
 
-    for( i=0; i<info->pieceCount; ++i )
-        if( filePos+info->files[i].length > piecePos )
-            break;
-        else
-            filePos += info->files[i].length;
+    for ( i=0; info->files[i].length<=piecePos; ++i )
+      piecePos -= info->files[i].length;
 
     *fileIndex = i;
-    *fileOffset = piecePos - filePos;
+    *fileOffset = piecePos;
+
+    assert ( 0<=*fileIndex && *fileIndex<info->fileCount );
+    assert ( *fileOffset < info->files[i].length );
 }
 
 static int
