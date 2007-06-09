@@ -43,9 +43,10 @@ static int static_lastid = 0;
         checkUpload: (NSNumber *) checkUpload uploadLimit: (NSNumber *) uploadLimit
         checkDownload: (NSNumber *) checkDownload downloadLimit: (NSNumber *) downloadLimit
 		pex: (NSNumber *) pex
-        waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue;
+        waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue
+        filesShouldDownload: (NSArray *) filesShouldDownload filePriorities: (NSArray *) filePriorities;
 
-- (void) createFileList;
+- (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities;
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
         withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
         fileSize: (uint64_t) size state: (int) state flatList: (NSMutableArray *) flatList;
@@ -79,7 +80,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             checkUpload: nil uploadLimit: nil
             checkDownload: nil downloadLimit: nil
 			pex: nil
-            waitToStart: nil orderValue: nil];
+            waitToStart: nil orderValue: nil
+            filesShouldDownload: nil filePriorities: nil];
     
     if (self)
     {
@@ -109,7 +111,9 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                 downloadLimit: [history objectForKey: @"DownloadLimit"]
 				pex: [history objectForKey: @"Pex"]
                 waitToStart: [history objectForKey: @"WaitToStart"]
-                orderValue: [history objectForKey: @"OrderValue"]];
+                orderValue: [history objectForKey: @"OrderValue"]
+                filesShouldDownload: [history objectForKey: @"FilesShouldDownload"]
+                filePriorities: [history objectForKey: @"FilePriorities"]];
     
     if (self)
     {
@@ -167,8 +171,17 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                     [NSNumber numberWithInt: fCheckDownload], @"CheckDownload",
                     [NSNumber numberWithInt: fDownloadLimit], @"DownloadLimit",
                     [NSNumber numberWithBool: fWaitToStart], @"WaitToStart",
-                    [self orderValue], @"OrderValue", nil];
+                    [self orderValue], @"OrderValue",
+                    nil];
     
+    NSMutableArray * filesShouldDownload = [NSMutableArray arrayWithCapacity: [fFileFlatList count]];
+    NSEnumerator * enumerator = [fFileFlatList objectEnumerator];
+    NSDictionary * file;
+    while ((file = [enumerator nextObject]))
+        [filesShouldDownload addObject: [file objectForKey: @"Check"]];
+    [history setObject: filesShouldDownload forKey: @"FilesShouldDownload"];
+    
+    #warning add priorities
     if (fUseIncompleteFolder)
         [history setObject: fIncompleteFolder forKey: @"IncompleteFolder"];
 
@@ -1462,6 +1475,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         checkDownload: (NSNumber *) checkDownload downloadLimit: (NSNumber *) downloadLimit
 		pex: (NSNumber *) pex
         waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue
+        filesShouldDownload: (NSArray *) filesShouldDownload filePriorities: (NSArray *) filePriorities;
 {
     if (!(self = [super init]))
         return nil;
@@ -1536,7 +1550,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     fShortStatusString = [[NSMutableString alloc] initWithCapacity: 30];
     fRemainingTimeString = [[NSMutableString alloc] initWithCapacity: 30];
     
-    [self createFileList];
+    [self createFileListShouldDownload: filesShouldDownload priorities: filePriorities];
     
     //set up advanced bar
     fBitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes: nil
@@ -1552,12 +1566,13 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return self;
 }
 
-- (void) createFileList
+- (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities
 {
     int count = [self fileCount], i;
     tr_file_t * file;
     NSMutableArray * pathComponents;
     NSString * path;
+    int shouldDownload;
     
     NSMutableArray * fileList = [[NSMutableArray alloc] init],
                     * fileFlatList = [[NSMutableArray alloc] initWithCapacity: count];
@@ -1575,8 +1590,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         else
             path = @"";
         
+        shouldDownload = filesShouldDownload ? [[filesShouldDownload objectAtIndex: i] intValue] : NSOnState;
+        #warning add priorities
+        tr_torrentSetFilePriority(fHandle, i, shouldDownload == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
+        
         [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
-                fileSize: file->length state: NSOnState flatList: fileFlatList];
+                fileSize: file->length state: shouldDownload flatList: fileFlatList];
         [pathComponents autorelease];
     }
     
@@ -1608,9 +1627,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     if (!dict)
     {
         dict = [NSMutableDictionary dictionaryWithObjectsAndKeys: name, @"Name",
-                                [NSNumber numberWithBool: isFolder], @"IsFolder",
-                                currentPath, @"Path", nil];
-        
+                [NSNumber numberWithBool: isFolder], @"IsFolder", currentPath, @"Path", nil];
         [siblings addObject: dict];
         
         if (isFolder)
