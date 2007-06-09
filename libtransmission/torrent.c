@@ -599,6 +599,7 @@ void tr_torrentAvailability( tr_torrent_t * tor, int8_t * tab, int size )
     tr_lockUnlock( &tor->lock );
 }
 
+/* !!!!!!!!!! ADD ABILITY TO DO FOR INDIVIDUAL FILES !!!!!!!!!!!!!! */
 float * tr_torrentCompletion( tr_torrent_t * tor )
 {
     tr_info_t * inf = &tor->info;

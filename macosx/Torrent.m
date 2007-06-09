@@ -48,8 +48,8 @@ static int static_lastid = 0;
 
 - (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities;
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
-        withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-        fileSize: (uint64_t) size state: (int) state flatList: (NSMutableArray *) flatList;
+            withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
+            fileSize: (uint64_t) size index: (int) index;
 - (NSImage *) advancedBar;
 - (void) trashFile: (NSString *) path;
 
@@ -174,11 +174,15 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                     [self orderValue], @"OrderValue",
                     nil];
     
-    NSMutableArray * filesShouldDownload = [NSMutableArray arrayWithCapacity: [fFileFlatList count]];
-    NSEnumerator * enumerator = [fFileFlatList objectEnumerator];
-    NSDictionary * file;
-    while ((file = [enumerator nextObject]))
-        [filesShouldDownload addObject: [file objectForKey: @"Check"]];
+    //set file priorities
+    int fileCount = [self fileCount];
+    NSMutableArray * filesShouldDownload = [NSMutableArray arrayWithCapacity: fileCount];
+    
+    tr_priority_t * priorities = tr_torrentGetFilePriorities(fHandle);
+    int i;
+    for (i = 0; i < fileCount; i++)
+        [filesShouldDownload addObject: [NSNumber numberWithInt: priorities[i]]];
+    free(priorities);
     [history setObject: filesShouldDownload forKey: @"FilesShouldDownload"];
     
     #warning add priorities
@@ -236,7 +240,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         [fRemainingTimeString release];
         
         [fFileList release];
-        [fFileFlatList release];
         
         [fBitmap release];
         free(fPieces);
@@ -1302,88 +1305,62 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fInfo->fileCount;
 }
 
-- (BOOL) updateFileProgress
+- (float) fileProgress: (int) index
 {
-    BOOL change = NO;
+    #warning redo for single
     float * progress = tr_torrentCompletion(fHandle);
-    NSNumber * progressNum;
-    NSMutableDictionary * item, * dict;
-    
-    int i, fileCount = [self fileCount];
-    for (i = 0; i < fileCount; i++)
-    {
-        if (!(progressNum = [[fFileFlatList objectAtIndex: i] objectForKey: @"Progress"])
-                || [progressNum floatValue] != progress[i])
-        {
-            item = [fFileFlatList objectAtIndex: i];
-            [item setObject: [NSNumber numberWithFloat: progress[i]] forKey: @"Progress"];
-            change = YES;
-            
-            if (progress[i] == 1.0)
-            {
-                dict = item;
-                while ((dict = [dict objectForKey: @"Parent"]))
-                    [dict setObject: [NSNumber numberWithInt: [[dict objectForKey: @"Remaining"] intValue]-1]
-                            forKey: @"Remaining"];
-                
-                [item setObject: [NSNumber numberWithInt: NSOnState] forKey: @"Check"];
-                [self resetFileCheckStateForItemParent: item];
-            }
-        }
-    }
-    
+    float fileProgress = progress[index];
     free(progress);
     
-    return change;
+    return fileProgress;
 }
 
-- (void) setFileCheckState: (int) state forFileItem: (NSMutableDictionary *) item
+- (int) shouldDownloadItem: (NSDictionary *) item
 {
-    [item setObject: [NSNumber numberWithInt: state] forKey: @"Check"];
-    
-    if (![[item objectForKey: @"IsFolder"] boolValue])
-        return;
-    
-    NSMutableDictionary * child;
-    NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
-    while ((child = [enumerator nextObject]))
-        if (state != [[child objectForKey: @"Check"] intValue])
-            [self setFileCheckState: state forFileItem: child];
-}
-
-- (NSMutableDictionary *) resetFileCheckStateForItemParent: (NSMutableDictionary *) originalChild
-{
-    NSMutableDictionary * item;
-    if (!(item = [originalChild objectForKey: @"Parent"]))
-        return originalChild;
-    
-    int state = INVALID;
-    
-    NSMutableDictionary * child;
-    NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
-    while ((child = [enumerator nextObject]))
+    if ([[item objectForKey: @"IsFolder"] boolValue])
     {
-        if (state == INVALID)
-        {
-            state = [[child objectForKey: @"Check"] intValue];
-            if (state == NSMixedState)
-                break;
-        }
-        else if (state != [[child objectForKey: @"Check"] intValue])
-        {
-            state = NSMixedState;
-            break;
-        }
-        else;
-    }
-    
-    if (state != [[item objectForKey: @"Check"] intValue])
-    {
-        [item setObject: [NSNumber numberWithInt: state] forKey: @"Check"];
-        return [self resetFileCheckStateForItemParent: item];
+        #warning do
+        return NSOnState;
     }
     else
-        return originalChild;
+    {
+        int index = [[item objectForKey: @"Index"] intValue];
+        return tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0
+                ? NSOnState : NSOffState;
+    }
+}
+
+- (BOOL) canChangeDownloadItemCheck: (NSDictionary *) item
+{
+    if ([[item objectForKey: @"IsFolder"] boolValue])
+    {
+        #warning do
+        return YES;
+    }
+    else
+    {
+        #warning why is this happening?
+        float progress = [self fileProgress: [[item objectForKey: @"Index"] intValue]];
+        if (progress < 1.0)
+            NSLog(@"hi %f", progress);
+        else
+            NSLog(@"asdgagh %f", progress);
+        return [self fileProgress: [[item objectForKey: @"Index"] intValue]] < 1.0;
+    }
+}
+
+- (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item
+{
+    if (![[item objectForKey: @"IsFolder"] boolValue])
+        tr_torrentSetFilePriority(fHandle, [[item objectForKey: @"Index"] intValue],
+                                    state == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
+    else
+    {
+        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
+        NSDictionary * child;
+        while ((child = [enumerator nextObject]))
+            [self setFileCheckState: state forFileItem: child];
+    }
 }
 
 - (NSDate *) dateAdded
@@ -1574,8 +1551,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     NSString * path;
     int shouldDownload;
     
-    NSMutableArray * fileList = [[NSMutableArray alloc] init],
-                    * fileFlatList = [[NSMutableArray alloc] initWithCapacity: count];
+    NSMutableArray * fileList = [[NSMutableArray alloc] init];
     
     for (i = 0; i < count; i++)
     {
@@ -1590,24 +1566,22 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         else
             path = @"";
         
+        [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
+                fileSize: file->length index: i];
+        [pathComponents autorelease];
+        
         shouldDownload = filesShouldDownload ? [[filesShouldDownload objectAtIndex: i] intValue] : NSOnState;
         #warning add priorities
         tr_torrentSetFilePriority(fHandle, i, shouldDownload == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
-        
-        [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
-                fileSize: file->length state: shouldDownload flatList: fileFlatList];
-        [pathComponents autorelease];
     }
     
     fFileList = [[NSArray alloc] initWithArray: fileList];
     [fileList release];
-    fFileFlatList = [[NSArray alloc] initWithArray: fileFlatList];
-    [fileFlatList release];
 }
 
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
         withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-        fileSize: (uint64_t) size state: (int) state flatList: (NSMutableArray *) flatList
+        fileSize: (uint64_t) size index: (int) index
 {
     NSString * name = [components objectAtIndex: 0];
     BOOL isFolder = [components count] > 1;
@@ -1633,34 +1607,28 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         if (isFolder)
         {
             [dict setObject: [NSMutableArray array] forKey: @"Children"];
-            [dict setObject: [NSNumber numberWithInt: 1] forKey: @"Remaining"];
         }
         else
         {
-            [flatList addObject: dict];
+            [dict setObject: [NSNumber numberWithInt: index] forKey: @"Index"];
             [dict setObject: [NSNumber numberWithUnsignedLongLong: size] forKey: @"Size"];
             [dict setObject: [[NSWorkspace sharedWorkspace] iconForFileType: [name pathExtension]] forKey: @"Icon"];
         }
         
         if (parent)
             [dict setObject: parent forKey: @"Parent"];
-        [dict setObject: [NSNumber numberWithInt: state] forKey: @"Check"];
     }
     else
     {
         if (isFolder)
             [dict setObject: [NSNumber numberWithInt: [[dict objectForKey: @"Remaining"] intValue]+1] forKey: @"Remaining"];
-        
-        int dictState = [[dict objectForKey: @"Check"] intValue];
-        if (dictState != NSMixedState && dictState != state)
-            [dict setObject: [NSNumber numberWithInt: NSMixedState] forKey: @"Check"];
     }
     
     if (isFolder)
     {
         [components removeObjectAtIndex: 0];
         [self insertPath: components forSiblings: [dict objectForKey: @"Children"]
-            withParent: dict previousPath: currentPath fileSize: size state: state flatList: flatList];
+            withParent: dict previousPath: currentPath fileSize: size index: index];
     }
 }
 

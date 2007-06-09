@@ -23,6 +23,7 @@
  *****************************************************************************/
 
 #import "InfoWindowController.h"
+#import "FileBrowserCell.h"
 #import "StringAdditions.h"
 
 #define MIN_WINDOW_WIDTH 300
@@ -428,10 +429,7 @@
 
 - (void) updateInfoFiles
 {
-    if ([fTorrents count] != 1)
-        return;
-    
-    if ([[fTorrents objectAtIndex: 0] updateFileProgress])
+    if ([fTorrents count] == 1)
         [fFileOutline reloadData];
 }
 
@@ -795,7 +793,7 @@
         return nil;
     
     if ([[tableColumn identifier] isEqualToString: @"Check"])
-        return [item objectForKey: @"Check"];
+        return [NSNumber numberWithInt: [[fTorrents objectAtIndex: 0] shouldDownloadItem: item]];
     else
         return item;
 }
@@ -808,7 +806,16 @@
         if (!item)
             return;
         
-        [cell setImage: [[item objectForKey: @"IsFolder"] boolValue] ? fFolderIcon : [item objectForKey: @"Icon"]];
+        BOOL isFolder;
+        #warning move folder icon into FileBrowserCell
+        if ((isFolder = [[item objectForKey: @"IsFolder"] boolValue]))
+            [cell setImage: fFolderIcon];
+        else
+        {
+            [cell setImage: [item objectForKey: @"Icon"]];
+            [(FileBrowserCell *)cell setProgress: [[fTorrents objectAtIndex: 0] fileProgress:
+                                                    [[item objectForKey: @"Index"] floatValue]]];
+        }
     }
     else if ([[tableColumn identifier] isEqualToString: @"Check"])
     {
@@ -820,8 +827,7 @@
         }
         
         [(NSButtonCell *)cell setImagePosition: NSImageOnly];
-        [cell setEnabled: [[item objectForKey: @"IsFolder"] boolValue] ? [[item objectForKey: @"Remaining"] intValue] > 0
-                                                                    : [[item objectForKey: @"Progress"] floatValue] < 1.0];
+        [cell setEnabled: [[fTorrents objectAtIndex: 0] canChangeDownloadItemCheck: item]];
     }
     else;
 }
@@ -833,9 +839,7 @@
     int state = [object intValue] != NSOffState ? NSOnState : NSOffState;
     
     [torrent setFileCheckState: state forFileItem: item];
-    NSMutableDictionary * topItem = [torrent resetFileCheckStateForItemParent: item];
-    
-    [fFileOutline reloadItem: topItem reloadChildren: YES];
+    [fFileOutline reloadData];
 }
 
 - (NSString *) outlineView: (NSOutlineView *) outlineView toolTipForCell: (NSCell *) cell rect: (NSRectPointer) rect

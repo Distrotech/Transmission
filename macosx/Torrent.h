@@ -53,7 +53,7 @@
     NSImage * fIcon, * fIconFlipped, * fIconSmall;
     NSMutableString * fNameString, * fProgressString, * fStatusString, * fShortStatusString, * fRemainingTimeString;
     
-    NSArray * fFileList, * fFileFlatList;
+    NSArray * fFileList;
     
     int     fUploadLimit, fDownloadLimit;
     float   fRatioLimit;
@@ -201,9 +201,10 @@
 
 - (NSArray *) fileList;
 - (int) fileCount;
-- (BOOL) updateFileProgress;
-- (void) setFileCheckState: (int) state forFileItem: (NSMutableDictionary *) item;
-- (NSMutableDictionary *) resetFileCheckStateForItemParent: (NSMutableDictionary *) originalChild;
+- (float) fileProgress: (int) index;
+- (int) shouldDownloadItem: (NSDictionary *) item;
+- (BOOL) canChangeDownloadItemCheck: (NSDictionary *) item;
+- (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item;
 
 - (NSDate *) dateAdded;
 - (NSDate *) dateCompleted;
