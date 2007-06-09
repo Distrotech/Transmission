@@ -793,7 +793,15 @@
         return nil;
     
     if ([[tableColumn identifier] isEqualToString: @"Check"])
-        return [NSNumber numberWithInt: [[fTorrents objectAtIndex: 0] shouldDownloadItem: item]];
+    {
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        NSIndexSet * indexSet;
+        if ([[item objectForKey: @"IsFolder"] boolValue])
+            indexSet = [item objectForKey: @"Indexes"];
+        else
+            indexSet = [NSIndexSet indexSetWithIndex: [[item objectForKey: @"Index"] intValue]];
+        return [NSNumber numberWithInt: [[fTorrents objectAtIndex: 0] shouldDownloadFiles: indexSet]];
+    }
     else
         return item;
 }
@@ -814,7 +822,7 @@
         {
             [cell setImage: [item objectForKey: @"Icon"]];
             [(FileBrowserCell *)cell setProgress: [[fTorrents objectAtIndex: 0] fileProgress:
-                                                    [[item objectForKey: @"Index"] floatValue]]];
+                                                    [[item objectForKey: @"Index"] intValue]]];
         }
     }
     else if ([[tableColumn identifier] isEqualToString: @"Check"])
@@ -827,7 +835,14 @@
         }
         
         [(NSButtonCell *)cell setImagePosition: NSImageOnly];
-        [cell setEnabled: [[fTorrents objectAtIndex: 0] canChangeDownloadItemCheck: item]];
+        
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        NSIndexSet * indexSet;
+        if ([[item objectForKey: @"IsFolder"] boolValue])
+            indexSet = [item objectForKey: @"Indexes"];
+        else
+            indexSet = [NSIndexSet indexSetWithIndex: [[item objectForKey: @"Index"] intValue]];
+        [cell setEnabled: [torrent canChangeDownloadCheckFiles: indexSet]];
     }
     else;
 }

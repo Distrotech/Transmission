@@ -1315,38 +1315,30 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fileProgress;
 }
 
-- (int) shouldDownloadItem: (NSDictionary *) item
+- (int) shouldDownloadFiles: (NSIndexSet *) indexSet
 {
-    if ([[item objectForKey: @"IsFolder"] boolValue])
+    BOOL onState = NO, offState = NO;
+    int index;
+    for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
     {
-        #warning do
-        return NSOnState;
+        if (tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0)
+            onState = YES;
+        else
+            offState = YES;
+        
+        if (onState == offState)
+            return NSMixedState;
     }
-    else
-    {
-        int index = [[item objectForKey: @"Index"] intValue];
-        return tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0
-                ? NSOnState : NSOffState;
-    }
+    return onState ? NSOnState : NSOffState;
 }
 
-- (BOOL) canChangeDownloadItemCheck: (NSDictionary *) item
+- (BOOL) canChangeDownloadCheckFiles: (NSIndexSet *) indexSet
 {
-    if ([[item objectForKey: @"IsFolder"] boolValue])
-    {
-        #warning do
-        return YES;
-    }
-    else
-    {
-        #warning why is this happening?
-        float progress = [self fileProgress: [[item objectForKey: @"Index"] intValue]];
-        if (progress < 1.0)
-            NSLog(@"hi %f", progress);
-        else
-            NSLog(@"asdgagh %f", progress);
-        return [self fileProgress: [[item objectForKey: @"Index"] intValue]] < 1.0;
-    }
+    int index;
+    for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
+        if ([self fileProgress: index] < 1.0)
+            return YES;
+    return NO;
 }
 
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item
@@ -1607,6 +1599,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         if (isFolder)
         {
             [dict setObject: [NSMutableArray array] forKey: @"Children"];
+            [dict setObject: [NSMutableIndexSet indexSetWithIndex: index] forKey: @"Indexes"];
         }
         else
         {
@@ -1621,7 +1614,10 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     else
     {
         if (isFolder)
+        {
             [dict setObject: [NSNumber numberWithInt: [[dict objectForKey: @"Remaining"] intValue]+1] forKey: @"Remaining"];
+            [[dict objectForKey: @"Indexes"] addIndex: index];
+        }
     }
     
     if (isFolder)
