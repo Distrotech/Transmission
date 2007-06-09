@@ -1317,7 +1317,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (int) shouldDownloadFile: (int) index
 {
-    return tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0
+    return (tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0)
             ? NSOnState : NSOffState;
 }
 
