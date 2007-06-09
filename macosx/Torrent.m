@@ -181,7 +181,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     tr_priority_t * priorities = tr_torrentGetFilePriorities(fHandle);
     int i;
     for (i = 0; i < fileCount; i++)
-        [filesShouldDownload addObject: [NSNumber numberWithInt: priorities[i]]];
+        [filesShouldDownload addObject: [NSNumber numberWithBool: priorities[i] != TR_PRI_DND]];
     free(priorities);
     [history setObject: filesShouldDownload forKey: @"FilesShouldDownload"];
     
@@ -1552,7 +1552,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     tr_file_t * file;
     NSMutableArray * pathComponents;
     NSString * path;
-    int shouldDownload;
+    BOOL shouldDownload;
     
     NSMutableArray * fileList = [[NSMutableArray alloc] init];
     
@@ -1573,9 +1573,9 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                 fileSize: file->length index: i];
         [pathComponents autorelease];
         
-        shouldDownload = filesShouldDownload ? [[filesShouldDownload objectAtIndex: i] intValue] : NSOnState;
+        shouldDownload = filesShouldDownload ? [[filesShouldDownload objectAtIndex: i] boolValue] : YES;
         #warning add priorities
-        tr_torrentSetFilePriority(fHandle, i, shouldDownload == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
+        tr_torrentSetFilePriority(fHandle, i, YES ? TR_PRI_NORMAL : TR_PRI_DND);
     }
     
     fFileList = [[NSArray alloc] initWithArray: fileList];
