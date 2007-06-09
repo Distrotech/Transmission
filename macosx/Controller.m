@@ -1635,7 +1635,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     NSString * filterType = [fDefaults stringForKey: @"Filter"];
     BOOL filtering = ![filterType isEqualToString: @"None"];
     
-    int downloading = 0, seeding = 0, paused = 0, all = 0;
+    int downloading = 0, seeding = 0, paused = 0;
     BOOL isDownloading = [filterType isEqualToString: @"Download"],
             isSeeding = [filterType isEqualToString: @"Seed"],
             isPaused = [filterType isEqualToString: @"Pause"];

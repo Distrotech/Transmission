@@ -84,7 +84,6 @@ findFileLocation ( const tr_io_t * io,
     const tr_info_t * info = &tor->info;
 
     int i;
-    uint64_t filePos = 0;
     uint64_t piecePos = ((uint64_t)pieceIndex * info->pieceSize) + pieceOffset;
 
     assert ( 0<=pieceIndex && pieceIndex < info->pieceCount );
