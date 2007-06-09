@@ -1315,6 +1315,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return fileProgress;
 }
 
+#warning divide
 - (int) shouldDownloadFiles: (NSIndexSet *) indexSet
 {
     BOOL onState = NO, offState = NO;
@@ -1332,6 +1333,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return onState ? NSOnState : NSOffState;
 }
 
+#warning divide
 - (BOOL) canChangeDownloadCheckFiles: (NSIndexSet *) indexSet
 {
     int index;
