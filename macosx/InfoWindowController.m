@@ -75,8 +75,6 @@
         fAppIcon = [NSImage imageNamed: @"NSApplicationIcon"];
         fDotGreen = [NSImage imageNamed: @"GreenDot.tiff"];
         fDotRed = [NSImage imageNamed: @"RedDot.tiff"];
-        
-        fFolderIcon = [[[NSWorkspace sharedWorkspace] iconForFileType: NSFileTypeForHFSTypeCode('fldr')] copy];
     }
     return self;
 }
@@ -120,7 +118,6 @@
     if (fFiles)
         [fFiles release];
     
-    [fFolderIcon release];
     [super dealloc];
 }
 
@@ -815,9 +812,8 @@
             return;
         
         BOOL isFolder;
-        #warning move folder icon into FileBrowserCell
         if ((isFolder = [[item objectForKey: @"IsFolder"] boolValue]))
-            [cell setImage: fFolderIcon];
+            [cell setImage: nil];
         else
         {
             [cell setImage: [item objectForKey: @"Icon"]];
