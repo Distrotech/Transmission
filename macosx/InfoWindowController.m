@@ -766,29 +766,23 @@
 - (int) outlineView: (NSOutlineView *) outlineView numberOfChildrenOfItem: (id) item
 {
     if (!item)
-        return fFiles ? [fFiles count] : 1;
+        return [fFiles count];
     return [[item objectForKey: @"IsFolder"] boolValue] ? [[item objectForKey: @"Children"] count] : 0;
 }
 
 - (BOOL) outlineView: (NSOutlineView *) outlineView isItemExpandable: (id) item 
 {
-    return item && [[item objectForKey: @"IsFolder"] boolValue];
+    return [[item objectForKey: @"IsFolder"] boolValue];
 }
 
 - (id) outlineView: (NSOutlineView *) outlineView child: (int) index ofItem: (id) item
 {
-    if (!fFiles)
-        return nil;
-    
     return [(item ? [item objectForKey: @"Children"] : fFiles) objectAtIndex: index];
 }
 
 - (id) outlineView: (NSOutlineView *) outlineView objectValueForTableColumn: (NSTableColumn *) tableColumn
             byItem: (id) item
 {
-    if (!item)
-        return nil;
-    
     if ([[tableColumn identifier] isEqualToString: @"Check"])
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
@@ -806,9 +800,6 @@
 {
     if ([[tableColumn identifier] isEqualToString: @"Name"])
     {
-        if (!item)
-            return;
-        
         BOOL isFolder;
         if ((isFolder = [[item objectForKey: @"IsFolder"] boolValue]))
             [cell setImage: nil];
@@ -821,14 +812,7 @@
     }
     else if ([[tableColumn identifier] isEqualToString: @"Check"])
     {
-        if (!item)
-        {
-            [(NSButtonCell *)cell setImagePosition: NSNoImage];
-            [cell setEnabled: NO];
-            return;
-        }
-        
-        [(NSButtonCell *)cell setImagePosition: NSImageOnly];
+        //[(NSButtonCell *)cell setImagePosition: NSImageOnly];
         
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([[item objectForKey: @"IsFolder"] boolValue])
@@ -852,9 +836,6 @@
 - (NSString *) outlineView: (NSOutlineView *) outlineView toolTipForCell: (NSCell *) cell rect: (NSRectPointer) rect
                 tableColumn: (NSTableColumn *) tableColumn item: (id) item mouseLocation: (NSPoint) mouseLocation
 {
-    if (!item)
-        return nil;
-    
     NSString * ident = [tableColumn identifier];
     if ([ident isEqualToString: @"Name"])
         return [[[fTorrents objectAtIndex: 0] downloadFolder] stringByAppendingPathComponent: [item objectForKey: @"Path"]];
@@ -868,11 +849,6 @@
         return FILE_ROW_SMALL_HEIGHT;
     else
         return [outlineView rowHeight];
-}
-
-- (BOOL) outlineView: (NSOutlineView *) outlineView shouldSelectItem: (id) item
-{
-    return item != nil;
 }
 
 - (NSArray *) peerSortDescriptors

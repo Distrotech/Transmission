@@ -24,6 +24,7 @@
 
 #import "FileOutlineView.h"
 #import "FileBrowserCell.h"
+#import "Torrent.h"
 
 @implementation FileOutlineView
 
@@ -34,6 +35,42 @@
     
     [self setAutoresizesOutlineColumn: NO];
     [self setIndentationPerLevel: 14.0];
+    
+    normalColor = [[self backgroundColor] retain];
+    highPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 0.55 blue: 0.5 alpha: 1.0] retain];
+    lowPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 1.0 blue: 0.4 alpha: 1.0] retain];
+}
+
+- (void) dealloc
+{
+    [normalColor release];
+    [highPriorityColor release];
+    [lowPriorityColor release];
+    
+    [super dealloc];
+}
+
+- (void) drawRow: (int) row clipRect: (NSRect) clipRect
+{
+    if (![self isRowSelected: row])
+    {
+        NSDictionary * item = [self itemAtRow: row];
+        if ([[item objectForKey: @"IsFolder"] boolValue])
+            [normalColor set];
+        else
+        {
+            int priority = [[item objectForKey: @"Priority"] intValue];
+            if (priority == PRIORITY_HIGH)
+                [highPriorityColor set];
+            else if (priority == PRIORITY_LOW)
+                [lowPriorityColor set];
+            else
+                [normalColor set];
+        }
+        NSRectFill([self rectOfRow: row]);
+    }
+    
+    [super drawRow: row clipRect: clipRect];
 }
 
 - (void) mouseDown: (NSEvent *) event
