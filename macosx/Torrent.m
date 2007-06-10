@@ -30,10 +30,6 @@
 #define MAX_PIECES 324
 #define BLANK_PIECE -99
 
-#define PRIORITY_LOW -1
-#define PRIORITY_NORMAL 0
-#define PRIORITY_HIGH 1
-
 static int static_lastid = 0;
 
 @interface Torrent (Private)
@@ -1605,7 +1601,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         else
             path = @"";
         
-        priority = filePriorities ? [[filesShouldDownload objectAtIndex: i] intValue] : PRIORITY_NORMAL;
+        priority = filePriorities ? [[filePriorities objectAtIndex: i] intValue] : PRIORITY_NORMAL;
         [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
                 fileSize: file->length index: i priority: priority];
         [pathComponents autorelease];
