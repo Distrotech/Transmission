@@ -164,7 +164,6 @@
 - (BOOL) isChecking;
 - (BOOL) isError;
 - (NSString *) errorMessage;
-- (BOOL) justFinished;
 
 - (NSArray *) peers;
 

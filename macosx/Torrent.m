@@ -30,6 +30,10 @@
 #define MAX_PIECES 324
 #define BLANK_PIECE -99
 
+#define PRIORITY_LOW -1
+#define PRIORITY_NORMAL 0
+#define PRIORITY_HIGH 1
+
 static int static_lastid = 0;
 
 @interface Torrent (Private)
@@ -49,7 +53,7 @@ static int static_lastid = 0;
 - (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities;
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
             withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-            fileSize: (uint64_t) size index: (int) index;
+            fileSize: (uint64_t) size index: (int) index priority: (int) priority;
 - (NSImage *) advancedBar;
 - (void) trashFile: (NSString *) path;
 
@@ -185,7 +189,10 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     free(priorities);
     [history setObject: filesShouldDownload forKey: @"FilesShouldDownload"];
     
-    #warning add priorities
+    NSMutableArray * filePriorities = [NSMutableArray arrayWithCapacity: fileCount];
+    #warning get priorities
+    [history setObject: filePriorities forKey: @"FilePriorities"];
+    
     if (fUseIncompleteFolder)
         [history setObject: fIncompleteFolder forKey: @"IncompleteFolder"];
 
@@ -300,7 +307,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     fStat = tr_torrentStat(fHandle);
     
     //notification when downloading finished
-    if ([self justFinished])
+    if (tr_getFinished(fHandle))
     {
         BOOL canMove = YES;
         
@@ -1123,11 +1130,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return error;
 }
 
-- (BOOL) justFinished
-{
-    return tr_getFinished(fHandle);
-}
-
 - (NSArray *) peers
 {
     int totalPeers, i;
@@ -1349,6 +1351,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item
 {
+    #warning use index set
     if (![[item objectForKey: @"IsFolder"] boolValue])
         tr_torrentSetFilePriority(fHandle, [[item objectForKey: @"Index"] intValue],
                                     state == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
@@ -1547,7 +1550,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     tr_file_t * file;
     NSMutableArray * pathComponents;
     NSString * path;
-    BOOL shouldDownload;
+    int priority;
+    tr_priority_t actualPriority;
     
     NSMutableArray * fileList = [[NSMutableArray alloc] init];
     
@@ -1564,13 +1568,24 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         else
             path = @"";
         
+        priority = filePriorities ? [[filesShouldDownload objectAtIndex: i] intValue] : PRIORITY_NORMAL;
         [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
-                fileSize: file->length index: i];
+                fileSize: file->length index: i priority: priority];
         [pathComponents autorelease];
         
-        shouldDownload = filesShouldDownload ? [[filesShouldDownload objectAtIndex: i] boolValue] : YES;
-        #warning add priorities
-        tr_torrentSetFilePriority(fHandle, i, YES ? TR_PRI_NORMAL : TR_PRI_DND);
+        if (!filesShouldDownload || [[filesShouldDownload objectAtIndex: i] boolValue])
+        {
+            if (priority == PRIORITY_HIGH)
+                actualPriority = TR_PRI_HIGH;
+            else if (priority == PRIORITY_LOW)
+                actualPriority = TR_PRI_LOW;
+            else
+                actualPriority = TR_PRI_NORMAL;
+        }
+        else
+            actualPriority = TR_PRI_DND;
+        
+        tr_torrentSetFilePriority(fHandle, i, actualPriority);
     }
     
     fFileList = [[NSArray alloc] initWithArray: fileList];
@@ -1579,7 +1594,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
         withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-        fileSize: (uint64_t) size index: (int) index
+        fileSize: (uint64_t) size index: (int) index priority: (int) priority
 {
     NSString * name = [components objectAtIndex: 0];
     BOOL isFolder = [components count] > 1;
@@ -1612,6 +1627,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             [dict setObject: [NSNumber numberWithInt: index] forKey: @"Index"];
             [dict setObject: [NSNumber numberWithUnsignedLongLong: size] forKey: @"Size"];
             [dict setObject: [[NSWorkspace sharedWorkspace] iconForFileType: [name pathExtension]] forKey: @"Icon"];
+            [dict setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
         }
         
         if (parent)
@@ -1627,7 +1643,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     {
         [components removeObjectAtIndex: 0];
         [self insertPath: components forSiblings: [dict objectForKey: @"Children"]
-            withParent: dict previousPath: currentPath fileSize: size index: index];
+            withParent: dict previousPath: currentPath fileSize: size index: index priority: priority];
     }
 }
 
