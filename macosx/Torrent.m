@@ -1404,6 +1404,21 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     }
 }
 
+- (BOOL) hasFilePriority: (int) priority forItem: (NSDictionary *) item
+{
+    if (![[item objectForKey: @"IsFolder"] boolValue])
+        return priority == [[item objectForKey: @"Priority"] intValue];
+    else
+    {
+        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
+        NSDictionary * child;
+        while ((child = [enumerator nextObject]))
+            if ([self hasFilePriority: priority forItem: child])
+                return YES;
+        return NO;
+    }
+}
+
 - (NSDate *) dateAdded
 {
     return fDateAdded;

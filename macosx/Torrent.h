@@ -211,6 +211,7 @@
 - (BOOL) canChangeDownloadCheckForFileFolder: (NSIndexSet *) indexSet;
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item;
 - (void) setFilePriority: (int) priority forFileItem: (NSMutableDictionary *) item;
+- (BOOL) hasFilePriority: (int) priority forItem: (NSDictionary *) item;
 
 - (NSDate *) dateAdded;
 - (NSDate *) dateCompleted;

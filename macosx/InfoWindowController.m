@@ -628,6 +628,7 @@
         NSIndexSet * indexSet = [fFileOutline selectedRowIndexes];
         BOOL current = NO, other = NO;
         int i, priority;
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
         
         if (menuItem == fFilePriorityHigh)
             priority = PRIORITY_HIGH;
@@ -638,15 +639,10 @@
         
         for (i = [indexSet firstIndex]; i != NSNotFound && (!current || !other); i = [indexSet indexGreaterThanIndex: i])
         {
-            item = [fFileOutline itemAtRow: i];
-            #warning get working with folders
-            if ([[item objectForKey: @"IsFolder"] boolValue])
-                continue;
-            
-            if (priority == [[item objectForKey: @"Priority"] intValue])
+            if ([torrent hasFilePriority: priority forItem: [fFileOutline itemAtRow: i]])
                 current = YES;
             else
-                other = YES;
+                other = YES;  
         }
         
         [menuItem setState: current ? (other ? NSMixedState : NSOnState) : NSOffState];
