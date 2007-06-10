@@ -617,9 +617,42 @@
     
     if (action == @selector(setPriority:))
     {
-        return [fFileOutline numberOfSelectedRows] > 0;
-    }
+        if ([fFileOutline numberOfSelectedRows] <= 0)
+            return NO;
         
+        //determine which priorities are checked
+        NSDictionary * item;
+        NSIndexSet * indexSet = [fFileOutline selectedRowIndexes];
+        BOOL current = NO, other = NO;
+        int i, priority;
+        
+        if (menuItem == fFilePriorityHigh)
+            priority = PRIORITY_HIGH;
+        else if (menuItem == fFilePriorityLow)
+            priority = PRIORITY_LOW;
+        else
+            priority = PRIORITY_NORMAL;
+        
+        for (i = [indexSet firstIndex]; i != NSNotFound && (!current || !other); i = [indexSet indexGreaterThanIndex: i])
+        {
+            item = [fFileOutline itemAtRow: i];
+            if ([[item objectForKey: @"IsFolder"] boolValue])
+                continue;
+            
+            if (priority == [[item objectForKey: @"Priority"] intValue])
+                current = YES;
+            else
+                other = YES;
+        }
+        
+        if (current && other)
+            [menuItem setState: NSMixedState];
+        else
+            [menuItem setState: current ? NSOnState : NSOffState];
+        
+        return YES;
+    }
+    
     return YES;
 }
 
