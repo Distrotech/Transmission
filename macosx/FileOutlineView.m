@@ -37,8 +37,8 @@
     [self setIndentationPerLevel: 14.0];
     
     normalColor = [[self backgroundColor] retain];
-    highPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 0.55 blue: 0.5 alpha: 1.0] retain];
-    lowPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 1.0 blue: 0.4 alpha: 1.0] retain];
+    highPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 1.0 blue: 224.0/255.0 alpha: 1.0] retain];
+    lowPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 208.0/255.0 blue: 208.0/255.0 alpha: 1.0] retain];
 }
 
 - (void) dealloc

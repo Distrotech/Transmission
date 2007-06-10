@@ -639,6 +639,7 @@
         for (i = [indexSet firstIndex]; i != NSNotFound && (!current || !other); i = [indexSet indexGreaterThanIndex: i])
         {
             item = [fFileOutline itemAtRow: i];
+            #warning get working with folders
             if ([[item objectForKey: @"IsFolder"] boolValue])
                 continue;
             
