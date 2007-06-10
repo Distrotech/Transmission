@@ -388,7 +388,12 @@ void tr_torrentAmountFinished( tr_torrent_t * tor, float * tab, int size );
  * array of floats the same size and order as in tr_info_t. Free the
  * array when done.
  **********************************************************************/
-float * tr_torrentCompletion( tr_torrent_t * tor );
+float * tr_torrentCompletion( tr_torrent_t * );
+
+float tr_torrentFileCompletion( const tr_torrent_t *, int fileIndex );
+
+size_t tr_torrentFileBytesCompleted( const tr_torrent_t *, int fileIndex ); 
+
 
 /***********************************************************************
  * tr_torrentRemoveSaved
@@ -419,6 +424,7 @@ typedef struct tr_file_s
     int8_t   priority;              /* TR_PRI_HIGH, _NORMAL, _LOW, or _DND */
     int      firstPiece;            /* We need pieces [firstPiece... */
     int      lastPiece;             /* ...lastPiece] to dl this file */
+    uint64_t offset;                /* file begins at the torrent's nth byte */
 }
 tr_file_t;
 

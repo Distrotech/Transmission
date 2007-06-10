@@ -599,54 +599,62 @@ void tr_torrentAvailability( tr_torrent_t * tor, int8_t * tab, int size )
     tr_lockUnlock( &tor->lock );
 }
 
-/* !!!!!!!!!! ADD ABILITY TO DO FOR INDIVIDUAL FILES !!!!!!!!!!!!!! */
-float * tr_torrentCompletion( tr_torrent_t * tor )
+size_t
+tr_torrentFileBytesCompleted ( const tr_torrent_t * tor, int fileIndex )
 {
-    tr_info_t * inf = &tor->info;
-    int         piece, file;
-    float     * ret, prog, weight;
-    uint64_t    piecemax, piecesize;
-    uint64_t    filestart, fileoff, filelen, blockend, blockused;
+    const tr_file_t * file = &tor->info.files[fileIndex];
+    int firstBlock         =  file->offset                 / tor->blockSize;
+    int firstBlockOffset   =  file->offset                 % tor->blockSize;
+    int lastBlock          = (file->offset + file->length) / tor->blockSize;
+    int lastBlockOffset    = (file->offset + file->length) % tor->blockSize;
+    size_t haveBytes = 0;
 
-    tr_lockLock( &tor->lock );
+    assert( tr_blockPiece( firstBlock ) == file->firstPiece );
+    assert( tr_blockPiece( lastBlock ) == file->lastPiece );
 
-    ret       = calloc( inf->fileCount, sizeof( float ) );
-    file      = 0;
-    piecemax  = inf->pieceSize;
-    filestart = 0;
-    fileoff   = 0;
-    piece     = 0;
-    while( inf->pieceCount > piece )
+    if( firstBlock == lastBlock )
     {
-        assert( file < inf->fileCount );
-        assert( filestart + fileoff < inf->totalSize );
-        filelen    = inf->files[file].length;
-        piecesize  = tr_pieceSize( piece );
-        blockend   = MIN( filestart + filelen, piecemax * piece + piecesize );
-        blockused  = blockend - ( filestart + fileoff );
-        weight     = ( filelen ? ( float )blockused / ( float )filelen : 1.0 );
-        prog       = tr_cpPercentBlocksInPiece( tor->completion, piece );
-        ret[file] += prog * weight;
-        fileoff   += blockused;
-        assert( -0.1 < prog   && 1.1 > prog );
-        assert( -0.1 < weight && 1.1 > weight );
-        if( fileoff == filelen )
-        {
-            ret[file] = MIN( 1.0, ret[file] );
-            ret[file] = MAX( 0.0, ret[file] );
-            filestart += fileoff;
-            fileoff    = 0;
-            file++;
-        }
-        if( filestart + fileoff >= piecemax * piece + piecesize )
-        {
-            piece++;
-        }
+        if( tr_cpBlockIsComplete( tor->completion, firstBlock ) )
+            haveBytes += lastBlockOffset - firstBlockOffset;
+    }
+    else
+    {
+        int i;
+
+        if( tr_cpBlockIsComplete( tor->completion, firstBlock ) )
+            haveBytes += tor->blockSize - firstBlockOffset;
+
+        for( i=firstBlock+1; i<lastBlock; ++i )
+            if( tr_cpBlockIsComplete( tor->completion, i ) )
+               haveBytes += tor->blockSize;
+
+        if( tr_cpBlockIsComplete( tor->completion, lastBlock ) )
+            haveBytes += lastBlockOffset;
     }
 
+    return haveBytes;
+}
+
+float
+tr_torrentFileCompletion ( const tr_torrent_t * tor, int fileIndex )
+{
+    const size_t c = tr_torrentFileBytesCompleted ( tor, fileIndex );
+    return (float)c / tor->info.files[fileIndex].length;
+}
+
+float*
+tr_torrentCompletion( tr_torrent_t * tor )
+{
+    int i;
+    float * f;
+
+    tr_lockLock( &tor->lock );
+    f = calloc ( tor->info.fileCount, sizeof( float ) );
+    for( i=0; i<tor->info.fileCount; ++i )
+       f[i] = tr_torrentFileCompletion ( tor, i );
     tr_lockUnlock( &tor->lock );
 
-    return ret;
+    return f;
 }
 
 void tr_torrentAmountFinished( tr_torrent_t * tor, float * tab, int size )
@@ -1026,21 +1034,6 @@ static void downloadLoop( void * _tor )
 ****
 ***/
 
-static uint64_t
-getFileByteOffset( const tr_info_t * info, int fileIndex )
-{
-    int i;
-    uint64_t offset = 0;
-
-    assert( info != NULL );
-    assert( 0<=fileIndex && fileIndex<info->fileCount );
-
-    for( i=0; i<fileIndex; ++i )
-        offset += info->files[i].length;
-
-    return offset;
-}
-
 static int
 getBytePiece( const tr_info_t * info, uint64_t byteOffset )
 {
@@ -1060,7 +1053,7 @@ initFilePieces ( tr_info_t * info, int fileIndex )
     assert( 0<=fileIndex && fileIndex<info->fileCount );
 
     file = &info->files[fileIndex];
-    firstByte = getFileByteOffset( info, fileIndex );
+    firstByte = file->offset;
     lastByte = firstByte + file->length;
     file->firstPiece = getBytePiece( info, firstByte );
     file->lastPiece = getBytePiece( info, lastByte );
@@ -1090,11 +1083,15 @@ void
 tr_torrentInitFilePieces( tr_torrent_t * tor )
 {
     int i;
+    uint64_t offset = 0;
 
     assert( tor != NULL );
 
-    for( i=0; i<tor->info.fileCount; ++i )
+    for( i=0; i<tor->info.fileCount; ++i ) {
+      tor->info.files[i].offset = offset;
+      offset += tor->info.files[i].length;
       initFilePieces( &tor->info, i );
+    }
 
     for( i=0; i<tor->info.pieceCount; ++i )
       tor->info.pieces[i].priority = calculatePiecePriority( tor, i );
