@@ -185,12 +185,12 @@
 - (int) peersUploading;
 - (int) peersDownloading;
 
-- (float)       downloadRate;
-- (float)       uploadRate;
-- (uint64_t)	downloadedValid;
-- (uint64_t)    downloadedTotal;
-- (uint64_t)    uploadedTotal;
-- (float)       swarmSpeed;
+- (float) downloadRate;
+- (float) uploadRate;
+- (uint64_t) downloadedValid;
+- (uint64_t) downloadedTotal;
+- (uint64_t) uploadedTotal;
+- (float) swarmSpeed;
 
 - (BOOL) pex;
 - (void) setPex: (BOOL) setting;
@@ -206,6 +206,7 @@
 - (BOOL) canChangeDownloadCheckFile: (int) index;
 - (BOOL) canChangeDownloadCheckForFileFolder: (NSIndexSet *) indexSet;
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item;
+- (void) setFilePriority: (int) priority forFileItem: (NSMutableDictionary *) item;
 
 - (NSDate *) dateAdded;
 - (NSDate *) dateCompleted;

@@ -49,6 +49,7 @@ static int static_lastid = 0;
 		pex: (NSNumber *) pex
         waitToStart: (NSNumber *) waitToStart orderValue: (NSNumber *) orderValue
         filesShouldDownload: (NSArray *) filesShouldDownload filePriorities: (NSArray *) filePriorities;
+- (void) historyFilePriorities: (NSMutableArray *) history forItems: (NSArray *) items;
 
 - (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities;
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
@@ -178,7 +179,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                     [self orderValue], @"OrderValue",
                     nil];
     
-    //set file priorities
+    //set file should download
     int fileCount = [self fileCount];
     NSMutableArray * filesShouldDownload = [NSMutableArray arrayWithCapacity: fileCount];
     
@@ -189,8 +190,9 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     free(priorities);
     [history setObject: filesShouldDownload forKey: @"FilesShouldDownload"];
     
+    //set file priorities
     NSMutableArray * filePriorities = [NSMutableArray arrayWithCapacity: fileCount];
-    #warning get priorities
+    [self historyFilePriorities: filePriorities forItems: fFileList];
     [history setObject: filePriorities forKey: @"FilePriorities"];
     
     if (fUseIncompleteFolder)
@@ -1378,6 +1380,27 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     }
 }
 
+- (void) setFilePriority: (int) priority forFileItem: (NSMutableDictionary *) item
+{
+    if ([[item objectForKey: @"IsFolder"] boolValue])
+        return;
+    
+    [item setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
+    
+    int index = [[item objectForKey: @"Index"] intValue];
+    if ([self checkForFile: index] == NSOnState)
+    {
+        tr_priority_t actualPriority;
+        if (priority == PRIORITY_HIGH)
+            actualPriority = TR_PRI_HIGH;
+        else if (priority == PRIORITY_LOW)
+            actualPriority = TR_PRI_LOW;
+        else
+            actualPriority = TR_PRI_NORMAL;
+        tr_torrentSetFilePriority(fHandle, index, actualPriority);
+    }
+}
+
 - (NSDate *) dateAdded
 {
     return fDateAdded;
@@ -1658,6 +1681,19 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         [components removeObjectAtIndex: 0];
         [self insertPath: components forSiblings: [dict objectForKey: @"Children"]
             withParent: dict previousPath: currentPath fileSize: size index: index priority: priority];
+    }
+}
+
+- (void) historyFilePriorities: (NSMutableArray *) history forItems: (NSArray *) items
+{
+    NSEnumerator * enumerator = [items objectEnumerator];
+    NSDictionary * item;
+    while ((item = [enumerator nextObject]))
+    {
+        if (![[item objectForKey: @"IsFolder"] boolValue])
+            [history addObject: [item objectForKey: @"Priority"]];
+        else
+            [self historyFilePriorities: history forItems: [item objectForKey: @"Children"]];
     }
 }
 
