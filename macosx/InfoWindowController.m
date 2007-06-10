@@ -649,10 +649,7 @@
                 other = YES;
         }
         
-        if (current && other)
-            [menuItem setState: NSMixedState];
-        else
-            [menuItem setState: current ? NSOnState : NSOffState];
+        [menuItem setState: current ? (other ? NSMixedState : NSOnState) : NSOffState];
         
         return YES;
     }
