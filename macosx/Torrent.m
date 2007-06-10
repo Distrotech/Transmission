@@ -1378,22 +1378,29 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (void) setFilePriority: (int) priority forFileItem: (NSMutableDictionary *) item
 {
-    if ([[item objectForKey: @"IsFolder"] boolValue])
-        return;
-    
-    [item setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
-    
-    int index = [[item objectForKey: @"Index"] intValue];
-    if ([self checkForFile: index] == NSOnState)
+    if (![[item objectForKey: @"IsFolder"] boolValue])
     {
-        tr_priority_t actualPriority;
-        if (priority == PRIORITY_HIGH)
-            actualPriority = TR_PRI_HIGH;
-        else if (priority == PRIORITY_LOW)
-            actualPriority = TR_PRI_LOW;
-        else
-            actualPriority = TR_PRI_NORMAL;
-        tr_torrentSetFilePriority(fHandle, index, actualPriority);
+        [item setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
+        
+        int index = [[item objectForKey: @"Index"] intValue];
+        if ([self checkForFile: index] == NSOnState)
+        {
+            tr_priority_t actualPriority;
+            if (priority == PRIORITY_HIGH)
+                actualPriority = TR_PRI_HIGH;
+            else if (priority == PRIORITY_LOW)
+                actualPriority = TR_PRI_LOW;
+            else
+                actualPriority = TR_PRI_NORMAL;
+            tr_torrentSetFilePriority(fHandle, index, actualPriority);
+        }
+    }
+    else
+    {
+        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
+        NSMutableDictionary * child;
+        while ((child = [enumerator nextObject]))
+            [self setFilePriority: priority forFileItem: child];
     }
 }
 

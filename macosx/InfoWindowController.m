@@ -588,6 +588,37 @@
     if (action == @selector(revealFile:))
         return [fFileOutline numberOfSelectedRows] > 0 &&
             [[[fTabView selectedTabViewItem] identifier] isEqualToString: TAB_FILES_IDENT];
+    
+    if (action == @selector(setCheck:))
+    {
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        NSDictionary * item;
+        NSIndexSet * indexSet = [fFileOutline selectedRowIndexes], * itemIndexes;
+        int i, index, state = (menuItem == fFileCheckItem) ? NSOnState : NSOffState;
+        for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
+        {
+            item = [fFileOutline itemAtRow: i];
+            if ([[item objectForKey: @"IsFolder"] boolValue])
+            {
+                itemIndexes = [item objectForKey: @"Indexes"];
+                if ([torrent checkForFileFolder: itemIndexes] != state
+                        && [torrent canChangeDownloadCheckForFileFolder: itemIndexes])
+                    return YES;
+            }
+            else
+            {
+                index = [[item objectForKey: @"Index"] intValue];
+                if ([torrent checkForFile: index] != state && [torrent canChangeDownloadCheckFile: index])
+                    return YES;
+            }
+        }
+        return NO;
+    }
+    
+    if (action == @selector(setPriority:))
+    {
+        return [fFileOutline numberOfSelectedRows] > 0;
+    }
         
     return YES;
 }
@@ -812,8 +843,6 @@
     }
     else if ([[tableColumn identifier] isEqualToString: @"Check"])
     {
-        //[(NSButtonCell *)cell setImagePosition: NSImageOnly];
-        
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([[item objectForKey: @"IsFolder"] boolValue])
             [cell setEnabled: [torrent canChangeDownloadCheckForFileFolder: [item objectForKey: @"Indexes"]]];
@@ -901,6 +930,38 @@
     for (i = [indexes firstIndex]; i != NSNotFound; i = [indexes indexGreaterThanIndex: i])
         [[NSWorkspace sharedWorkspace] selectFile: [folder stringByAppendingPathComponent:
                 [[fFileOutline itemAtRow: i] objectForKey: @"Path"]] inFileViewerRootedAtPath: nil];
+}
+
+- (void) setCheck: (id) sender
+{
+    int state = sender == fFileCheckItem ? NSOnState : NSOffState;
+    
+    Torrent * torrent = [fTorrents objectAtIndex: 0];
+    NSIndexSet * indexSet = [fFileOutline selectedRowIndexes];
+    int i;
+    for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
+        [torrent setFileCheckState: state forFileItem: [fFileOutline itemAtRow: i]];
+    
+    [fFileOutline reloadData];
+}
+
+- (void) setPriority: (id) sender
+{
+    int priority;
+    if (sender == fFilePriorityHigh)
+        priority = PRIORITY_HIGH;
+    else if (sender == fFilePriorityLow)
+        priority = PRIORITY_LOW;
+    else
+        priority = PRIORITY_NORMAL;
+    
+    Torrent * torrent = [fTorrents objectAtIndex: 0];
+    NSIndexSet * indexSet = [fFileOutline selectedRowIndexes];
+    int i;
+    for (i = [indexSet firstIndex]; i != NSNotFound; i = [indexSet indexGreaterThanIndex: i])
+        [torrent setFilePriority: priority forFileItem: [fFileOutline itemAtRow: i]];
+    
+    [fFileOutline reloadData];
 }
 
 - (void) setLimitSetting: (id) sender

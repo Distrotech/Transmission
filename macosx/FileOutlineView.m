@@ -79,13 +79,13 @@
     [super mouseDown: event];
 }
 
-- (NSMenu *) menuForEvent: (NSEvent *) e
+- (NSMenu *) menuForEvent: (NSEvent *) event
 {
-    int row = [self rowAtPoint: [self convertPoint: [e locationInWindow] fromView: nil]];
+    int row = [self rowAtPoint: [self convertPoint: [event locationInWindow] fromView: nil]];
     
     if (row >= 0)
     {
-        if ([self itemAtRow: row] && ![self isRowSelected: row])
+        if (![self isRowSelected: row])
             [self selectRowIndexes: [NSIndexSet indexSetWithIndex: row] byExtendingSelection: NO];
     }
     else

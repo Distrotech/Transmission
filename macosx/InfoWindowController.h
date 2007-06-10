@@ -54,6 +54,8 @@
     
     IBOutlet NSOutlineView * fFileOutline;
     IBOutlet NSTextField * fFileTableStatusField;
+    IBOutlet NSMenuItem * fFileCheckItem, * fFileUncheckItem,
+                        * fFilePriorityNormal, * fFilePriorityHigh, * fFilePriorityLow;
     
     IBOutlet NSPopUpButton * fRatioPopUp, * fUploadLimitPopUp, * fDownloadLimitPopUp;
     IBOutlet NSTextField * fUploadLimitField, * fDownloadLimitField, * fRatioLimitField,
@@ -72,6 +74,9 @@
 - (void) revealTorrentFile: (id) sender;
 - (void) revealDataFile: (id) sender;
 - (void) revealFile: (id) sender;
+
+- (void) setCheck: (id) sender;
+- (void) setPriority: (id) sender;
 
 - (void) setLimitSetting: (id) sender;
 - (void) setSpeedLimit: (id) sender;
