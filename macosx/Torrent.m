@@ -1351,10 +1351,24 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item
 {
-    #warning use index set
     if (![[item objectForKey: @"IsFolder"] boolValue])
-        tr_torrentSetFilePriority(fHandle, [[item objectForKey: @"Index"] intValue],
-                                    state == NSOnState ? TR_PRI_NORMAL : TR_PRI_DND);
+    {
+        tr_priority_t actualPriority;
+        if (state == NSOnState)
+        {
+            int priority = [[item objectForKey: @"Priority"] intValue];
+            if (priority == PRIORITY_HIGH)
+                actualPriority = TR_PRI_HIGH;
+            else if (priority == PRIORITY_LOW)
+                actualPriority = TR_PRI_LOW;
+            else
+                actualPriority = TR_PRI_NORMAL;
+        }
+        else
+            actualPriority = TR_PRI_DND;
+        
+        tr_torrentSetFilePriority(fHandle, [[item objectForKey: @"Index"] intValue], actualPriority);
+    }
     else
     {
         NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
