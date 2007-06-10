@@ -618,7 +618,10 @@
     if (action == @selector(setPriority:))
     {
         if ([fFileOutline numberOfSelectedRows] <= 0)
+        {
+            [menuItem setState: NSOffState];
             return NO;
+        }
         
         //determine which priorities are checked
         NSDictionary * item;
