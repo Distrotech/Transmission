@@ -1307,12 +1307,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (float) fileProgress: (int) index
 {
-    #warning redo for single
-    float * progress = tr_torrentCompletion(fHandle);
-    float fileProgress = progress[index];
-    free(progress);
-    
-    return fileProgress;
+    return tr_torrentFileCompletion(fHandle, index);
 }
 
 - (int) checkForFile: (int) index
