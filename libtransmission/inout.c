@@ -41,14 +41,14 @@ struct tr_io_s
 enum { TR_IO_READ, TR_IO_WRITE };
 
 static int
-readOrWriteBytes ( const tr_io_t    * io,
-                   int                ioMode,
-                   int                fileIndex,
-                   size_t             fileOffset,
-                   void             * buf,
-                   size_t             buflen )
+readOrWriteBytes ( const tr_torrent_t  * tor,
+                   int                   ioMode,
+                   int                   fileIndex,
+                   size_t                fileOffset,
+                   void                * buf,
+                   size_t                buflen )
 {
-    const tr_info_t * info = &io->tor->info;
+    const tr_info_t * info = &tor->info;
     const tr_file_t * file = &info->files[fileIndex];
     int fd, ret;
     typedef size_t (* iofunc) ( int, void *, size_t );
@@ -60,7 +60,7 @@ readOrWriteBytes ( const tr_io_t    * io,
 
     if( !file->length )
         return 0;
-    else if ((fd = tr_fdFileOpen ( io->tor->destination, file->name, TRUE )) < 0)
+    else if ((fd = tr_fdFileOpen ( tor->destination, file->name, TRUE )) < 0)
         ret = fd;
     else if( lseek( fd, fileOffset, SEEK_SET ) == ((off_t)-1) )
         ret = TR_ERROR_IO_OTHER;
@@ -76,11 +76,10 @@ readOrWriteBytes ( const tr_io_t    * io,
 }
 
 static void
-findFileLocation ( const tr_io_t * io,
+findFileLocation ( const tr_torrent_t * tor,
                    int pieceIndex, size_t pieceOffset,
                    int * fileIndex, size_t * fileOffset )
 {
-    const tr_torrent_t * tor = io->tor;
     const tr_info_t * info = &tor->info;
 
     int i;
@@ -101,14 +100,13 @@ findFileLocation ( const tr_io_t * io,
 }
 
 static int
-ensureMinimumFileSize ( const tr_io_t   * io,
-                        int               fileIndex,
-                        size_t            minSize ) /* in bytes */
+ensureMinimumFileSize ( const tr_torrent_t  * tor,
+                        int                   fileIndex,
+                        size_t                minSize ) /* in bytes */
 {
     int fd;
     int ret;
     struct stat sb;
-    const tr_torrent_t * tor = io->tor;
     const tr_file_t * file = &tor->info.files[fileIndex];
 
     assert ( 0<=fileIndex && fileIndex<tor->info.fileCount );
@@ -133,28 +131,26 @@ ensureMinimumFileSize ( const tr_io_t   * io,
 }
 
 static int
-readOrWritePiece ( const tr_io_t   * io,
-                   int               ioMode,
-                   int               pieceIndex,
-                   size_t            pieceOffset,
-                   uint8_t         * buf,
-                   size_t            buflen )
+readOrWritePiece ( tr_torrent_t       * tor,
+                   int                  ioMode,
+                   int                  pieceIndex,
+                   size_t               pieceOffset,
+                   uint8_t            * buf,
+                   size_t               buflen )
 {
     int ret = 0;
     int fileIndex;
     size_t fileOffset;
-    tr_torrent_t * tor = io->tor;
     const tr_info_t * info = &tor->info;
 
-    assert( io != NULL );
-    assert( 0<=pieceIndex && pieceIndex<io->tor->info.pieceCount );
+    assert( 0<=pieceIndex && pieceIndex<tor->info.pieceCount );
     assert( buflen <= (size_t) tr_pieceSize( pieceIndex ) );
 
     /* Release the torrent lock so the UI can still update itself if
        this blocks for a while */
     tr_lockUnlock( &tor->lock );
 
-    findFileLocation ( io, pieceIndex, pieceOffset, &fileIndex, &fileOffset );
+    findFileLocation ( tor, pieceIndex, pieceOffset, &fileIndex, &fileOffset );
 
     while( buflen && !ret )
     {
@@ -162,10 +158,10 @@ readOrWritePiece ( const tr_io_t   * io,
         const size_t bytesThisPass = MIN( buflen, file->length - fileOffset );
 
         if( ioMode == TR_IO_WRITE )
-            ret = ensureMinimumFileSize( io, fileIndex,
+            ret = ensureMinimumFileSize( tor, fileIndex,
                                          fileOffset + bytesThisPass );
         if( !ret )
-            ret = readOrWriteBytes( io, ioMode,
+            ret = readOrWriteBytes( tor, ioMode,
                                     fileIndex, fileOffset, buf, bytesThisPass );
         buf += bytesThisPass;
         buflen -= bytesThisPass;
@@ -181,46 +177,52 @@ readOrWritePiece ( const tr_io_t   * io,
 int
 tr_ioRead( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
 {
-    return readOrWritePiece ( io, TR_IO_READ, pieceIndex, begin, buf, len );
+    return readOrWritePiece ( io->tor, TR_IO_READ, pieceIndex, begin, buf, len );
 }
 
 int
 tr_ioWrite( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
 {
-    return readOrWritePiece ( io, TR_IO_WRITE, pieceIndex, begin, buf, len );
+    return readOrWritePiece ( io->tor, TR_IO_WRITE, pieceIndex, begin, buf, len );
 }
 
 /****
 *****
 ****/
 
-static int
-checkPiece ( tr_io_t * io, int pieceIndex )
+int
+tr_ioRecalculateHash ( tr_torrent_t  * tor,
+                       int             pieceIndex,
+                       uint8_t       * setme )
 {
     int n;
     int ret;
     uint8_t * buf;
-    const tr_torrent_t * tor;
     const tr_info_t * info;
 
-    assert( io != NULL );
-    assert( io->tor != NULL );
-    assert( 0<=pieceIndex && pieceIndex<io->tor->info.pieceCount );
+    assert( tor != NULL );
+    assert( setme != NULL );
+    assert( 0<=pieceIndex && pieceIndex<tor->info.pieceCount );
 
-    tor = io->tor;
     info = &tor->info;
     n = tr_pieceSize( pieceIndex );
 
     buf = malloc( n );
-    ret = tr_ioRead( io, pieceIndex, 0, n, buf );
-    if( !ret )
-    {
-        uint8_t hash[SHA_DIGEST_LENGTH];
-        SHA1( buf, n, hash );
-        ret = memcmp( hash, info->pieces[pieceIndex].hash, SHA_DIGEST_LENGTH );
+    ret = readOrWritePiece ( tor, TR_IO_READ, pieceIndex, 0, buf, n );
+    if( !ret ) {
+        SHA1( buf, n, setme );
     }
     free( buf );
 
+    return ret;
+}
+
+static int
+checkPiece ( tr_torrent_t * tor, int pieceIndex )
+{
+    uint8_t hash[SHA_DIGEST_LENGTH];
+    int ret = tr_ioRecalculateHash( tor, pieceIndex, hash )
+           || memcmp( hash, tor->info.pieces[pieceIndex].hash, SHA_DIGEST_LENGTH );
     tr_dbg ("torrent [%s] piece %d hash check: %s",
             tor->info.name, pieceIndex, (ret?"FAILED":"OK"));
     return ret;
@@ -230,7 +232,7 @@ static void
 checkFiles( tr_io_t * io )
 {
     int i;
-    const tr_torrent_t * tor = io->tor;
+    tr_torrent_t * tor = io->tor;
 
     tr_bitfieldClear( io->uncheckedPieces );
 
@@ -247,7 +249,7 @@ checkFiles( tr_io_t * io )
 
         tr_inf ( "Checking piece %d because it's not in fast-resume", i );
 
-        if( !checkPiece( io, i ) )
+        if( !checkPiece( tor, i ) )
            tr_cpPieceAdd( tor->completion, i );
         else
            tr_cpPieceRem( tor->completion, i );
@@ -318,7 +320,7 @@ tr_ioHash( tr_io_t * io, int pieceIndex )
     int i;
 
     tr_torrent_t * tor = io->tor;
-    const int success = !checkPiece( io, pieceIndex );
+    const int success = !checkPiece( tor, pieceIndex );
     if( success )
     {
         tr_inf( "Piece %d hash OK", pieceIndex );

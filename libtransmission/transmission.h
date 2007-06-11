@@ -52,6 +52,9 @@ extern "C" {
 #define INET_ADDRSTRLEN 16
 #endif
 
+#define TR_PATH_DELIMITER '/'
+#define TR_PATH_DELIMITER_STR "/"
+
 #define TR_DEFAULT_PORT   9090
 
 #define TR_PEER_FROM__MAX       4

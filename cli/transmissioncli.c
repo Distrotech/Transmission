@@ -29,23 +29,27 @@
 #include <getopt.h>
 #include <signal.h>
 #include <transmission.h>
+#include <makemeta.h>
 #ifdef SYS_BEOS
 #include <kernel/OS.h>
 #define usleep snooze
 #endif
 
-#define USAGE \
-"Usage: %s [options] file.torrent [options]\n\n" \
-"Options:\n" \
-"  -d, --download <int> Maximum download rate (-1 = no limit, default = -1)\n"\
-"  -f, --finish <shell script> Command you wish to run on completion\n" \
-"  -h, --help           Print this help and exit\n" \
-"  -i, --info           Print metainfo and exit\n" \
-"  -n  --nat-traversal  Attempt NAT traversal using NAT-PMP or UPnP IGD\n" \
-"  -p, --port <int>     Port we should listen on (default = %d)\n" \
-"  -s, --scrape         Print counts of seeders/leechers and exit\n" \
-"  -u, --upload <int>   Maximum upload rate (-1 = no limit, default = 20)\n" \
-"  -v, --verbose <int>  Verbose level (0 to 2, default = 0)\n"
+const char * USAGE =
+"Usage: %s [options] file.torrent [options]\n\n"
+"Options:\n"
+"  -c, --create-from <file>  Create torrent from the specified source file.\n"
+"  -a, --announce <url> Used in conjunction with -c.\n"
+"  -m, --comment <text> Adds an optional comment when creating a torrent.\n"
+"  -d, --download <int> Maximum download rate (-1 = no limit, default = -1)\n"
+"  -f, --finish <shell script> Command you wish to run on completion\n" 
+"  -h, --help           Print this help and exit\n" 
+"  -i, --info           Print metainfo and exit\n"
+"  -n  --nat-traversal  Attempt NAT traversal using NAT-PMP or UPnP IGD\n"
+"  -p, --port <int>     Port we should listen on (default = %d)\n"
+"  -s, --scrape         Print counts of seeders/leechers and exit\n"
+"  -u, --upload <int>   Maximum upload rate (-1 = no limit, default = 20)\n"
+"  -v, --verbose <int>  Verbose level (0 to 2, default = 0)\n";
 
 static int           showHelp      = 0;
 static int           showInfo      = 0;
@@ -60,6 +64,9 @@ static sig_atomic_t  gotsig        = 0;
 static tr_torrent_t  * tor;
 
 static char          * finishCall   = NULL;
+static char          * announce     = NULL;
+static char          * sourceFile   = NULL;
+static char          * comment      = NULL;
 
 static int  parseCommandLine ( int argc, char ** argv );
 static void sigHandler       ( int signal );
@@ -122,6 +129,9 @@ int main( int argc, char ** argv )
 
     /* Initialize libtransmission */
     h = tr_init( "cli" );
+
+    if( sourceFile && *sourceFile ) /* creating a torrent */
+        return tr_makeMetaInfo ( torrentPath, announce, comment, sourceFile );
 
     /* Open and parse torrent file */
     if( !( tor = tr_torrentInit( h, torrentPath, NULL, 0, &error ) ) )
@@ -307,11 +317,14 @@ static int parseCommandLine( int argc, char ** argv )
             { "upload",   required_argument, NULL, 'u' },
             { "download", required_argument, NULL, 'd' },
             { "finish",   required_argument, NULL, 'f' },
+            { "create",   required_argument, NULL, 'c' },
+            { "comment",  required_argument, NULL, 'm' },
+            { "announce", required_argument, NULL, 'a' },
             { "nat-traversal", no_argument,  NULL, 'n' },
             { 0, 0, 0, 0} };
 
         int c, optind = 0;
-        c = getopt_long( argc, argv, "hisv:p:u:d:f:n", long_options, &optind );
+        c = getopt_long( argc, argv, "hisv:p:u:d:f:c:n", long_options, &optind );
         if( c < 0 )
         {
             break;
@@ -341,6 +354,15 @@ static int parseCommandLine( int argc, char ** argv )
                 break;
             case 'f':
                 finishCall = optarg;
+                break;
+            case 'm':
+                comment = optarg;
+                break;
+            case 'c':
+                sourceFile = optarg;
+                break;
+            case 'a':
+                announce = optarg;
                 break;
             case 'n':
                 natTraversal = 1;
