@@ -23,8 +23,13 @@
  *****************************************************************************/
 
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <libgen.h>
 #include <dirent.h>
+#include <stdio.h> /* FILE, snprintf, stderr */
+#include <stdlib.h> /* malloc, calloc */
+
 #include "transmission.h"
 #include "bencode.h"
 #include "makemeta.h"
