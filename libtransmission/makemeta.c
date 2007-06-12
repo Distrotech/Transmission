@@ -31,6 +31,7 @@
 #include <stdlib.h> /* malloc, calloc */
 
 #include "transmission.h"
+#include "internal.h" /* for tr_torrent_t */
 #include "bencode.h"
 #include "makemeta.h"
 #include "version.h"
