@@ -559,7 +559,7 @@ static tr_http_t * getQuery( tr_tracker_t * tc )
     }
 
     start = ( strchr( tcInf->announce, '?' ) ? '&' : '?' );
-    left  = tr_cpLeftBytes( tor->completion, CP_COMPLETE );
+    left  = tr_cpBytesUntilComplete( tor->completion );
 
     return tr_httpClient( TR_HTTP_GET, tcInf->address, tcInf->port,
                           "%s%c"

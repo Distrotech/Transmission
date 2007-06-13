@@ -106,11 +106,11 @@ static inline void tr_wait( uint64_t delay )
 struct tr_bitfield_s
 {
     uint8_t * bits;
-    int       len;
+    size_t len;
 };
 
 /* note that the argument is how many bits are needed, not bytes */
-static inline tr_bitfield_t * tr_bitfieldNew( int bitcount )
+static inline tr_bitfield_t * tr_bitfieldNew( unsigned int bitcount )
 {
     tr_bitfield_t * ret;
 
@@ -119,7 +119,7 @@ static inline tr_bitfield_t * tr_bitfieldNew( int bitcount )
     {
         return NULL;
     }
-    ret->len = ( bitcount + 7 ) / 8;
+    ret->len = ( bitcount + 7u ) / 8u;
     ret->bits = calloc( ret->len, 1 );
     if( NULL == ret->bits )
     {
@@ -146,7 +146,7 @@ static inline void tr_bitfieldClear( tr_bitfield_t * bitfield )
 
 static inline int tr_bitfieldIsEmpty( const tr_bitfield_t * bitfield )
 {
-    int i;
+    unsigned int i;
 
     for( i=0; i<bitfield->len; ++i )
         if( *bitfield->bits )
@@ -158,40 +158,47 @@ static inline int tr_bitfieldIsEmpty( const tr_bitfield_t * bitfield )
 /***********************************************************************
  * tr_bitfieldHas
  **********************************************************************/
-static inline int tr_bitfieldHas( const tr_bitfield_t * bitfield, int piece )
+static inline int tr_bitfieldHas( const tr_bitfield_t   * bitfield,
+                                  unsigned int            piece )
 {
     if ( bitfield == NULL ) return 0;
-    assert( piece / 8 < bitfield->len );
-    return ( bitfield->bits[ piece / 8 ] & ( 1 << ( 7 - ( piece % 8 ) ) ) );
+    assert( piece / 8u < bitfield->len );
+    return ( bitfield->bits[ piece / 8u ] & ( 1 << ( 7 - ( piece % 8 ) ) ) );
 }
 
 /***********************************************************************
  * tr_bitfieldAdd
  **********************************************************************/
-static inline void tr_bitfieldAdd( tr_bitfield_t * bitfield, int piece )
+static inline void tr_bitfieldAdd( tr_bitfield_t  * bitfield,
+                                   unsigned int     piece )
 {
-    assert( piece / 8 < bitfield->len );
-    bitfield->bits[ piece / 8 ] |= ( 1 << ( 7 - ( piece % 8 ) ) );
+    assert( piece / 8u < bitfield->len );
+    bitfield->bits[ piece / 8u ] |= ( 1u << ( 7u - ( piece % 8u ) ) );
 }
 
-static inline void tr_bitfieldAddRange( tr_bitfield_t * b, int first, int last )
+static inline void tr_bitfieldAddRange( tr_bitfield_t  * bitfield,
+                                        unsigned int     first,
+                                        unsigned int     last )
 {
     /* TODO: there are faster ways to do this */
-    int i;
+    unsigned int i;
     for( i=first; i<=last; ++i )
-        tr_bitfieldAdd( b, i );
+        tr_bitfieldAdd( bitfield, i );
 }
 
-static inline void tr_bitfieldRem( tr_bitfield_t * bitfield, int piece )
+static inline void tr_bitfieldRem( tr_bitfield_t   * bitfield,
+                                   unsigned int      piece )
 {
-    assert( piece / 8 < bitfield->len );
-    bitfield->bits[ piece / 8 ] &= ~( 1 << ( 7 - ( piece % 8 ) ) );
+    assert( piece / 8u < bitfield->len );
+    bitfield->bits[ piece / 8u ] &= ~( 1u << ( 7u - ( piece % 8u ) ) );
 }
 
-static inline void tr_bitfieldRemRange ( tr_bitfield_t * b, int first, int last )
+static inline void tr_bitfieldRemRange ( tr_bitfield_t  * b,
+                                         unsigned int     first,
+                                         unsigned int     last )
 {
     /* TODO: there are faster ways to do this */
-    int i;
+    unsigned int i;
     for( i=first; i<=last; ++i )
         tr_bitfieldRem( b, i );
 }

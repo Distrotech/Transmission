@@ -462,8 +462,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
         }
     }
 
-    s->progress = tr_cpCompletionAsFloat( tor->completion, CP_DONE );
-    s->left     = tr_cpLeftBytes( tor->completion, CP_DONE );
+    s->progress = tr_cpPercentDone( tor->completion );
+    s->left     = tr_cpBytesUntilDone( tor->completion );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
         s->rateDownload = tr_rcRate( tor->download );

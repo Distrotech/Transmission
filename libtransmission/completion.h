@@ -39,16 +39,13 @@ enum {
   CP_INCOMPLETE   /* doesn't have all the desired pieces */
 };
 
-/* returns one of CP_SEEDING, CP_DONE, or CP_INCOMPLETE */
+/* returns CP_SEEDING, CP_DONE, or CP_INCOMPLETE */
 int tr_cpGetState ( const tr_completion_t * );
 
-/* pass in CP_COMPLETE to see how many total bytes left,
-   or CP_DONE to see how many left until you're done */
-uint64_t              tr_cpLeftBytes( const tr_completion_t *, int state );
-
-/* pass in CP_COMPLETE to see what percent of the total is complete,
-   or CP_DONE to see what percent of the desired blocks are done */
-float                 tr_cpCompletionAsFloat( const tr_completion_t *, int state );
+uint64_t              tr_cpBytesUntilComplete( const tr_completion_t * );
+uint64_t              tr_cpBytesUntilDone( const tr_completion_t * );
+float                 tr_cpPercentComplete( const tr_completion_t * );
+float                 tr_cpPercentDone( const tr_completion_t * );
 
 /* Pieces */
 int                   tr_cpPieceHasAllBlocks( const tr_completion_t *, int piece );

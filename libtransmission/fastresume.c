@@ -151,7 +151,7 @@ void fastResumeSave( const tr_torrent_t * tor )
 
         /* completion bitfield */
         bitfield = tr_cpBlockBitfield( tor->completion );
-        assert( FR_BLOCK_BITFIELD_LEN( tor ) == bitfield->len );
+        assert( (unsigned)FR_BLOCK_BITFIELD_LEN( tor ) == bitfield->len );
         memcpy( walk, bitfield->bits, bitfield->len );
         walk += bitfield->len;
 
