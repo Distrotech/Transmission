@@ -161,7 +161,13 @@ void tr_cpDownloaderAdd( tr_completion_t * cp, int block )
 
 void tr_cpDownloaderRem( tr_completion_t * cp, int block )
 {
-    tr_torrent_t * tor = cp->tor;
+    tr_torrent_t * tor;
+
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+    assert( 0 <= block );
+
+    tor = cp->tor;
     (cp->blockDownloaders[block])--;
     if( !cp->blockDownloaders[block] && !tr_cpBlockIsComplete( cp, block ) )
     {
@@ -171,12 +177,21 @@ void tr_cpDownloaderRem( tr_completion_t * cp, int block )
 
 int tr_cpBlockIsComplete( const tr_completion_t * cp, int block )
 {
+    assert( cp != NULL );
+    assert( 0 <= block );
+
     return tr_bitfieldHas( cp->blockBitfield, block );
 }
 
 void tr_cpBlockAdd( tr_completion_t * cp, int block )
 {
-    const tr_torrent_t * tor = cp->tor;
+    const tr_torrent_t * tor;
+
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+    assert( 0 <= block );
+
+    tor = cp->tor;
 
     if( !tr_cpBlockIsComplete( cp, block ) )
     {
@@ -195,6 +210,8 @@ void tr_cpBlockAdd( tr_completion_t * cp, int block )
 
 const tr_bitfield_t * tr_cpBlockBitfield( const tr_completion_t * cp )
 {
+    assert( cp != NULL );
+
     return cp->blockBitfield;
 }
 
@@ -202,10 +219,11 @@ void
 tr_cpBlockBitfieldSet( tr_completion_t * cp, tr_bitfield_t * bitfield )
 {
     int i;
-    tr_torrent_t * tor = cp->tor;
+
+    assert( cp != NULL );
+    assert( bitfield != NULL );
 
     tr_cpReset( cp );
-    cp->tor = tor;
 
     for( i=0; i < cp->tor->blockCount; ++i )
         if( tr_bitfieldHas( bitfield, i ) )
@@ -214,6 +232,8 @@ tr_cpBlockBitfieldSet( tr_completion_t * cp, tr_bitfield_t * bitfield )
 
 float tr_cpPercentBlocksInPiece( const tr_completion_t * cp, int piece )
 {
+    assert( cp != NULL );
+
     return cp->completeBlocks[piece] / (double)tr_cpCountBlocks( cp, piece );
 }
 
@@ -282,6 +302,8 @@ int tr_cpMostMissingBlockInPiece( const tr_completion_t * cp,
 int
 tr_cpMissingBlocksForPiece( const tr_completion_t * cp, int piece )
 {
+    assert( cp != NULL );
+
     return cp->missingBlocks[piece];
 }
 
@@ -295,8 +317,12 @@ tr_cpGetState ( const tr_completion_t * cp )
 {
     int i;
     int ret = CP_COMPLETE;
-    const tr_info_t * info = &cp->tor->info;
+    const tr_info_t * info;
 
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+
+    info = &cp->tor->info;
     for( i=0; i<info->pieceCount; ++i ) {
         if( tr_cpPieceIsComplete( cp, i ) )
             continue;
@@ -313,9 +339,14 @@ tr_cpBytesUntilComplete ( const tr_completion_t * cp )
 {
     int i;
     uint64_t b=0;
-    const tr_torrent_t * tor = cp->tor;
-    const tr_info_t * info = &tor->info;
+    const tr_torrent_t * tor;
+    const tr_info_t * info;
 
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+
+    tor = cp->tor;
+    info = &tor->info;
     for( i=0; i<info->pieceCount; ++i )
         if( !tr_cpPieceIsComplete( cp, i ) )
             b += tor->blockSize * (tr_cpCountBlocks( cp, i ) - cp->completeBlocks[ i ] );
@@ -328,8 +359,14 @@ tr_cpBytesUntilDone ( const tr_completion_t * cp )
 {
     int i;
     uint64_t b=0;
-    const tr_torrent_t * tor = cp->tor;
-    const tr_info_t * info = &tor->info;
+    const tr_torrent_t * tor;
+    const tr_info_t * info;
+
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+
+    tor = cp->tor;
+    info = &tor->info;
 
     for( i=0; i<info->pieceCount; ++i )
         if( !tr_cpPieceIsComplete( cp, i ) && info->pieces[i].priority != TR_PRI_DND )
@@ -343,8 +380,12 @@ tr_cpPercentComplete ( const tr_completion_t * cp )
 {
     int i;
     uint64_t have=0;
-    const tr_torrent_t * tor = cp->tor;
+    const tr_torrent_t * tor;
 
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+
+    tor = cp->tor;
     for( i=0; i<tor->info.pieceCount; ++i )
         have += cp->completeBlocks[ i ];
 
@@ -356,7 +397,12 @@ tr_cpPercentDone( const tr_completion_t * cp )
 {
     int i;
     uint64_t have=0, total=0;
-    const tr_torrent_t * tor = cp->tor;
+    const tr_torrent_t * tor;
+
+    assert( cp != NULL );
+    assert( cp->tor != NULL );
+
+    tor = cp->tor;
 
     for( i=0; i<tor->info.pieceCount; ++i ) {
         if( tor->info.pieces[i].priority != TR_PRI_DND) {
