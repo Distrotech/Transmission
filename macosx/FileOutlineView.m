@@ -88,7 +88,10 @@
                 [fNormalColor set];
         }
         
-        NSRectFill([self rectOfRow: row]);
+        NSRect rect = [self rectOfRow: row];
+        rect.size.height -= 1.0g;
+        
+        NSRectFill(rect);
     }
     
     [super drawRow: row clipRect: clipRect];
