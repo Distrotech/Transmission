@@ -264,16 +264,13 @@ tr_core_dispose( GObject * obj )
 #endif
 
     /* sever all remaining torrents in the model */
-    if( gtk_tree_model_get_iter_first( self->model, &iter ) )
+    if( gtk_tree_model_get_iter_first( self->model, &iter ) ) do
     {
-        do
-        {
-            gtk_tree_model_get( self->model, &iter, MC_TORRENT, &tor, -1 );
-            tr_torrent_sever( tor );
-            g_object_unref( tor );
-        }
-        while( gtk_tree_model_iter_next( self->model, &iter ) );
+        gtk_tree_model_get( self->model, &iter, MC_TORRENT, &tor, -1 );
+        tr_torrent_sever( tor );
+        g_object_unref( tor );
     }
+    while( gtk_tree_model_iter_next( self->model, &iter ) );
     g_object_unref( self->model );
 
     /* sever and unref all remaining zombie torrents */
@@ -308,27 +305,17 @@ tr_core_new( void )
 GtkTreeModel *
 tr_core_model( TrCore * self )
 {
-    TR_IS_CORE( self );
+    g_return_val_if_fail (TR_IS_CORE(self), NULL);
 
-    if( self->disposed )
-    {
-        return NULL;
-    }
-
-    return self->model;
+    return self->disposed ? NULL : self->model;
 }
 
 tr_handle_t *
 tr_core_handle( TrCore * self )
 {
-    TR_IS_CORE( self );
+    g_return_val_if_fail (TR_IS_CORE(self), NULL);
 
-    if( self->disposed )
-    {
-        return NULL;
-    }
-
-    return self->handle;
+    return self->disposed ? NULL : self->handle;
 }
 
 void

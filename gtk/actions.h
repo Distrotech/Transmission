@@ -1,7 +1,7 @@
 /******************************************************************************
- * $Id$
+ * $Id: tr_window.c 1998 2007-06-06 00:30:13Z livings124 $
  *
- * Copyright (c) 2006-2007 Transmission authors and contributors
+ * Copyright (c) 2005-2007 Transmission authors and contributors
  *
  * Permission is hereby granted, free of charge, to any person obtaining a
  * copy of this software and associated documentation files (the "Software"),
@@ -22,18 +22,19 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TR_ICON_H
-#define TR_ICON_H
+#ifndef TR_ACTIONS_H
+#define TR_ACTIONS_H
 
 #include <gtk/gtk.h>
 
-#if GTK_CHECK_VERSION(2,10,0)
-#define STATUS_ICON_SUPPORTED
-#define status_icon_supported() (TRUE)
-#else
-#define status_icon_supported() (FALSE)
-#endif
+void actions_init ( GtkUIManager * ui_manager, gpointer callback_user_data );
 
-gpointer tr_icon_new( void );
+void action_activate ( const char * name );
+
+void action_sensitize ( const char * name, gboolean b );
+
+void action_toggle ( const char * name, gboolean b );
+
+GtkWidget* action_get_widget ( const char * path );
 
 #endif
