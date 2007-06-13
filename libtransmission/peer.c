@@ -574,7 +574,7 @@ writeEnd:
         int * pool = getPreferredPieces ( tor, peer, &poolSize, &endgame );
 
         /* TODO: add some asserts to see if this bitfield is really necessary */
-        tr_bitfield_t * blocksAlreadyRequested = tr_bitfieldNew( 1 + tor->info.totalSize / tor->blockSize );
+        tr_bitfield_t * blocksAlreadyRequested = tr_bitfieldNew( tor->info.blockCount );
         for( i=0; i<peer->inRequestCount; ++i) {
             const tr_request_t * r = &peer->inRequests[i];
             const int block = tr_block( r->index, r->begin );
