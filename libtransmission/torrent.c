@@ -603,12 +603,18 @@ size_t
 tr_torrentFileBytesCompleted ( const tr_torrent_t * tor, int fileIndex )
 {
     const tr_file_t * file = &tor->info.files[fileIndex];
-    int firstBlock         =  file->offset                 / tor->blockSize;
-    int firstBlockOffset   =  file->offset                 % tor->blockSize;
-    int lastBlock          = (file->offset + file->length) / tor->blockSize;
-    int lastBlockOffset    = (file->offset + file->length) % tor->blockSize;
+    int firstBlock         =  file->offset                     / tor->blockSize;
+    int firstBlockOffset   =  file->offset                     % tor->blockSize;
+    int lastBlock          = (file->offset + file->length - 1) / tor->blockSize;
+    int lastBlockOffset    = (file->offset + file->length - 1) % tor->blockSize;
     size_t haveBytes = 0;
 
+    assert( tor != NULL );
+    assert( 0<=fileIndex && fileIndex<tor->info.fileCount );
+    assert( file->offset + file->length <= tor->info.totalSize );
+    assert( 0<=firstBlock && firstBlock<tor->blockCount );
+    assert( 0<=lastBlock && lastBlock<tor->blockCount );
+    assert( firstBlock <= lastBlock );
     assert( tr_blockPiece( firstBlock ) == file->firstPiece );
     assert( tr_blockPiece( lastBlock ) == file->lastPiece );
 
@@ -1067,7 +1073,7 @@ initFilePieces ( tr_info_t * info, int fileIndex )
 
     file = &info->files[fileIndex];
     firstByte = file->offset;
-    lastByte = firstByte + file->length;
+    lastByte = firstByte + file->length - 1;
     file->firstPiece = getBytePiece( info, firstByte );
     file->lastPiece = getBytePiece( info, lastByte );
     tr_dbg( "file #%d is in pieces [%d...%d] (%s)", fileIndex, file->firstPiece, file->lastPiece, file->name );
