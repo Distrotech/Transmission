@@ -26,7 +26,7 @@
 
 @interface FileOutlineView : NSOutlineView
 {
-    NSColor * normalColor, * highPriorityColor, * lowPriorityColor;
+    NSColor * fNormalColor, * fHighPriorityColor, * fLowPriorityColor;
 }
 
 @end

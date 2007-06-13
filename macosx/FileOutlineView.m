@@ -36,40 +36,17 @@
     [self setAutoresizesOutlineColumn: NO];
     [self setIndentationPerLevel: 14.0];
     
-    normalColor = [self backgroundColor];
-    highPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 208.0/255.0 blue: 208.0/255.0 alpha: 1.0] retain];
-    lowPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 1.0 blue: 224.0/255.0 alpha: 1.0] retain];
+    fNormalColor = [self backgroundColor];
+    fHighPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 208.0/255.0 blue: 208.0/255.0 alpha: 1.0] retain];
+    fLowPriorityColor = [[NSColor colorWithCalibratedRed: 1.0 green: 1.0 blue: 224.0/255.0 alpha: 1.0] retain];
 }
 
 - (void) dealloc
 {
-    [highPriorityColor release];
-    [lowPriorityColor release];
+    [fHighPriorityColor release];
+    [fLowPriorityColor release];
     
     [super dealloc];
-}
-
-- (void) drawRow: (int) row clipRect: (NSRect) clipRect
-{
-    if (![self isRowSelected: row])
-    {
-        NSDictionary * item = [self itemAtRow: row];
-        if ([[item objectForKey: @"IsFolder"] boolValue])
-            [normalColor set];
-        else
-        {
-            int priority = [[item objectForKey: @"Priority"] intValue];
-            if (priority == PRIORITY_HIGH)
-                [highPriorityColor set];
-            else if (priority == PRIORITY_LOW)
-                [lowPriorityColor set];
-            else
-                [normalColor set];
-        }
-        NSRectFill([self rectOfRow: row]);
-    }
-    
-    [super drawRow: row clipRect: clipRect];
 }
 
 - (void) mouseDown: (NSEvent *) event
@@ -91,6 +68,65 @@
         [self deselectAll: self];
     
     return [self menu];
+}
+
+- (void) drawRow: (int) row clipRect: (NSRect) clipRect
+{
+    if (![self isRowSelected: row])
+    {
+        NSDictionary * item = [self itemAtRow: row];
+        if ([[item objectForKey: @"IsFolder"] boolValue])
+            [fNormalColor set];
+        else
+        {
+            int priority = [[item objectForKey: @"Priority"] intValue];
+            if (priority == PRIORITY_HIGH)
+                [fHighPriorityColor set];
+            else if (priority == PRIORITY_LOW)
+                [fLowPriorityColor set];
+            else
+                [fNormalColor set];
+        }
+        
+        NSRectFill([self rectOfRow: row]);
+    }
+    
+    [super drawRow: row clipRect: clipRect];
+}
+
+- (void) drawRect: (NSRect) r
+{
+    [super drawRect: r];
+
+    NSDictionary * item;
+    int i, priority;
+    for (i = 0; i < [self numberOfRows]; i++)
+    {
+        if ([self isRowSelected: i])
+        {
+            item = [self itemAtRow: i];
+            if (![[item objectForKey: @"IsFolder"] boolValue])
+            {
+                priority = [[item objectForKey: @"Priority"] intValue];
+                if (priority == PRIORITY_HIGH)
+                    [fHighPriorityColor set];
+                else if (priority == PRIORITY_LOW)
+                    [fLowPriorityColor set];
+                else
+                    continue;
+                
+                NSRect rect = [self rectOfRow: i];
+                float width = 14.0;
+                rect.origin.y += (rect.size.height - width) * 0.5;
+                rect.origin.x = 3.0;
+                rect.size.width = width;
+                rect.size.height = width;
+                
+                NSBezierPath * circle = [NSBezierPath bezierPathWithOvalInRect: rect];
+                [circle fill];
+            }
+        }
+    }
 }
 
 @end
