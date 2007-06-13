@@ -89,7 +89,7 @@
         }
         
         NSRect rect = [self rectOfRow: row];
-        rect.size.height -= 1.0g;
+        rect.size.height -= 1.0;
         
         NSRectFill(rect);
     }
