@@ -462,8 +462,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
         }
     }
 
-    s->progress = tr_cpCompletionAsFloat( tor->completion );
-    s->left     = tr_cpLeftBytes( tor->completion );
+    s->progress = tr_cpCompletionAsFloat( tor->completion, CP_DONE );
+    s->left     = tr_cpLeftBytes( tor->completion, CP_DONE );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
         s->rateDownload = tr_rcRate( tor->download );
@@ -929,14 +929,18 @@ static void downloadLoop( void * _tor )
     tr_torrent_t * tor = _tor;
     int            i, ret;
     int            peerCount, used;
+    int            cpState, cpPrevState;
     uint8_t      * peerCompact;
     tr_peer_t    * peer;
 
-    tr_dbg ("torrent %s has its own thread", tor->info.name);
     tr_lockLock( &tor->lock );
 
-    tor->status = tr_cpIsSeeding( tor->completion ) ?
-                      TR_STATUS_SEED : TR_STATUS_DOWNLOAD;
+    cpState = cpPrevState = tr_cpGetState( tor->completion );
+    switch( cpState ) {
+        case CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
+        case CP_DONE:       tor->status = TR_STATUS_DONE; break;
+        case CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
+    }
 
     while( !tor->die )
     {
@@ -944,15 +948,24 @@ static void downloadLoop( void * _tor )
         tr_wait( INTERVAL_MSEC );
         tr_lockLock( &tor->lock );
 
-        /* Are we finished ? */
-        if( ( tor->status & TR_STATUS_DOWNLOAD ) &&
-            tr_cpIsSeeding( tor->completion ) )
+        cpState = tr_cpGetState( tor->completion );
+
+        if( cpState != cpPrevState )
         {
-            /* Done */
-            tor->status = TR_STATUS_SEED;
-			tor->finished = 1;
-            tr_trackerCompleted( tor->tracker );
+            switch( cpState ) {
+                case CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
+                case CP_DONE:       tor->status = TR_STATUS_DONE; break;
+                case CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
+            }
+
+            tor->finished = cpState != CP_INCOMPLETE;
+
+            if( cpState == CP_COMPLETE )
+                tr_trackerCompleted( tor->tracker );
+
             tr_ioSync( tor->io );
+
+            cpPrevState = cpState;
         }
 
         /* Try to get new peers or to send a message to the tracker */

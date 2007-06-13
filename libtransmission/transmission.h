@@ -483,16 +483,19 @@ struct tr_info_s
  **********************************************************************/
 struct tr_stat_s
 {
-#define TR_STATUS_CHECK_WAIT 0x001 /* Waiting in queue to check files */
-#define TR_STATUS_CHECK      0x002 /* Checking files */
-#define TR_STATUS_DOWNLOAD   0x004 /* Downloading */
-#define TR_STATUS_SEED       0x008 /* Seeding */
-#define TR_STATUS_STOPPING   0x010 /* Sending 'stopped' to the tracker */
-#define TR_STATUS_STOPPED    0x020 /* Sent 'stopped' but thread still
-                                    running (for internal use only) */
-#define TR_STATUS_PAUSE    0x040 /* Paused */
+#define TR_STATUS_CHECK_WAIT (1<<0) /* Waiting in queue to check files */
+#define TR_STATUS_CHECK      (1<<1) /* Checking files */
+#define TR_STATUS_DOWNLOAD   (1<<2) /* Downloading */
+#define TR_STATUS_DONE       (1<<3) /* not at 100% so can't tell the tracker
+                                       we're a seeder, but due to DND files
+                                       there's nothing we want right now */
+#define TR_STATUS_SEED       (1<<4) /* Seeding */
+#define TR_STATUS_STOPPING   (1<<5) /* Sending 'stopped' to the tracker */
+#define TR_STATUS_STOPPED    (1<<6) /* Sent 'stopped' but thread still
+                                       running (for internal use only) */
+#define TR_STATUS_PAUSE      (1<<7) /* Paused */
 
-#define TR_STATUS_ACTIVE   (TR_STATUS_CHECK_WAIT|TR_STATUS_CHECK|TR_STATUS_DOWNLOAD|TR_STATUS_SEED)
+#define TR_STATUS_ACTIVE   (TR_STATUS_CHECK_WAIT|TR_STATUS_CHECK|TR_STATUS_DOWNLOAD|TR_STATUS_DONE|TR_STATUS_SEED)
 #define TR_STATUS_INACTIVE (TR_STATUS_STOPPING|TR_STATUS_STOPPED|TR_STATUS_PAUSE)
     int                 status;
 

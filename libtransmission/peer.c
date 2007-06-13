@@ -553,8 +553,9 @@ writeBegin:
 writeEnd:
 
     /* Ask for a block whenever possible */
-    if( !tr_cpIsSeeding( tor->completion ) &&
-        !peer->amInterested && tor->peerCount > TR_MAX_PEER_COUNT - 2 )
+    if( tr_cpGetState( tor->completion ) == CP_INCOMPLETE
+        && !peer->amInterested
+        && tor->peerCount > TR_MAX_PEER_COUNT - 2 )
     {
         /* This peer is no use to us, and it seems there are
            more */

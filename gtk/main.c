@@ -940,6 +940,24 @@ showInfoForeach (GtkTreeModel * model,
     g_object_unref( G_OBJECT( tor ) );
 }
 
+static void
+recheckTorrentForeach (GtkTreeModel * model,
+                       GtkTreePath  * path UNUSED,
+                       GtkTreeIter  * iter,
+                       gpointer       data UNUSED)
+{
+    TrTorrent * gtor = NULL;
+    int status = 0;
+    tr_torrent_t * tor;
+    gtk_tree_model_get( model, iter, MC_TORRENT, &gtor, MC_STAT, &status, -1 );
+    tor = tr_torrent_handle( gtor );
+    if( status & TR_STATUS_ACTIVE )
+        tr_torrentStop( tor );
+    tr_torrentRemoveFastResume( tor );
+    tr_torrentStart( tor );
+    g_object_unref( G_OBJECT( gtor ) );
+}
+
 void
 doAction ( const char * action_name, gpointer user_data )
 {
@@ -960,6 +978,12 @@ doAction ( const char * action_name, gpointer user_data )
     {
         GtkTreeSelection * s = tr_window_get_selection(data->wind);
         gtk_tree_selection_selected_foreach( s, stopTorrentForeach, NULL );
+        changed |= gtk_tree_selection_count_selected_rows( s ) != 0;
+    }
+    else if (!strcmp (action_name, "recheck-torrent"))
+    {
+        GtkTreeSelection * s = tr_window_get_selection(data->wind);
+        gtk_tree_selection_selected_foreach( s, recheckTorrentForeach, NULL );
         changed |= gtk_tree_selection_count_selected_rows( s ) != 0;
     }
     else if (!strcmp (action_name, "show-torrent-inspector"))
