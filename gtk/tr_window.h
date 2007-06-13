@@ -36,8 +36,4 @@ GtkWidget * tr_window_new( GtkUIManager* );
 void
 tr_window_update( TrWindow * wind, float downspeed, float upspeed );
 
-/* some magic to show the window with a nice initial size */
-void
-tr_window_show( TrWindow * wind );
-
 #endif

@@ -226,6 +226,15 @@ makeview( PrivateData * p )
     return view;
 }
 
+static void
+realized_cb ( GtkWidget * wind, gpointer unused UNUSED )
+{
+    PrivateData * p = get_private_data( GTK_WINDOW( wind ) );
+    sizingmagic( GTK_WINDOW(wind), GTK_SCROLLED_WINDOW( p->scroll ),
+                 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS );
+    g_object_set( p->namerend, "ellipsize", PANGO_ELLIPSIZE_END, NULL );
+}
+
 /***
 ****  PUBLIC
 ***/
@@ -243,6 +252,7 @@ tr_window_new( GtkUIManager * ui_manager )
     gtk_window_set_role( GTK_WINDOW( self ), "tr-main" );
     gtk_window_add_accel_group (GTK_WINDOW(self),
                                 gtk_ui_manager_get_accel_group (ui_manager));
+    g_signal_connect( self, "realize", G_CALLBACK(realized_cb), NULL);
 
     /* window's main container */
     vbox = gtk_vbox_new (FALSE, 0);
@@ -290,17 +300,6 @@ tr_window_update( TrWindow * self, float downspeed, float upspeed )
     gtk_statusbar_pop( status, 0 );
     gtk_statusbar_push( status, 0, str );
     g_free( str );
-}
-
-void
-tr_window_show( TrWindow * self )
-{
-    PrivateData * p = get_private_data( self );
-
-    sizingmagic( GTK_WINDOW( self ), GTK_SCROLLED_WINDOW(p->scroll),
-                 GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS );
-    g_object_set( p->namerend, "ellipsize", PANGO_ELLIPSIZE_END, NULL );
-    gtk_widget_show( GTK_WIDGET( self ) );
 }
 
 GtkTreeSelection*

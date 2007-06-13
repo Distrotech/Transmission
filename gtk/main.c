@@ -425,7 +425,7 @@ appsetup( TrWindow * wind, benc_val_t * state, GList * args,
     updatemodel( cbdata );
 
     /* show the window */
-    tr_window_show( wind );
+    gtk_widget_show( GTK_WIDGET(wind) );
 }
 
 static gboolean
