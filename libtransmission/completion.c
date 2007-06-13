@@ -358,7 +358,7 @@ tr_cpPercentDone( const tr_completion_t * cp )
     uint64_t have=0, total=0;
     const tr_torrent_t * tor = cp->tor;
 
-    for( i=0; i<info->pieceCount; ++i ) {
+    for( i=0; i<tor->info.pieceCount; ++i ) {
         if( tor->info.pieces[i].priority != TR_PRI_DND) {
             total += tr_cpCountBlocks( cp, i );
             have += cp->completeBlocks[ i ];
