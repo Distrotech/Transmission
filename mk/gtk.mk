@@ -8,7 +8,7 @@ SRCS = actions.c conf.c dialogs.c hig.c io.c ipc.c main.c msgwin.c \
        tr_icon.c tr_prefs.c tr_torrent.c tr_window.c util.c
 OBJS = $(SRCS:%.c=%.o)
 
-CFLAGS  += $(CFLAGS_GTK)
+CFLAGS  += $(CFLAGS_GTK) -I../libtransmission
 LDFLAGS += $(LDFLAGS_GTK)
 LDLIBS  += ../libtransmission/libtransmission.a
 
