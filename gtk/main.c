@@ -911,6 +911,7 @@ startTorrentForeach (GtkTreeModel * model,
     TrTorrent * tor = NULL;
     gtk_tree_model_get( model, iter, MC_TORRENT, &tor, -1 );
     tr_torrent_start( tor );
+    g_object_unref( G_OBJECT( tor ) );
 }
 
 static void
@@ -922,6 +923,7 @@ stopTorrentForeach (GtkTreeModel * model,
     TrTorrent * tor = NULL;
     gtk_tree_model_get( model, iter, MC_TORRENT, &tor, -1 );
     tr_torrent_stop( tor );
+    g_object_unref( G_OBJECT( tor ) );
 }
 
 static void
@@ -935,6 +937,7 @@ showInfoForeach (GtkTreeModel * model,
     gtk_tree_model_get( model, iter, MC_TORRENT, &tor, -1 );
     w = torrent_inspector_new( GTK_WINDOW(data), tor );
     gtk_widget_show( w );
+    g_object_unref( G_OBJECT( tor ) );
 }
 
 void
