@@ -29,6 +29,7 @@ int
 tr_makeMetaInfo ( const char   * outputFile,  /* the torrent to create */
                   const char   * announce,    /* announcement URL */
                   const char   * comment,     /* optional comment */
-                  const char   * filename);   /* file or dir to torrentize */
+                  const char   * filename,    /* file or dir to torrentize */
+                  int            isPrivate );
 
 #endif

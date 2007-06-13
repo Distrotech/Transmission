@@ -224,7 +224,8 @@ makeFilesList( benc_val_t            * list,
 static void
 makeInfoDict ( benc_val_t              * dict,
                const char              * topFile,
-               const struct FileList   * files )
+               const struct FileList   * files,
+               int                       isPrivate )
 {
     static const int pieceSize = 262144; /* 256 KiB. TODO: let user choose? */
     const int single = files->next == NULL;
@@ -259,14 +260,15 @@ makeInfoDict ( benc_val_t              * dict,
     }
 
     val = tr_bencDictAdd( dict, "private" );
-    tr_bencInitInt( val, 1 ); /* TODO: let user choose? */
+    tr_bencInitInt( val, isPrivate ? 1 : 0 );
 }
 
 int
 tr_makeMetaInfo( const char   * outputFile,
                  const char   * announce,
                  const char   * comment,
-                 const char   * topFile )
+                 const char   * topFile,
+                 int            isPrivate )
 {
     int n = 5;
     benc_val_t top, *val;
@@ -310,7 +312,7 @@ tr_makeMetaInfo( const char   * outputFile,
         val = tr_bencDictAdd( &top, "info" );
         tr_bencInit( val, TYPE_DICT );
         tr_bencDictReserve( val, 666 );
-        makeInfoDict( val, topFile, files );
+        makeInfoDict( val, topFile, files, isPrivate );
 
     /* debugging... */
     tr_bencPrint( &top );

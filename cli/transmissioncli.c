@@ -40,6 +40,7 @@ const char * USAGE =
 "Options:\n"
 "  -c, --create-from <file>  Create torrent from the specified source file.\n"
 "  -a, --announce <url> Used in conjunction with -c.\n"
+"  -r, --private        Used in conjunction with -c.\n"
 "  -m, --comment <text> Adds an optional comment when creating a torrent.\n"
 "  -d, --download <int> Maximum download rate (-1 = no limit, default = -1)\n"
 "  -f, --finish <shell script> Command you wish to run on completion\n" 
@@ -54,6 +55,7 @@ const char * USAGE =
 static int           showHelp      = 0;
 static int           showInfo      = 0;
 static int           showScrape    = 0;
+static int           isPrivate     = 0;
 static int           verboseLevel  = 0;
 static int           bindPort      = TR_DEFAULT_PORT;
 static int           uploadLimit   = 20;
@@ -131,7 +133,11 @@ int main( int argc, char ** argv )
     h = tr_init( "cli" );
 
     if( sourceFile && *sourceFile ) /* creating a torrent */
-        return tr_makeMetaInfo ( torrentPath, announce, comment, sourceFile );
+        return tr_makeMetaInfo( torrentPath,
+                                announce,
+                                comment,
+                                sourceFile,
+                                isPrivate );
 
     /* Open and parse torrent file */
     if( !( tor = tr_torrentInit( h, torrentPath, NULL, 0, &error ) ) )
@@ -312,6 +318,7 @@ static int parseCommandLine( int argc, char ** argv )
           { { "help",     no_argument,       NULL, 'h' },
             { "info",     no_argument,       NULL, 'i' },
             { "scrape",   no_argument,       NULL, 's' },
+            { "private",  no_argument,       NULL, 'r' },
             { "verbose",  required_argument, NULL, 'v' },
             { "port",     required_argument, NULL, 'p' },
             { "upload",   required_argument, NULL, 'u' },
@@ -324,7 +331,8 @@ static int parseCommandLine( int argc, char ** argv )
             { 0, 0, 0, 0} };
 
         int c, optind = 0;
-        c = getopt_long( argc, argv, "hisv:p:u:d:f:c:n", long_options, &optind );
+        c = getopt_long( argc, argv, "hisrv:p:u:d:f:c:m:a:n:",
+                         long_options, &optind );
         if( c < 0 )
         {
             break;
@@ -339,6 +347,9 @@ static int parseCommandLine( int argc, char ** argv )
                 break;
             case 's':
                 showScrape = 1;
+                break;
+            case 'r':
+                isPrivate = 1;
                 break;
             case 'v':
                 verboseLevel = atoi( optarg );
@@ -355,11 +366,11 @@ static int parseCommandLine( int argc, char ** argv )
             case 'f':
                 finishCall = optarg;
                 break;
-            case 'm':
-                comment = optarg;
-                break;
             case 'c':
                 sourceFile = optarg;
+                break;
+            case 'm':
+                comment = optarg;
                 break;
             case 'a':
                 announce = optarg;
