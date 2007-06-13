@@ -927,6 +927,32 @@
     NSString * ident = [tableColumn identifier];
     if ([ident isEqualToString: @"Name"])
         return [[[fTorrents objectAtIndex: 0] downloadFolder] stringByAppendingPathComponent: [item objectForKey: @"Path"]];
+    else if ([ident isEqualToString: @"Check"])
+    {
+        int check = [cell state];
+        if (check == NSOffState)
+            return NSLocalizedString(@"Don't Download", "Inspector -> files tab -> tooltip");
+        else if (check == NSMixedState)
+            return NSLocalizedString(@"Download Some", "Inspector -> files tab -> tooltip");
+        else
+            return NSLocalizedString(@"Download", "Inspector -> files tab -> tooltip");
+    }
+    else if ([ident isEqualToString: @"Priority"])
+    {
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        BOOL low = [torrent hasFilePriority: PRIORITY_LOW forItem: item],
+            normal = [torrent hasFilePriority: PRIORITY_NORMAL forItem: item],
+            high = [torrent hasFilePriority: PRIORITY_HIGH forItem: item];
+        
+        if (low && !normal && !high)
+            return NSLocalizedString(@"Low Priority", "Inspector -> files tab -> tooltip");
+        else if (!low && normal && !high)
+            return NSLocalizedString(@"Normal Priority", "Inspector -> files tab -> tooltip");
+        else if (!low && !normal && high)
+            return NSLocalizedString(@"High Priority", "Inspector -> files tab -> tooltip");
+        else
+            return NSLocalizedString(@"Multiple Priorities", "Inspector -> files tab -> tooltip");
+    }
     else
         return nil;
 }

@@ -118,12 +118,11 @@
                 NSRect rect = [self rectOfRow: i];
                 float width = 14.0;
                 rect.origin.y += (rect.size.height - width) * 0.5;
-                rect.origin.x = 3.0;
+                rect.origin.x += 3.0;
                 rect.size.width = width;
                 rect.size.height = width;
                 
-                NSBezierPath * circle = [NSBezierPath bezierPathWithOvalInRect: rect];
-                [circle fill];
+                [[NSBezierPath bezierPathWithOvalInRect: rect] fill];
             }
         }
     }
