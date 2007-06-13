@@ -105,6 +105,15 @@
     //set file table
     [fFileOutline setDoubleAction: @selector(revealFile:)];
     
+    //set file outline
+    NSSegmentedCell * priorityCell = [[fFileOutline tableColumnWithIdentifier: @"Priority"] dataCell];
+    int i;
+    for (i = 0; i < [priorityCell segmentCount]; i++)
+    {
+        [priorityCell setLabel: @"" forSegment: i];
+        [priorityCell setWidth: 6.0 forSegment: i];
+    }
+    
     //set blank inspector
     [self updateInfoForTorrents: [NSArray array]];
 }
@@ -624,7 +633,6 @@
         }
         
         //determine which priorities are checked
-        NSDictionary * item;
         NSIndexSet * indexSet = [fFileOutline selectedRowIndexes];
         BOOL current = NO, other = NO;
         int i, priority;
@@ -642,11 +650,10 @@
             if ([torrent hasFilePriority: priority forItem: [fFileOutline itemAtRow: i]])
                 current = YES;
             else
-                other = YES;  
+                other = YES;
         }
         
         [menuItem setState: current ? (other ? NSMixedState : NSOnState) : NSOffState];
-        
         return YES;
     }
     
@@ -841,8 +848,7 @@
     return [(item ? [item objectForKey: @"Children"] : fFiles) objectAtIndex: index];
 }
 
-- (id) outlineView: (NSOutlineView *) outlineView objectValueForTableColumn: (NSTableColumn *) tableColumn
-            byItem: (id) item
+- (id) outlineView: (NSOutlineView *) outlineView objectValueForTableColumn: (NSTableColumn *) tableColumn byItem: (id) item
 {
     if ([[tableColumn identifier] isEqualToString: @"Check"])
     {
@@ -859,10 +865,10 @@
 - (void) outlineView: (NSOutlineView *) outlineView willDisplayCell: (id) cell
             forTableColumn: (NSTableColumn *) tableColumn item: (id) item
 {
-    if ([[tableColumn identifier] isEqualToString: @"Name"])
+    NSString * identifier = [tableColumn identifier];
+    if ([identifier isEqualToString: @"Name"])
     {
-        BOOL isFolder;
-        if ((isFolder = [[item objectForKey: @"IsFolder"] boolValue]))
+        if ([[item objectForKey: @"IsFolder"] boolValue])
             [cell setImage: nil];
         else
         {
@@ -871,7 +877,7 @@
                                                     [[item objectForKey: @"Index"] intValue]]];
         }
     }
-    else if ([[tableColumn identifier] isEqualToString: @"Check"])
+    else if ([identifier isEqualToString: @"Check"])
     {
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         if ([[item objectForKey: @"IsFolder"] boolValue])
@@ -879,17 +885,40 @@
         else
             [cell setEnabled: [torrent canChangeDownloadCheckFile: [[item objectForKey: @"Index"] intValue]]];
     }
+    else if ([identifier isEqualToString: @"Priority"])
+    {
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        [(NSSegmentedCell *)cell setSelected: [torrent hasFilePriority: PRIORITY_LOW forItem: item] forSegment: 0];
+        [(NSSegmentedCell *)cell setSelected: [torrent hasFilePriority: PRIORITY_NORMAL forItem: item] forSegment: 1];
+        [(NSSegmentedCell *)cell setSelected: [torrent hasFilePriority: PRIORITY_HIGH forItem: item] forSegment: 2];
+    }
     else;
 }
 
 - (void) outlineView: (NSOutlineView *) outlineView setObjectValue: (id) object
         forTableColumn: (NSTableColumn *) tableColumn byItem: (id) item
 {
-    Torrent * torrent = [fTorrents objectAtIndex: 0];
-    int state = [object intValue] != NSOffState ? NSOnState : NSOffState;
-    
-    [torrent setFileCheckState: state forFileItem: item];
-    [fFileOutline reloadData];
+    NSString * identifier = [tableColumn identifier];
+    if ([identifier isEqualToString: @"Check"])
+    { 
+        [[fTorrents objectAtIndex: 0] setFileCheckState: [object intValue] != NSOffState ? NSOnState : NSOffState
+                                        forFileItem: item];
+        [fFileOutline reloadData];
+    }
+    else if ([identifier isEqualToString: @"Priority"])
+    {
+        int priority = [object intValue], actualPriority;
+        if (priority == 0)
+            actualPriority = PRIORITY_LOW;
+        else if (priority == 2)
+            actualPriority = PRIORITY_HIGH;
+        else
+            actualPriority = PRIORITY_NORMAL;
+        
+        [[fTorrents objectAtIndex: 0] setFilePriority: actualPriority forFileItem: item];
+        [fFileOutline reloadData];
+    }
+    else;
 }
 
 - (NSString *) outlineView: (NSOutlineView *) outlineView toolTipForCell: (NSCell *) cell rect: (NSRectPointer) rect
