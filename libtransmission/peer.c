@@ -423,7 +423,8 @@ int tr_peerPulse( tr_peer_t * peer )
     }
     
     /* Disconnect if seeder and torrent is seeding */
-    if( peer->tor->status == TR_STATUS_SEED && peer->progress >= 1.0 )
+    if(   ( peer->progress >= 1.0 )
+       && ( peer->tor->status & (TR_STATUS_SEED|TR_STATUS_DONE) ) )
     {
         return TR_ERROR;
     }
