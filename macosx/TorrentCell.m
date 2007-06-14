@@ -46,7 +46,7 @@
 	{
         fDefaults = [NSUserDefaults standardUserDefaults];
         
-        fWhiteGradient = [[CTGradient aquaNormalGradient] retain];
+        fWhiteGradient = [[CTGradient progressWhiteGradient] retain];
         fGrayGradient = [[CTGradient progressGrayGradient] retain];
         fBlueGradient = [[CTGradient progressBlueGradient] retain];
         fGreenGradient = [[CTGradient progressGreenGradient] retain];

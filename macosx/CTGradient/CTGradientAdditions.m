@@ -104,17 +104,17 @@
     color1.position = 0;
     
     CTGradientElement color2;
-    color2.red = color2.green = color2.blue  = 0.8;
+    color2.red = color2.green = color2.blue  = 0.83;
     color2.alpha = 1.00;
-    color2.position = 0.5;
+    color2.position = 11.5/23;
     
     CTGradientElement color3;
     color3.red = color3.green = color3.blue  = 0.95;
     color3.alpha = 1.00;
-    color3.position = 0.5;
+    color3.position = 11.5/23;
     
     CTGradientElement color4;
-    color4.red = color4.green = color4.blue  = 0.95;
+    color4.red = color4.green = color4.blue  = 0.92;
     color4.alpha = 1.00;
     color4.position = 1;
     

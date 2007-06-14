@@ -2855,6 +2855,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
             seeding++;
         else if ([torrent isActive])
             downloading++;
+        else;
     }
     
     NSMenuItem * seedingItem = [fDockMenu itemWithTag: DOCK_SEEDING_TAG],
