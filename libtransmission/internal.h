@@ -175,7 +175,6 @@ struct tr_torrent_s
     int               status;
     int               error;
     char              errorString[128];
-    int               finished;
 
     char            * id;
     char            * key;

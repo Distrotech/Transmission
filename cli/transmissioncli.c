@@ -91,6 +91,7 @@ int main( int argc, char ** argv )
     tr_handle_t  * h;
     tr_stat_t    * s;
     tr_handle_status_t * hstat;
+    cp_status_t cpPrevStatus = TR_CP_INCOMPLETE;
 
     printf( "Transmission %s (%d) - http://transmission.m0k.org/\n\n",
             VERSION_STRING, VERSION_REVISION );
@@ -282,10 +283,13 @@ int main( int argc, char ** argv )
         {
             fprintf( stderr, "\n" );
         }
-        
-        if( tr_getFinished( tor ) )
+       
+        if( cpPrevStatus != s->cpStatus )
         {
-            result = system(finishCall);
+            if( s->cpStatus == TR_CP_COMPLETE )
+                result = system(finishCall);
+
+            cpPrevStatus = s->cpStatus;
         }
     }
     fprintf( stderr, "\n" );

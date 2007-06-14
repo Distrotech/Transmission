@@ -338,14 +338,6 @@ void   tr_torrentStart( tr_torrent_t * );
 void tr_torrentStop( tr_torrent_t * );
 
 /***********************************************************************
- * tr_getFinished
- ***********************************************************************
- * The first call after a torrent is completed returns 1. Returns 0
- * in other cases.
- **********************************************************************/
-int tr_getFinished( tr_torrent_t * );
-
-/***********************************************************************
  * tr_manualUpdate
  ***********************************************************************
  * Reannounce to tracker regardless of wait interval
