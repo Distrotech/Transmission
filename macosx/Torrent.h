@@ -97,8 +97,6 @@
 
 - (void)        resetCache;
 
-- (BOOL)        allDownloaded;
-
 - (float)       ratio;
 - (int)         ratioSetting;
 - (void)        setRatioSetting: (int) setting;
@@ -166,6 +164,7 @@
 - (BOOL) isPaused;
 - (BOOL) isWaitingToChecking;
 - (BOOL) isChecking;
+- (BOOL) allDownloaded;
 - (BOOL) isError;
 - (NSString *) errorMessage;
 

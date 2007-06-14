@@ -81,17 +81,22 @@
         barBounds = NSMakeRect(point.x, point.y - BAR_HEIGHT, width, BAR_HEIGHT);
     completeBounds = barBounds;
     
+    float progress = [[info objectForKey: @"Progress"] floatValue];
+    completeBounds.size.width = progress * width;
+    
     if ([[info objectForKey: @"Seeding"] boolValue])
     {
-        completeBounds.size.width = width * [[info objectForKey: @"ProgressStopRatio"] floatValue];
+        NSRect ratioBounds = completeBounds;
+        ratioBounds.size.width *= [[info objectForKey: @"ProgressStopRatio"] floatValue];
         
         if (completeBounds.size.width < barBounds.size.width)
-            [fLightGreenGradient fillRect: barBounds angle: -90];
-        [fGreenGradient fillRect: completeBounds angle: -90];
+            [fWhiteGradient fillRect: barBounds angle: -90];
+        if (ratioBounds.size.width < completeBounds.size.width)
+            [fLightGreenGradient fillRect: completeBounds angle: -90];
+        [fGreenGradient fillRect: ratioBounds angle: -90];
     }
     else
     {
-        completeBounds.size.width = [[info objectForKey: @"Progress"] floatValue] * width;
         if (completeBounds.size.width < barBounds.size.width)
             [fWhiteGradient fillRect: barBounds angle: -90];
         

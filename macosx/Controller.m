@@ -2850,13 +2850,12 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     NSEnumerator * enumerator = [fTorrents objectEnumerator];
     Torrent * torrent;
     while ((torrent = [enumerator nextObject]))
-        if ([torrent isActive])
-        {
-            if ([torrent allDownloaded])
-                seeding++;
-            else
-                downloading++;
-        }
+    {
+        if ([torrent isSeeding])
+            seeding++;
+        else if ([torrent isActive])
+            downloading++;
+    }
     
     NSMenuItem * seedingItem = [fDockMenu itemWithTag: DOCK_SEEDING_TAG],
             * downloadingItem = [fDockMenu itemWithTag: DOCK_DOWNLOADING_TAG];

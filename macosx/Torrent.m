@@ -366,10 +366,15 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         [progressString appendFormat: NSLocalizedString(@"%@ of %@ (%.2f%%)", "Torrent -> progress string"),
                             [NSString stringForFileSize: [self downloadedValid]],
                             [NSString stringForFileSize: [self size]], 100.0 * [self progress]];
+    else if ([self progress] < 1.0)
+        [progressString appendFormat: NSLocalizedString(@"%@ of %@ (%.2f%%), uploaded %@ (Ratio: %@)",
+                "Torrent -> progress string"),
+                [NSString stringForFileSize: [self downloadedValid]], [NSString stringForFileSize: [self size]],
+                100.0 * [self progress], [NSString stringForFileSize: [self uploadedTotal]],
+                [NSString stringForRatio: [self ratio]]];
     else
         [progressString appendFormat: NSLocalizedString(@"%@, uploaded %@ (Ratio: %@)", "Torrent -> progress string"),
-                [NSString stringForFileSize: [self downloadedValid]],
-			    [NSString stringForFileSize: [self uploadedTotal]],
+                [NSString stringForFileSize: [self size]], [NSString stringForFileSize: [self uploadedTotal]],
                 [NSString stringForRatio: [self ratio]]];
 
     BOOL wasChecking = fChecking;
@@ -461,23 +466,13 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             break;
 
         case TR_STATUS_SEED:
+        case TR_STATUS_DONE:
             [statusString setString: @""];
             if ([self totalPeers] != 1)
                 [statusString appendFormat: NSLocalizedString(@"Seeding to %d of %d peers", "Torrent -> status string"),
                                                 [self peersDownloading], [self totalPeers]];
             else
                 [statusString appendFormat: NSLocalizedString(@"Seeding to %d of 1 peer", "Torrent -> status string"),
-                                                [self peersDownloading]];
-            
-            break;
-
-        case TR_STATUS_DONE:
-            [statusString setString: @""];
-            if ([self totalPeers] != 1)
-                [statusString appendFormat:@"Uploading to %d of %d peers",
-                                                [self peersDownloading], [self totalPeers]];
-            else
-                [statusString appendFormat: @"Uploading to %d of 1 peer",
                                                 [self peersDownloading]];
             
             break;
@@ -642,11 +637,6 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 - (void) resetCache
 {
     tr_torrentRemoveFastResume(fHandle);
-}
-
-- (BOOL) allDownloaded
-{
-    return [self progress] >= 1.0;
 }
 
 - (float) ratio
@@ -1075,15 +1065,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             break;
 
         case TR_STATUS_SEED:
+        case TR_STATUS_DONE:
             return NSLocalizedString(@"Seeding", "Torrent -> status string");
             break;
 
         case TR_STATUS_STOPPING:
             return [NSLocalizedString(@"Stopping", "Torrent -> status string") stringByAppendingEllipsis];
-            break;
-        
-        case TR_STATUS_DONE:
-            return @"Uploading";
             break;
         
         default:
@@ -1093,7 +1080,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (float) progress
 {
-    return fStat->percentDone;
+    return fStat->percentComplete;
 }
 
 - (int) eta
@@ -1108,12 +1095,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (BOOL) isSeeding
 {
-    return (fStat->status == TR_STATUS_SEED || fStat->status == TR_STATUS_DONE);
-}
-
-- (BOOL) isDone
-{
-    return fStat->status == TR_STATUS_DONE;
+    return fStat->status == TR_STATUS_SEED || fStat->status == TR_STATUS_DONE;
 }
 
 - (BOOL) isPaused
@@ -1129,6 +1111,11 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 - (BOOL) isChecking
 {
     return fStat->status == TR_STATUS_CHECK;
+}
+
+- (BOOL) allDownloaded
+{
+    return fStat->cpStatus != TR_CP_INCOMPLETE;
 }
 
 - (BOOL) isError
