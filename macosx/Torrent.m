@@ -1253,7 +1253,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (uint64_t) downloadedValid
 {
-    return fInfo->totalSize - fStat->left;
+    return fStat->downloadedValid;
 }
 
 - (uint64_t) downloadedTotal

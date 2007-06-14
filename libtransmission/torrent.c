@@ -463,7 +463,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
 
     s->progress = tr_cpPercentDone( tor->completion );
-    s->left     = tr_cpBytesUntilDone( tor->completion );
+    s->left     = tr_cpLeftUntilDone( tor->completion );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
         s->rateDownload = tr_rcRate( tor->download );
@@ -496,8 +496,9 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
         s->eta = (float) s->left / s->rateDownload / 1024.0;
     }
 
-    s->downloaded = tor->downloadedCur + tor->downloadedPrev;
-    s->uploaded   = tor->uploadedCur   + tor->uploadedPrev;
+    s->uploaded        = tor->uploadedCur   + tor->uploadedPrev;
+    s->downloaded      = tor->downloadedCur + tor->downloadedPrev;
+    s->downloadedValid = tr_cpDownloadedValid( tor->completion );
     
     if( s->downloaded == 0 && s->progress == 0.0 )
     {
@@ -505,7 +506,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     else
     {
-        s->ratio = (float)s->uploaded / (float)MAX(s->downloaded, inf->totalSize - s->left);
+        s->ratio = (float)s->uploaded
+                 / (float)MAX(s->downloaded, s->downloadedValid);
     }
     
     tr_lockUnlock( &tor->lock );

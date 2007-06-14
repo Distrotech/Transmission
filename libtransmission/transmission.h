@@ -519,6 +519,7 @@ struct tr_stat_s
 
     uint64_t            left;
     uint64_t            downloaded;
+    uint64_t            downloadedValid;
     uint64_t            uploaded;
     float               swarmspeed;
 

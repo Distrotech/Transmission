@@ -335,7 +335,7 @@ tr_cpGetState ( const tr_completion_t * cp )
 }
 
 uint64_t
-tr_cpBytesUntilComplete ( const tr_completion_t * cp )
+tr_cpLeftUntilComplete ( const tr_completion_t * cp )
 {
     int i;
     uint64_t b=0;
@@ -355,7 +355,7 @@ tr_cpBytesUntilComplete ( const tr_completion_t * cp )
 }
 
 uint64_t
-tr_cpBytesUntilDone ( const tr_completion_t * cp )
+tr_cpLeftUntilDone ( const tr_completion_t * cp )
 {
     int i;
     uint64_t b=0;
@@ -412,4 +412,16 @@ tr_cpPercentDone( const tr_completion_t * cp )
     }
 
     return !total ? 0.0f : (float)have / (float)total;
+}
+
+uint64_t
+tr_cpDownloadedValid( const tr_completion_t * cp )
+{
+    int i, n;
+    uint64_t b=0;
+
+    for( i=0, n=cp->tor->info.pieceCount; i<n; ++i )
+        b += cp->completeBlocks[ i ];
+
+   return b * cp->tor->blockSize;
 }

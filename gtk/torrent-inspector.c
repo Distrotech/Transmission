@@ -599,7 +599,6 @@ static GtkWidget* peer_page_new ( TrTorrent * gtor )
   gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW(w),
                                        GTK_SHADOW_IN);
   gtk_container_add (GTK_CONTAINER(w), v);
-  gtk_widget_set_usize (w, 500u, 0u);
 
 
   vbox = gtk_vbox_new (FALSE, GUI_PAD);
@@ -805,7 +804,6 @@ refresh_activity (GtkWidget * top)
 {
   Activity * a = (Activity*) g_object_get_data (G_OBJECT(top), "activity-data");
   const tr_stat_t * stat = tr_torrent_stat( a->gtor );
-  const tr_info_t * info = tr_torrent_info( a->gtor );
   guint64 size;
   char *pch;
 
@@ -813,7 +811,7 @@ refresh_activity (GtkWidget * top)
   gtk_label_set_text (GTK_LABEL(a->state_lb), pch);
   g_free (pch);
 
-  size = info->totalSize - stat->left;
+  size = stat->downloadedValid;
   pch = readablesize (size);
   gtk_label_set_text (GTK_LABEL(a->valid_dl_lb), pch);
   g_free (pch);
