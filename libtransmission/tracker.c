@@ -237,7 +237,7 @@ static int shouldConnect( tr_tracker_t * tc )
     /* If there is quite a lot of people on this torrent, stress
        the tracker a bit until we get a decent number of peers */
     if( tc->hasManyPeers &&
-        (tr_cpGetState ( tor->completion ) == CP_INCOMPLETE ))
+        (tr_cpGetStatus ( tor->completion ) == TR_CP_INCOMPLETE ))
     {
         /* reannounce in 10 seconds if we have less than 5 peers */
         if( tor->peerCount < 5 )

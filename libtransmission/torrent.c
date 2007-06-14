@@ -464,6 +464,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
 
     s->percentDone = tr_cpPercentDone( tor->completion );
     s->percentComplete = tr_cpPercentComplete( tor->completion );
+    s->cpStatus = tr_cpGetStatus( tor->completion );
     s->left     = tr_cpLeftUntilDone( tor->completion );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
@@ -938,17 +939,17 @@ static void downloadLoop( void * _tor )
     tr_torrent_t * tor = _tor;
     int            i, ret;
     int            peerCount, used;
-    int            cpState, cpPrevState;
+    cp_status_t    cpState, cpPrevState;
     uint8_t      * peerCompact;
     tr_peer_t    * peer;
 
     tr_lockLock( &tor->lock );
 
-    cpState = cpPrevState = tr_cpGetState( tor->completion );
+    cpState = cpPrevState = tr_cpGetStatus( tor->completion );
     switch( cpState ) {
-        case CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
-        case CP_DONE:       tor->status = TR_STATUS_DONE; break;
-        case CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
+        case TR_CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
+        case TR_CP_DONE:       tor->status = TR_STATUS_DONE; break;
+        case TR_CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
     }
 
     while( !tor->die )
@@ -957,19 +958,19 @@ static void downloadLoop( void * _tor )
         tr_wait( INTERVAL_MSEC );
         tr_lockLock( &tor->lock );
 
-        cpState = tr_cpGetState( tor->completion );
+        cpState = tr_cpGetStatus( tor->completion );
 
         if( cpState != cpPrevState )
         {
             switch( cpState ) {
-                case CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
-                case CP_DONE:       tor->status = TR_STATUS_DONE; break;
-                case CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
+                case TR_CP_COMPLETE:   tor->status = TR_STATUS_SEED; break;
+                case TR_CP_DONE:       tor->status = TR_STATUS_DONE; break;
+                case TR_CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
             }
 
-            tor->finished = cpState != CP_INCOMPLETE;
+            tor->finished = cpState != TR_CP_INCOMPLETE;
 
-            if( cpState == CP_COMPLETE )
+            if( cpState == TR_CP_COMPLETE )
                 tr_trackerCompleted( tor->tracker );
 
             tr_ioSync( tor->io );

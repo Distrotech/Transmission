@@ -554,7 +554,7 @@ writeBegin:
 writeEnd:
 
     /* Ask for a block whenever possible */
-    if( tr_cpGetState( tor->completion ) == CP_INCOMPLETE
+    if( tr_cpGetStatus( tor->completion ) == TR_CP_INCOMPLETE
         && !peer->amInterested
         && tor->peerCount > TR_MAX_PEER_COUNT - 2 )
     {

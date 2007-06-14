@@ -311,12 +311,11 @@ tr_cpMissingBlocksForPiece( const tr_completion_t * cp, int piece )
 ****
 ***/
 
-/* returns one of CP_COMPLETE, CP_DONE, or CP_INCOMPLETE */
-int
-tr_cpGetState ( const tr_completion_t * cp )
+cp_status_t
+tr_cpGetStatus ( const tr_completion_t * cp )
 {
     int i;
-    int ret = CP_COMPLETE;
+    int ret = TR_CP_COMPLETE;
     const tr_info_t * info;
 
     assert( cp != NULL );
@@ -327,8 +326,8 @@ tr_cpGetState ( const tr_completion_t * cp )
         if( tr_cpPieceIsComplete( cp, i ) )
             continue;
         if( info->pieces[i].priority != TR_PRI_DND)
-            return CP_INCOMPLETE;
-        ret = CP_DONE;
+            return TR_CP_INCOMPLETE;
+        ret = TR_CP_DONE;
     }
 
     return ret;

@@ -478,6 +478,14 @@ struct tr_info_s
     tr_file_t          * files;
 };
 
+typedef enum
+{
+   TR_CP_COMPLETE,     /* has every piece */
+   TR_CP_DONE,         /* has all the pieces but the DND ones */
+   TR_CP_INCOMPLETE    /* doesn't have all the desired pieces */
+}
+cp_status_t;
+
 /***********************************************************************
  * tr_stat_s
  **********************************************************************/
@@ -498,6 +506,7 @@ struct tr_stat_s
 #define TR_STATUS_ACTIVE   (TR_STATUS_CHECK_WAIT|TR_STATUS_CHECK|TR_STATUS_DOWNLOAD|TR_STATUS_DONE|TR_STATUS_SEED)
 #define TR_STATUS_INACTIVE (TR_STATUS_STOPPING|TR_STATUS_STOPPED|TR_STATUS_PAUSE)
     int                 status;
+    cp_status_t         cpStatus;
 
     int                 error;
     char                errorString[128];

@@ -33,14 +33,7 @@ void                  tr_cpReset( tr_completion_t * );
 
 /* General */
 
-enum {
-  CP_COMPLETE,    /* has every piece */
-  CP_DONE,        /* has all the pieces but the DND ones */
-  CP_INCOMPLETE   /* doesn't have all the desired pieces */
-};
-
-/* returns CP_SEEDING, CP_DONE, or CP_INCOMPLETE */
-int tr_cpGetState ( const tr_completion_t * );
+cp_status_t           tr_cpGetStatus ( const tr_completion_t * );
 
 uint64_t              tr_cpDownloadedValid( const tr_completion_t * );
 uint64_t              tr_cpLeftUntilComplete( const tr_completion_t * );
