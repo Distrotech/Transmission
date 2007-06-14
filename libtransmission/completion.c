@@ -348,9 +348,9 @@ tr_cpLeftUntilComplete ( const tr_completion_t * cp )
     info = &tor->info;
     for( i=0; i<info->pieceCount; ++i )
         if( !tr_cpPieceIsComplete( cp, i ) )
-            b += tor->blockSize * (tr_cpCountBlocks( cp, i ) - cp->completeBlocks[ i ] );
+            b += ( tr_cpCountBlocks( cp, i ) - cp->completeBlocks[ i ] );
 
-    return b;
+    return b * tor->blockSize;;
 }
 
 uint64_t

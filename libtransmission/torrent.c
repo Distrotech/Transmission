@@ -625,7 +625,7 @@ tr_torrentFileBytesCompleted ( const tr_torrent_t * tor, int fileIndex )
     if( firstBlock == lastBlock )
     {
         if( tr_cpBlockIsComplete( tor->completion, firstBlock ) )
-            haveBytes += lastBlockOffset - firstBlockOffset;
+            haveBytes += lastBlockOffset + 1 - firstBlockOffset;
     }
     else
     {
@@ -639,7 +639,7 @@ tr_torrentFileBytesCompleted ( const tr_torrent_t * tor, int fileIndex )
                haveBytes += tor->blockSize;
 
         if( tr_cpBlockIsComplete( tor->completion, lastBlock ) )
-            haveBytes += lastBlockOffset;
+            haveBytes += lastBlockOffset + 1;
     }
 
     return haveBytes;
