@@ -49,8 +49,8 @@ int tr_mkdir( char * path );
  ***********************************************************************
  * A case-insensitive strncmp()
  **********************************************************************/
-#define tr_strcasecmp( ff, ss ) ( tr_strncasecmp( (ff), (ss), -1 ) )
-int tr_strncasecmp( const char * first, const char * second, int len );
+#define tr_strcasecmp( ff, ss ) ( tr_strncasecmp( (ff), (ss), ULONG_MAX ) )
+int tr_strncasecmp( const char * first, const char * second, size_t len );
 
 /***********************************************************************
  * tr_sprintf

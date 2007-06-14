@@ -22,6 +22,7 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
+#include <ctype.h>
 #include "transmission.h"
 
 #define SPRINTF_BUFSIZE         100
@@ -161,32 +162,22 @@ int tr_rand( int sup )
     return rand() % sup;
 }
 
-void * tr_memmem( const void *vbig, size_t big_len,
-                  const void *vlittle, size_t little_len )
+
+void*
+tr_memmem( const void* haystack, size_t hl,
+           const void* needle,   size_t nl)
 {
-    const char *big = vbig;
-    const char *little = vlittle;
-    size_t ii, jj;
+    const char *walk, *end;
 
-    if( 0 == big_len || 0 == little_len )
-    {
+    if( !nl )
+        return (void*) haystack;
+
+    if( hl < nl )
         return NULL;
-    }
 
-    for( ii = 0; ii + little_len <= big_len; ii++ )
-    {
-        for( jj = 0; jj < little_len; jj++ )
-        {
-            if( big[ii + jj] != little[jj] )
-            {
-                break;
-            }
-        }
-        if( jj == little_len )
-        {
-            return (char*)big + ii;
-        }
-    }
+    for (walk=(const char*)haystack, end=walk+hl-nl; walk!=end; ++walk)
+        if( !memcmp( walk, needle, nl ) )
+            return (void*) walk;
 
     return NULL;
 }
@@ -242,44 +233,20 @@ int tr_mkdir( char * path )
     return 0;
 }
 
-#define UPPER( cc ) \
-    ( 'a' <= (cc) && 'z' >= (cc) ? (cc) - ( 'a' - 'A' ) : (cc) )
-
-int tr_strncasecmp( const char * first, const char * second, int len )
+int
+tr_strncasecmp( const char * s1, const char * s2, size_t n )
 {
-    int ii;
-    char firstchar, secondchar;
+    if ( !n )
+        return 0;
 
-    if( 0 > len )
-    {
-        len = strlen( first );
-        ii = strlen( second );
-        len = MIN( len, ii );
+    while( n-- != 0 && tolower( *s1 ) == tolower( *s2 ) ) {
+        if( !n || !*s1 || !*s2 )
+	    break;
+        ++s1;
+        ++s2;
     }
 
-    for( ii = 0; ii < len; ii++ )
-    {
-        if( first[ii] != second[ii] )
-        {
-            firstchar = UPPER( first[ii] );
-            secondchar = UPPER( second[ii] );
-            if( firstchar > secondchar )
-            {
-                return 1;
-            }
-            else if( firstchar < secondchar )
-            {
-                return -1;
-            }
-        }
-        if( '\0' == first[ii] )
-        {
-            /* if first[ii] is '\0' then second[ii] is too */
-            return 0;
-        }
-    }
-
-    return 0;
+    return tolower(*(unsigned char *) s1) - tolower(*(unsigned char *) s2);
 }
 
 int tr_sprintf( char ** buf, int * used, int * max, const char * format, ... )
