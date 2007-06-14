@@ -462,7 +462,8 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
         }
     }
 
-    s->progress = tr_cpPercentDone( tor->completion );
+    s->percentDone = tr_cpPercentDone( tor->completion );
+    s->percentComplete = tr_cpPercentComplete( tor->completion );
     s->left     = tr_cpLeftUntilDone( tor->completion );
     if( tor->status & TR_STATUS_DOWNLOAD )
     {
@@ -500,13 +501,13 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     s->downloaded      = tor->downloadedCur + tor->downloadedPrev;
     s->downloadedValid = tr_cpDownloadedValid( tor->completion );
     
-    if( s->downloaded == 0 && s->progress == 0.0 )
+    if( s->downloaded == 0 && s->percentDone == 0.0 )
     {
         s->ratio = TR_RATIO_NA;
     }
     else
     {
-        s->ratio = (float)s->uploaded
+        s->ratio = (float)s->percentDone
                  / (float)MAX(s->downloaded, s->downloadedValid);
     }
     

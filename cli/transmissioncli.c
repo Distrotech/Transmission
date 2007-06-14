@@ -239,18 +239,18 @@ int main( int argc, char ** argv )
         else if( s->status & TR_STATUS_CHECK_WAIT )
         {
             chars = snprintf( string, sizeof string,
-                "Waiting to check files... %.2f %%", 100.0 * s->progress );
+                "Waiting to check files... %.2f %%", 100.0 * s->percentDone );
         }
         else if( s->status & TR_STATUS_CHECK )
         {
             chars = snprintf( string, sizeof string,
-                "Checking files... %.2f %%", 100.0 * s->progress );
+                "Checking files... %.2f %%", 100.0 * s->percentDone );
         }
         else if( s->status & TR_STATUS_DOWNLOAD )
         {
             chars = snprintf( string, sizeof string,
                 "Progress: %.2f %%, %d peer%s, dl from %d (%.2f KB/s), "
-                "ul to %d (%.2f KB/s) [%s]", 100.0 * s->progress,
+                "ul to %d (%.2f KB/s) [%s]", 100.0 * s->percentDone,
                 s->peersTotal, ( s->peersTotal == 1 ) ? "" : "s",
                 s->peersUploading, s->rateDownload,
                 s->peersDownloading, s->rateUpload,

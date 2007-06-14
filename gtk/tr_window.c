@@ -130,7 +130,7 @@ formatprog( GtkTreeViewColumn * col SHUTUP, GtkCellRenderer * rend,
     gfloat  prog, dl, ul;
     guint64 down, up;
 
-    gtk_tree_model_get( model, iter, MC_PROG, &prog, MC_DRATE, &dl,
+    gtk_tree_model_get( model, iter, MC_PROG_D, &prog, MC_DRATE, &dl,
                         MC_URATE, &ul, MC_DOWN, &down, MC_UP, &up, -1 );
     prog = MAX( prog, 0.0 );
     prog = MIN( prog, 1.0 );

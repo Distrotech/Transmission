@@ -218,8 +218,8 @@ tr_core_init( GTypeInstance * instance, gpointer g_class SHUTUP )
     {
         /* info->name, info->totalSize, info->hashString, status, */
         G_TYPE_STRING, G_TYPE_UINT64,   G_TYPE_STRING,    G_TYPE_INT,
-        /* error,   errorString,   progress,     rateDownload, rateUpload, */
-        G_TYPE_INT, G_TYPE_STRING, G_TYPE_FLOAT, G_TYPE_FLOAT, G_TYPE_FLOAT,
+        /* error,   errorString,   percentComplete, percentDone,  rateDownload, rateUpload, */
+        G_TYPE_INT, G_TYPE_STRING, G_TYPE_FLOAT,    G_TYPE_FLOAT, G_TYPE_FLOAT, G_TYPE_FLOAT,
         /* eta,     peersTotal, peersUploading, peersDownloading, seeders, */
         G_TYPE_INT, G_TYPE_INT, G_TYPE_INT,     G_TYPE_INT,       G_TYPE_INT,
         /* leechers, completedFromTracker, downloaded,    uploaded */
@@ -733,7 +733,8 @@ tr_core_update( TrCore * self )
                                 MC_STAT,        st->status,
                                 MC_ERR,         st->error,
                                 MC_TERR,        st->errorString,
-                                MC_PROG,        st->progress,
+                                MC_PROG_C,      st->percentComplete,
+                                MC_PROG_D,      st->percentDone,
                                 MC_DRATE,       st->rateDownload,
                                 MC_URATE,       st->rateUpload,
                                 MC_ETA,         st->eta,

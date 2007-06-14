@@ -505,7 +505,8 @@ struct tr_stat_s
 
     tr_tracker_info_t * tracker;
 
-    float               progress;
+    float               percentComplete;
+    float               percentDone;
     float               rateDownload;
     float               rateUpload;
     int                 eta;
