@@ -1077,7 +1077,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (float) progress
 {
-    return fStat->progress;
+    return fStat->percentDone;
 }
 
 - (int) eta
