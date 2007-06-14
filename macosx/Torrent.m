@@ -368,7 +368,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                             [NSString stringForFileSize: [self size]], 100.0 * [self progress]];
     else
         [progressString appendFormat: NSLocalizedString(@"%@, uploaded %@ (Ratio: %@)", "Torrent -> progress string"),
-                [NSString stringForFileSize: [self size]], [NSString stringForFileSize: [self uploadedTotal]],
+                [NSString stringForFileSize: [self downloadedValid]],
+			    [NSString stringForFileSize: [self uploadedTotal]],
                 [NSString stringForRatio: [self ratio]]];
 
     BOOL wasChecking = fChecking;
@@ -466,6 +467,17 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                                                 [self peersDownloading], [self totalPeers]];
             else
                 [statusString appendFormat: NSLocalizedString(@"Seeding to %d of 1 peer", "Torrent -> status string"),
+                                                [self peersDownloading]];
+            
+            break;
+
+        case TR_STATUS_DONE:
+            [statusString setString: @""];
+            if ([self totalPeers] != 1)
+                [statusString appendFormat:@"Uploading to %d of %d peers",
+                                                [self peersDownloading], [self totalPeers]];
+            else
+                [statusString appendFormat: @"Uploading to %d of 1 peer",
                                                 [self peersDownloading]];
             
             break;
@@ -1070,6 +1082,10 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             return [NSLocalizedString(@"Stopping", "Torrent -> status string") stringByAppendingEllipsis];
             break;
         
+        case TR_STATUS_DONE:
+            return @"Uploading";
+            break;
+        
         default:
             return NSLocalizedString(@"N/A", "Torrent -> status string");
     }
@@ -1092,7 +1108,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
 
 - (BOOL) isSeeding
 {
-    return fStat->status == TR_STATUS_SEED;
+    return (fStat->status == TR_STATUS_SEED || fStat->status == TR_STATUS_DONE);
+}
+
+- (BOOL) isDone
+{
+    return fStat->status == TR_STATUS_DONE;
 }
 
 - (BOOL) isPaused
