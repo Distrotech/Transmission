@@ -508,7 +508,7 @@ tr_stat_t * tr_torrentStat( tr_torrent_t * tor )
     }
     else
     {
-        s->ratio = (float)s->percentDone
+        s->ratio = (float)s->uploaded
                  / (float)MAX(s->downloaded, s->downloadedValid);
     }
     
