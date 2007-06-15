@@ -296,7 +296,7 @@ tr_makeMetaInfo( const char   * outputFile,
         tr_bencInitStrDup( val, announce );
 
         val = tr_bencDictAdd( &top, "created by" );
-        tr_bencInitStrDup( val, "Transmission " VERSION_STRING );
+        tr_bencInitStrDup( val, TR_NAME " " VERSION_STRING );
 
         val = tr_bencDictAdd( &top, "creation date" );
         tr_bencInitInt( val, time(0) );
