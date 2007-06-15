@@ -172,6 +172,7 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
     tor->id       = h->id;
     tor->key      = h->key;
     tor->azId     = h->azId;
+    tor->finished = 0;
 
     /* Escaped info hash for HTTP queries */
     for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
@@ -374,6 +375,16 @@ void tr_torrentDisablePex( tr_torrent_t * tor, int disable )
     }
 
     tr_lockUnlock( &tor->lock );
+}
+
+int tr_getFinished( tr_torrent_t * tor )
+{
+    if( tor->finished )
+    {
+        tor->finished = 0;
+        return 1;
+    }
+    return 0;
 }
 
 void tr_manualUpdate( tr_torrent_t * tor )
@@ -956,6 +967,8 @@ static void downloadLoop( void * _tor )
                 case TR_CP_DONE:       tor->status = TR_STATUS_DONE; break;
                 case TR_CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
             }
+
+            tor->finished = cpState != TR_CP_INCOMPLETE;
 
             if( cpState == TR_CP_COMPLETE )
                 tr_trackerCompleted( tor->tracker );
