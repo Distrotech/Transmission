@@ -372,3 +372,163 @@ tr_errorString( int code )
     return "Unknown error";
 }
 
+/****
+*****
+****/
+
+/* note that the argument is how many bits are needed, not bytes */
+tr_bitfield_t*
+tr_bitfieldNew( size_t bitcount )
+{
+    tr_bitfield_t * ret = calloc( 1, sizeof(tr_bitfield_t) );
+    if( NULL == ret )
+        return NULL;
+
+    ret->len = ( bitcount + 7u ) / 8u;
+    ret->bits = calloc( ret->len, 1 );
+    if( NULL == ret->bits ) {
+        free( ret );
+        return NULL;
+    }
+
+    return ret;
+}
+
+tr_bitfield_t*
+tr_bitfieldDup( const tr_bitfield_t * in )
+{
+    tr_bitfield_t * ret = calloc( 1, sizeof(tr_bitfield_t) );
+    ret->len = in->len;
+    ret->bits = malloc( ret->len );
+    memcpy( ret->bits, in->bits, ret->len );
+    return ret;
+}
+
+void tr_bitfieldFree( tr_bitfield_t * bitfield )
+{
+    if( bitfield )
+    {
+        free( bitfield->bits );
+        free( bitfield );
+    }
+}
+
+void
+tr_bitfieldClear( tr_bitfield_t * bitfield )
+{
+    memset( bitfield->bits, 0, bitfield->len );
+}
+
+int
+tr_bitfieldIsEmpty( const tr_bitfield_t * bitfield )
+{
+    unsigned int i;
+
+    for( i=0; i<bitfield->len; ++i )
+        if( *bitfield->bits )
+            return 0;
+
+    return 1;
+}
+
+int
+tr_bitfieldHas( const tr_bitfield_t   * bitfield,
+                size_t                  bit )
+{
+    if ( bitfield == NULL ) return 0;
+    assert( bit / 8u < bitfield->len );
+    return ( bitfield->bits[ bit / 8u ] & ( 1 << ( 7 - ( bit % 8 ) ) ) );
+}
+
+void
+tr_bitfieldAdd( tr_bitfield_t  * bitfield, size_t bit )
+{
+    assert( bit / 8u < bitfield->len );
+    bitfield->bits[ bit / 8u ] |= ( 1u << ( 7u - ( bit % 8u ) ) );
+}
+
+void
+tr_bitfieldAddRange( tr_bitfield_t  * bitfield,
+                     size_t           first,
+                     size_t           last )
+{
+    /* TODO: there are faster ways to do this */
+    unsigned int i;
+    for( i=first; i<=last; ++i )
+        tr_bitfieldAdd( bitfield, i );
+}
+
+void
+tr_bitfieldRem( tr_bitfield_t   * bitfield,
+                size_t            bit )
+{
+    assert( bit / 8u < bitfield->len );
+    bitfield->bits[ bit / 8u ] &= ~( 1u << ( 7u - ( bit % 8u ) ) );
+}
+
+void
+tr_bitfieldRemRange ( tr_bitfield_t  * b,
+                      size_t           first,
+                      size_t           last )
+{
+    /* TODO: there are faster ways to do this */
+    unsigned int i;
+    for( i=first; i<=last; ++i )
+        tr_bitfieldRem( b, i );
+}
+
+tr_bitfield_t*
+tr_bitfieldNegate( tr_bitfield_t * b )
+{
+    uint8_t *it;
+    const uint8_t *end;
+
+    for( it=b->bits, end=it+b->len; it!=end; ++it )
+        *it = ~*it;
+
+    return b;
+}
+
+tr_bitfield_t*
+tr_bitfieldAnd( tr_bitfield_t * a, const tr_bitfield_t * b )
+{
+    uint8_t *ait;
+    const uint8_t *aend, *bit;
+
+    assert( a->len == b->len );
+
+    for( ait=a->bits, bit=b->bits, aend=ait+a->len; ait!=aend; ++ait, ++bit )
+        *ait &= *bit;
+
+    return a;
+}
+
+size_t
+tr_bitfieldCountTrueBits( const tr_bitfield_t* b )
+{
+    size_t ret = 0;
+    const uint8_t *it, *end;
+    static const int trueBitCount[512] = {
+        0,1,1,2,1,2,2,3,1,2,2,3,2,3,3,4,1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,
+        1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+        1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+        1,2,2,3,2,3,3,4,2,3,3,4,3,4,4,5,2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+        2,3,3,4,3,4,4,5,3,4,4,5,4,5,5,6,3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,
+        3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+        3,4,4,5,4,5,5,6,4,5,5,6,5,6,6,7,4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,
+        4,5,5,6,5,6,6,7,5,6,6,7,6,7,7,8,5,6,6,7,6,7,7,8,6,7,7,8,7,8,8,9
+    };
+
+    for( it=b->bits, end=it+b->len; it!=end; ++it )
+        ret += trueBitCount[*it];
+
+    return ret;
+}
