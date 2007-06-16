@@ -48,6 +48,7 @@
         
         fWhiteGradient = [[CTGradient progressWhiteGradient] retain];
         fGrayGradient = [[CTGradient progressGrayGradient] retain];
+        fLightGrayGradient = [[CTGradient unifiedNormalGradient] retain];
         fBlueGradient = [[CTGradient progressBlueGradient] retain];
         fGreenGradient = [[CTGradient progressGreenGradient] retain];
         fLightGreenGradient = [[CTGradient progressLightGreenGradient] retain];
@@ -84,27 +85,40 @@
     float progress = [[info objectForKey: @"Progress"] floatValue];
     completeBounds.size.width = progress * width;
     
+    if (progress < 1.0)
+    {
+        [fWhiteGradient fillRect: barBounds angle: -90];
+        
+        float left = [[info objectForKey: @"Left"] floatValue];
+        if ((progress + left) < 1.0)
+        {
+            NSRect blankBounds = barBounds;
+            blankBounds.origin.x += width * (progress + left);
+            blankBounds.size.width = width * ((1.0 - progress) - left);
+            
+            [fLightGrayGradient fillRect: blankBounds angle: -90];
+        }
+    }
+    
     if ([[info objectForKey: @"Seeding"] boolValue])
     {
         NSRect ratioBounds = completeBounds;
         ratioBounds.size.width *= [[info objectForKey: @"ProgressStopRatio"] floatValue];
         
-        if (completeBounds.size.width < barBounds.size.width)
-            [fWhiteGradient fillRect: barBounds angle: -90];
         if (ratioBounds.size.width < completeBounds.size.width)
             [fLightGreenGradient fillRect: completeBounds angle: -90];
         [fGreenGradient fillRect: ratioBounds angle: -90];
     }
     else
     {
-        if (completeBounds.size.width < barBounds.size.width)
-            [fWhiteGradient fillRect: barBounds angle: -90];
-        
         if ([[info objectForKey: @"Active"] boolValue])
             [fBlueGradient fillRect: completeBounds angle: -90];
         else
             [fGrayGradient fillRect: completeBounds angle: -90];
     }
+    
+    
+    
     [[NSColor colorWithDeviceWhite: 0.0 alpha: 0.2] set];
     [NSBezierPath strokeRect: NSInsetRect(barBounds, 0.5, 0.5)];
 }

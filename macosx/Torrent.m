@@ -546,13 +546,12 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
                                     [self name], @"Name",
                                     [NSNumber numberWithBool: [self isSeeding]], @"Seeding",
                                     [NSNumber numberWithFloat: [self progress]], @"Progress",
+                                    [NSNumber numberWithFloat: (float)fStat->left/[self size]], @"Left",
                                     [NSNumber numberWithBool: [self isActive]], @"Active",
                                     [NSNumber numberWithBool: [self isError]], @"Error", nil];
     
     if ([self isSeeding])
-    {
         [info setObject: [NSNumber numberWithFloat: [self progressStopRatio]] forKey: @"ProgressStopRatio"];
-    }
     
     if (![fDefaults boolForKey: @"SmallView"])
     {
