@@ -901,8 +901,12 @@
     NSString * identifier = [tableColumn identifier];
     if ([identifier isEqualToString: @"Check"])
     { 
-        [[fTorrents objectAtIndex: 0] setFileCheckState: [object intValue] != NSOffState ? NSOnState : NSOffState
+        Torrent * torrent = [fTorrents objectAtIndex: 0];
+        [torrent setFileCheckState: [object intValue] != NSOffState ? NSOnState : NSOffState
                                         forFileItem: item];
+        
+        [torrent update];
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
         [fFileOutline reloadData];
     }
     else if ([identifier isEqualToString: @"Priority"])
