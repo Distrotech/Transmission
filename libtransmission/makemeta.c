@@ -71,7 +71,6 @@ getFiles( const char        * dir,
     {
         struct FileList * node = malloc( sizeof( struct FileList ) );
         snprintf( node->filename, sizeof( node->filename ), "%s", buf );
-        tr_dbg( "putting absolute path in list [%s]\n", node->filename );
         node->next = list;
         list = node;
     }
@@ -98,10 +97,6 @@ freeFileList( struct FileList * list )
     }
 }
 
-/****
-*****
-****/
-
 static off_t
 getFileSize ( const char * filename )
 {
@@ -110,6 +105,95 @@ getFileSize ( const char * filename )
     stat( filename, &sb );
     return sb.st_size;
 }
+
+#define MiB 1048576ul
+#define GiB 1073741824ul
+
+static size_t
+bestPieceSize( size_t totalSize )
+{
+    /* almost always best to have a piee size of 512 or 256 kb.
+       common practice seems to be to bump up to 1MB pieces at
+       at total size of around 8GiB or so */
+
+    if (totalSize >= (8 * GiB) )
+        return MiB;
+
+    if (totalSize >= GiB )
+        return MiB / 2;
+
+    return MiB / 4;
+}
+
+/****
+*****
+****/
+
+static int pstrcmp( const void * va, const void * vb)
+{
+    const char * a = *(const char**) va;
+    const char * b = *(const char**) vb;
+    return strcmp( a, b );
+}
+
+MetaInfoBuilder*
+tr_metaInfoBuilderCreate( const char * topFile )
+{
+    size_t i;
+    struct FileList * files;
+    const struct FileList * walk;
+    MetaInfoBuilder * ret = calloc( 1, sizeof(MetaInfoBuilder) );
+    ret->top = tr_strdup( topFile );
+
+    /* build a list of files containing topFile and,
+       if it's a directory, all of its children */
+    if (1) {
+        char *dir, *base;
+        char dirbuf[MAX_PATH_LENGTH];
+        char basebuf[MAX_PATH_LENGTH];
+        strlcpy( dirbuf, topFile, sizeof( dirbuf ) );
+        strlcpy( basebuf, topFile, sizeof( basebuf ) );
+        dir = dirname( dirbuf );
+        base = basename( basebuf );
+        files = getFiles( dir, base, NULL );
+        assert( files != NULL  );
+    }
+
+    for( walk=files; walk!=NULL; walk=walk->next )
+        ++ret->fileCount;
+    ret->files = calloc( ret->fileCount, sizeof(char*) );
+    ret->fileLengths = calloc( ret->fileCount, sizeof(size_t) );
+
+    for( i=0, walk=files; walk!=NULL; walk=walk->next, ++i )
+        ret->files[i] = tr_strdup( walk->filename );
+
+    qsort( ret->files, ret->fileCount, sizeof(char*), pstrcmp );
+    for( i=0; i<ret->fileCount; ++i ) {
+        ret->fileLengths[i] = getFileSize( ret->files[i] );
+        ret->totalSize += ret->fileLengths[i];
+    }
+
+    freeFileList( files );
+    
+    ret->pieceSize = bestPieceSize( ret->totalSize );
+    ret->pieceCount = ret->totalSize / ret->pieceSize;
+    return ret;
+}
+
+void
+tr_metaInfoBuilderFree( MetaInfoBuilder * builder )
+{
+    size_t i;
+
+    for( i=0; i<builder->fileCount; ++i )
+        free( builder->files[i] );
+    free( builder->top );
+    free( builder );
+}
+
+/****
+*****
+****/
 
 static uint8_t*
 getHashInfo ( const char              * topFile,

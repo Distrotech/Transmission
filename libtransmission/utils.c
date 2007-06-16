@@ -376,6 +376,23 @@ tr_errorString( int code )
 *****
 ****/
 
+char* tr_strdup( const char * in )
+{
+    char * out = NULL;
+    if( in != NULL )
+    {
+        const size_t len = strlen( in );
+        out = malloc( len + 1 );
+        memcpy( out, in, len );
+        out[len] = '\0';
+    }
+    return out;
+}
+
+/****
+*****
+****/
+
 /* note that the argument is how many bits are needed, not bytes */
 tr_bitfield_t*
 tr_bitfieldNew( size_t bitcount )

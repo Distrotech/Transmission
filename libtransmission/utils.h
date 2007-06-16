@@ -173,6 +173,9 @@ static inline int _tr_block( const tr_torrent_t * tor, int index, int begin )
         begin / tor->blockSize;
 }
 
+
+char* tr_strdup( const char * pch );
+
 /***
 ****
 ***/

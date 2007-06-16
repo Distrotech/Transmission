@@ -25,11 +25,31 @@
 #ifndef TR_MAKEMETA_H
 #define TR_MAKEMETA_H 1
 
+typedef struct
+{
+    char * top;
+    char ** files;
+    size_t * fileLengths;
+    size_t totalSize;
+    size_t fileCount;
+    size_t pieceSize;
+    size_t pieceCount;
+    
+}
+MetaInfoBuilder;
+
+MetaInfoBuilder*
+tr_metaInfoBuilderCreate( const char * topFile );
+
+void
+tr_metaInfoBuilderFree( MetaInfoBuilder* );
+
+
 int
-tr_makeMetaInfo ( const char   * outputFile,  /* the torrent to create */
-                  const char   * announce,    /* announcement URL */
-                  const char   * comment,     /* optional comment */
-                  const char   * filename,    /* file or dir to torrentize */
-                  int            isPrivate );
+tr_makeMetaInfo( const char   * outputFile,
+                 const char   * announce,
+                 const char   * comment,
+                 const char   * topFile,
+                 int            isPrivate );
 
 #endif
