@@ -34,6 +34,8 @@
 #include "internal.h" /* for tr_torrent_t */
 #include "bencode.h"
 #include "makemeta.h"
+#include "platform.h" /* threads, locks */
+#include "shared.h" /* shared lock */
 #include "version.h"
 
 /****
@@ -132,14 +134,15 @@ static int pstrcmp( const void * va, const void * vb)
     return strcmp( a, b );
 }
 
-meta_info_builder_t*
-tr_metaInfoBuilderCreate( const char * topFile )
+tr_metainfo_builder_t*
+tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
 {
     size_t i;
     struct FileList * files;
     const struct FileList * walk;
-    meta_info_builder_t * ret = calloc( 1, sizeof(meta_info_builder_t) );
+    tr_metainfo_builder_t * ret = calloc( 1, sizeof(tr_metainfo_builder_t) );
     ret->top = tr_strdup( topFile );
+    ret->handle = handle;
 
     if (1) {
         struct stat sb;
@@ -185,14 +188,17 @@ tr_metaInfoBuilderCreate( const char * topFile )
 }
 
 void
-tr_metaInfoBuilderFree( meta_info_builder_t * builder )
+tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 {
     size_t i;
 
     for( i=0; i<builder->fileCount; ++i )
-        free( builder->files[i] );
-    free( builder->top );
-    free( builder );
+        tr_free( builder->files[i] );
+    tr_free( builder->top );
+    tr_free( builder->comment );
+    tr_free( builder->announce );
+    tr_free( builder->outputFile );
+    tr_free( builder );
 }
 
 /****
@@ -200,13 +206,10 @@ tr_metaInfoBuilderFree( meta_info_builder_t * builder )
 ****/
 
 static uint8_t*
-getHashInfo ( const meta_info_builder_t  * builder,
-              makemeta_progress_func       progress_func,
-              void                       * progress_func_user_data,
+getHashInfo ( const tr_metainfo_builder_t  * builder,
               int                        * setmeCount )
 {
     size_t i;
-    int abort = 0;;
     tr_torrent_t t;
     uint8_t *ret, *walk;
     const size_t topLen = strlen(builder->top) + 1; /* +1 for '/' */
@@ -230,11 +233,7 @@ getHashInfo ( const meta_info_builder_t  * builder,
     ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * t.info.pieceCount );
     walk = ret;
 
-    /* FIXME: call the periodically while getting the SHA1 sums.
-       this will take a little tweaking to ioRecalculateHash,
-       probably will get done Sunday or Monday */
-    (progress_func)( builder, 0, &abort, progress_func_user_data );
-
+    /* FIXME: check the abort flag */
     for( i=0; i<(size_t)t.info.pieceCount; ++i ) {
         tr_ioRecalculateHash( &t, i, walk );
         walk += SHA_DIGEST_LENGTH;
@@ -291,7 +290,7 @@ getFileInfo( const char * topFile,
 
 static void
 makeFilesList( benc_val_t                 * list,
-               const meta_info_builder_t  * builder )
+               const tr_metainfo_builder_t  * builder )
 {
     size_t i = 0;
 
@@ -312,10 +311,7 @@ makeFilesList( benc_val_t                 * list,
 
 static void
 makeInfoDict ( benc_val_t                 * dict,
-               const meta_info_builder_t  * builder,
-               makemeta_progress_func       progress_func,
-               void                       * progress_func_user_data,
-               int                          isPrivate )
+               const tr_metainfo_builder_t  * builder )
 {
     uint8_t * pch;
     int pieceCount = 0;
@@ -331,10 +327,7 @@ makeInfoDict ( benc_val_t                 * dict,
     val = tr_bencDictAdd( dict, "piece length" );
     tr_bencInitInt( val, builder->pieceSize );
 
-    pch = getHashInfo( builder,
-                       progress_func,
-                       progress_func_user_data,
-                       &pieceCount );
+    pch = getHashInfo( builder, &pieceCount );
     val = tr_bencDictAdd( dict, "pieces" );
     tr_bencInitStr( val, pch, SHA_DIGEST_LENGTH * pieceCount, 0 );
 
@@ -351,28 +344,20 @@ makeInfoDict ( benc_val_t                 * dict,
     }
 
     val = tr_bencDictAdd( dict, "private" );
-    tr_bencInitInt( val, isPrivate ? 1 : 0 );
+    tr_bencInitInt( val, builder->isPrivate ? 1 : 0 );
 }
 
-/* if outputFile is NULL, builder->top + ".torrent" is used */
-int
-tr_makeMetaInfo( const meta_info_builder_t  * builder,
-                 makemeta_progress_func       progress_func,
-                 void                       * progress_func_user_data,
-                 const char                 * outputFile,
-                 const char                 * announce,
-                 const char                 * comment,
-                 int                          isPrivate )
+static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
 {
     int n = 5;
     benc_val_t top, *val;
 
     tr_bencInit ( &top, TYPE_DICT );
-    if ( comment && *comment ) ++n;
+    if ( builder->comment && *builder->comment ) ++n;
     tr_bencDictReserve( &top, n );
 
         val = tr_bencDictAdd( &top, "announce" );
-        tr_bencInitStrDup( val, announce );
+        tr_bencInitStrDup( val, builder->announce );
 
         val = tr_bencDictAdd( &top, "created by" );
         tr_bencInitStrDup( val, TR_NAME " " VERSION_STRING );
@@ -383,32 +368,23 @@ tr_makeMetaInfo( const meta_info_builder_t  * builder,
         val = tr_bencDictAdd( &top, "encoding" );
         tr_bencInitStrDup( val, "UTF-8" );
 
-        if( comment && *comment ) {
+        if( builder->comment && *builder->comment ) {
             val = tr_bencDictAdd( &top, "comment" );
-            tr_bencInitStrDup( val, comment );
+            tr_bencInitStrDup( val, builder->comment );
         }
 
         val = tr_bencDictAdd( &top, "info" );
         tr_bencInit( val, TYPE_DICT );
         tr_bencDictReserve( val, 666 );
-        makeInfoDict( val, builder,
-                      progress_func, progress_func_user_data,
-                      isPrivate );
+        makeInfoDict( val, builder );
 
     /* debugging... */
     tr_bencPrint( &top );
 
     /* save the file */
     if (1) {
-        char out[MAX_PATH_LENGTH];
-        FILE * fp;
-        char * pch;
-        if ( !outputFile || !*outputFile ) {
-            snprintf( out, sizeof(out), "%s.torrent", builder->top);
-            outputFile = out;
-        }
-        fp = fopen( outputFile, "wb+" );
-        pch = tr_bencSaveMalloc( &top, &n );
+        FILE * fp = fopen( builder->outputFile, "wb+" );
+        char * pch = tr_bencSaveMalloc( &top, &n );
         fwrite( pch, n, 1, fp );
         free( pch );
         fclose( fp );
@@ -416,5 +392,92 @@ tr_makeMetaInfo( const meta_info_builder_t  * builder,
 
     /* cleanup */
     tr_bencFree( & top );
-    return 0;
+    builder->isDone = 1;
+    builder->failed = builder->abortFlag; /* FIXME: doesn't catch all failures */
 }
+
+/***
+****
+****  A threaded builder queue
+****
+***/
+
+static tr_metainfo_builder_t * queue = NULL;
+
+static int workerIsRunning = 0;
+
+static tr_thread_t workerThread;
+
+static tr_lock_t* getQueueLock( tr_handle_t * h )
+{
+    static tr_lock_t * lock = NULL;
+
+    tr_sharedLock( h->shared );
+    if( lock == NULL )
+    {
+        lock = calloc( 1, sizeof( tr_lock_t ) );
+        tr_lockInit( lock );
+    }
+    tr_sharedUnlock( h->shared );
+
+    return lock;
+}
+
+static void workerFunc( void * user_data )
+{
+    tr_handle_t * handle = (tr_handle_t *) user_data;
+
+    for (;;)
+    {
+        tr_metainfo_builder_t * builder = NULL;
+
+        /* find the next builder to process */
+        tr_lock_t * lock = getQueueLock ( handle );
+        tr_lockLock( lock );
+        if( queue != NULL ) {
+            builder = queue;
+            queue = queue->nextBuilder;
+        }
+        tr_lockUnlock( lock );
+
+        /* if no builders, this worker thread is done */
+        if( builder == NULL )
+          break;
+
+        tr_realMakeMetaInfo ( builder );
+    }
+
+    workerIsRunning = 0;
+}
+
+void
+tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
+                 const char             * outputFile,
+                 const char             * announce,
+                 const char             * comment,
+                 int                      isPrivate )
+{
+    tr_lock_t * lock;
+    builder->announce = tr_strdup( announce );
+    builder->comment = tr_strdup( comment );
+    builder->isPrivate = isPrivate;
+    if( outputFile && *outputFile )
+        builder->outputFile = tr_strdup( outputFile );
+    else {
+        char out[MAX_PATH_LENGTH];
+        snprintf( out, sizeof(out), "%s.torrent", builder->top);
+        builder->outputFile = tr_strdup( out );
+    }
+
+    /* enqueue the builder */
+    lock = getQueueLock ( builder->handle );
+    tr_lockLock( lock );
+    builder->nextBuilder = queue;
+    queue = builder;
+    if( !workerIsRunning ) {
+        workerIsRunning = 1;
+        tr_threadCreate( &workerThread, workerFunc, builder->handle, "makeMeta" );
+    }
+    tr_lockUnlock( lock );
+}
+

@@ -389,6 +389,18 @@ char* tr_strdup( const char * in )
     return out;
 }
 
+void*
+tr_malloc( size_t size )
+{
+    return size ? malloc( size ) : NULL;
+}
+
+void tr_free( void * p )
+{
+    if( p )
+        free( p );
+}
+
 /****
 *****
 ****/

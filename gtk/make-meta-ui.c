@@ -27,6 +27,7 @@
 #include <glib/gi18n.h>
 #include <gtk/gtk.h>
 
+#include "transmission.h"
 #include "makemeta.h"
 
 #include "hig.h"
@@ -39,32 +40,31 @@ typedef struct
     GtkWidget * announce_entry;
     GtkWidget * comment_entry;
     GtkWidget * private_check;
-    meta_info_builder_t * builder;
+    tr_metainfo_builder_t * builder;
+    tr_handle_t * handle;
 }
 MakeMetaUI;
 
 static void
-cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer cancel_flag )
+cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer user_data )
 {
-    *(int*)cancel_flag = TRUE;
+    MakeMetaUI * ui = (MakeMetaUI *) user_data;
+    ui->builder->abortFlag = TRUE;
 }
 
-static void
-progress_cb( const meta_info_builder_t  * builder    UNUSED,
-             size_t                       pieceIndex,
-             int                        * abortFlag,
-             void                       * user_data  UNUSED)
+static gboolean
+refresh_cb ( gpointer user_data )
 {
-    g_message ("%lu of %lu", pieceIndex, builder->pieceCount);
+    MakeMetaUI * ui = (MakeMetaUI *) user_data;
 
-    *abortFlag = *(gboolean*)user_data;
+    g_message ("refresh");
+
+    return !ui->builder->isDone;
 }
 
 static void
 response_cb( GtkDialog* d, int response, gpointer user_data )
 {
-    int ret;
-    gboolean cancelFlag = FALSE;
     MakeMetaUI * ui = (MakeMetaUI*) user_data;
     GtkWidget *w, *l, *p;
     char *tmp, *name;
@@ -80,26 +80,25 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
                                      GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
                                      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                      NULL );
-    g_signal_connect( w, "response", G_CALLBACK(cancel_cb), &cancelFlag );
+    g_signal_connect( w, "response", G_CALLBACK(cancel_cb), ui );
 
     tmp = g_path_get_basename (ui->builder->top);
     name = g_strdup_printf ( "%s.torrent", tmp );
     l = gtk_label_new( name );
     gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), l );
     p = gtk_progress_bar_new ();
-    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), l );
+    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), p );
     gtk_widget_show_all ( w );
     g_free( name );
     g_free( tmp );
 
-    ret = tr_makeMetaInfo( ui->builder,
-                           progress_cb, &cancelFlag,
-                           NULL, 
-                           gtk_entry_get_text( GTK_ENTRY( ui->announce_entry ) ),
-                           gtk_entry_get_text( GTK_ENTRY( ui->comment_entry ) ),
-                           gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( ui->private_check ) ) );
-    if( !ret )
-      gtk_widget_destroy( GTK_WIDGET( d ) );
+    tr_makeMetaInfo( ui->builder,
+                     NULL, 
+                     gtk_entry_get_text( GTK_ENTRY( ui->announce_entry ) ),
+                     gtk_entry_get_text( GTK_ENTRY( ui->comment_entry ) ),
+                     gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( ui->private_check ) ) );
+
+    g_timeout_add ( 1000, refresh_cb, ui );
 }
 
 static void
@@ -140,7 +139,7 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     }
 
     filename = gtk_file_chooser_get_filename( chooser );
-    ui->builder = tr_metaInfoBuilderCreate( filename );
+    ui->builder = tr_metaInfoBuilderCreate( ui->handle, filename );
     g_free( filename );
 
     pch = readablesize( ui->builder->totalSize );
@@ -152,12 +151,13 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
 }
 
 GtkWidget*
-make_meta_ui( GtkWindow * parent )
+make_meta_ui( GtkWindow * parent, tr_handle_t * handle )
 {
     int row = 0;
     GtkWidget *d, *t, *w, *h, *rb_file, *rb_dir;
     char name[256];
-    MakeMetaUI * ui = g_new0 ( MakeMetaUI, 1 ) ;
+    MakeMetaUI * ui = g_new0 ( MakeMetaUI, 1 );
+    ui->handle = handle;
 
     d = gtk_dialog_new_with_buttons( _("Make a New Torrent"),
                                      parent,

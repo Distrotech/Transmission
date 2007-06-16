@@ -92,19 +92,6 @@ char * getStringRatio( float ratio )
 
 #define LINEWIDTH 80
 
-static void
-progress_func( const meta_info_builder_t * builder,
-               size_t                      pieceIndex,
-               int                       * abortFlag   UNUSED,
-               void                      * userData    UNUSED )
-{
-    double percent = (double)pieceIndex / builder->pieceCount;
-    printf( "%d%% done (on block %lu of %lu)\n",
-            (int)(100.0*percent + 0.5),
-            pieceIndex, builder->pieceCount );
-}
-
-
 int main( int argc, char ** argv )
 {
     int i, error;
@@ -154,10 +141,14 @@ int main( int argc, char ** argv )
 
     if( sourceFile && *sourceFile ) /* creating a torrent */
     {
-        meta_info_builder_t* builder = tr_metaInfoBuilderCreate( sourceFile );
-        int ret = tr_makeMetaInfo( builder,
-                                   progress_func, NULL,
-                                   NULL, announce, comment, isPrivate );
+        int ret;
+        tr_metainfo_builder_t* builder = tr_metaInfoBuilderCreate( h, sourceFile );
+        tr_makeMetaInfo( builder, NULL, announce, comment, isPrivate );
+        while( !builder->isDone ) {
+            usleep( 1 );
+            printf( "." );
+        }
+        ret = !builder->failed;
         tr_metaInfoBuilderFree( builder );
         return ret;
     }

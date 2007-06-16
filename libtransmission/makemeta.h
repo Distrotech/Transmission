@@ -25,8 +25,13 @@
 #ifndef TR_MAKEMETA_H
 #define TR_MAKEMETA_H 1
 
-typedef struct
+typedef struct tr_metainfo_builder_s
 {
+    /**
+    ***  These are set by tr_makeMetaInfo()
+    ***  and cleaned up by tr_metaInfoBuilderFree()
+    **/
+
     char * top;
     char ** files;
     size_t * fileLengths;
@@ -35,46 +40,66 @@ typedef struct
     size_t pieceSize;
     size_t pieceCount;
     int isSingleFile;
+    tr_handle_t * handle;
+
+    /**
+    ***  These are set inside tr_makeMetaInfo()
+    ***  by copying the arguments passed to it,
+    ***  and cleaned up by tr_metaInfoBuilderFree()
+    **/
+
+    char * announce;
+    char * comment;
+    char * outputFile;
+    int isPrivate;
+
+    /**
+    ***  These are set inside tr_makeMetaInfo() so the client
+    ***  can poll periodically to see what the status is.
+    ***  The client can also set abortFlag to nonzero to
+    ***  tell tr_makeMetaInfo() to abort and clean up after itself.
+    **/
+
+    size_t pieceIndex;
+    int abortFlag;
+    int isDone;
+    int failed; /* only meaningful if isDone is set */
+
+    /**
+    ***  This is an implementation detail.
+    ***  The client should never use these fields.
+    **/
+
+    struct tr_metainfo_builder_s * nextBuilder;
 }
-meta_info_builder_t;
+tr_metainfo_builder_t;
 
-meta_info_builder_t*
-tr_metaInfoBuilderCreate( const char * topFile );
 
-/** 
- * Called periodically during the checksum generation.
- *
- * 'builder' is the builder passed into tr_makeMetaInfo
- * 'pieceIndex' is the current piece having a checksum generated
- * 'abortFlag' is an int pointer to set if the user wants to abort
- * 'userData' is the data passed into tr_makeMetaInfo
- */
-typedef
-void (*makemeta_progress_func)(const meta_info_builder_t * builder,
-                               size_t                      pieceIndex,
-                               int                       * abortFlag,
-                               void                      * userData );
 
-/**
- * Builds a .torrent metainfo file.
- *
- * 'outputFile' if NULL, builder->top + ".torrent" will be used.
- * 'progress_func' a client-implemented callback function (see above)
- * 'progress_func_user_data' is passed back to the user in the progress func.
- *     It can be used to pass a resource or handle from tr_makeMetaInfo's
- *     caller to progress_func, or anything else.  Pass NULL if not needed.
- */
-int
-tr_makeMetaInfo( const meta_info_builder_t  * builder,
-                 makemeta_progress_func       progress_func,
-                 void                       * progress_func_user_data,
-                 const char                 * outputFile,
-                 const char                 * announce,
-                 const char                 * comment,
-                 int                          isPrivate );
 
+tr_metainfo_builder_t*
+tr_metaInfoBuilderCreate( tr_handle_t  * handle,
+                          const char   * topFile );
 
 void
-tr_metaInfoBuilderFree( meta_info_builder_t* );
+tr_metaInfoBuilderFree( tr_metainfo_builder_t* );
+
+/**
+ * 'outputFile' if NULL, builder->top + ".torrent" will be used.
+ *
+ * This is actually done in a worker thread, not the main thread!
+ * Otherwise the client's interface would lock up while this runs.
+ *
+ * It is the caller's responsibility to poll builder->isDone
+ * from time to time!  When the worker thread sets that flag,
+ * the caller must pass the builder to tr_metaInfoBuilderFree().
+ */
+void
+tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
+                 const char             * outputFile,
+                 const char             * announce,
+                 const char             * comment,
+                 int                      isPrivate );
+
 
 #endif

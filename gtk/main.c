@@ -346,13 +346,14 @@ sendremote( GList * files, gboolean sendquit )
 static void
 gtksetup( int * argc, char *** argv, struct cbdata * callback_data )
 {
-    gtk_init( argc, argv );
 
     bindtextdomain( "transmission-gtk", LOCALEDIR );
     bind_textdomain_codeset( "transmission-gtk", "UTF-8" );
     textdomain( "transmission-gtk" );
 
+    g_thread_init (0);
     g_set_application_name( _("Transmission") );
+    gtk_init( argc, argv );
 
     /* connect up the actions */
     myUIManager = gtk_ui_manager_new ();
@@ -994,7 +995,7 @@ doAction ( const char * action_name, gpointer user_data )
     }
     else if (!strcmp (action_name, "create-torrent"))
     {
-        GtkWidget * w = make_meta_ui( GTK_WINDOW( data->wind ) );
+        GtkWidget * w = make_meta_ui( GTK_WINDOW( data->wind ), tr_core_handle( data->core ) );
         gtk_widget_show_all( w );
     }
     else if (!strcmp (action_name, "remove-torrent"))
