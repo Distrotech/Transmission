@@ -117,8 +117,6 @@
             [fGrayGradient fillRect: completeBounds angle: -90];
     }
     
-    
-    
     [[NSColor colorWithDeviceWhite: 0.0 alpha: 0.2] set];
     [NSBezierPath strokeRect: NSInsetRect(barBounds, 0.5, 0.5)];
 }

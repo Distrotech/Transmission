@@ -50,7 +50,7 @@ static int static_lastid = 0;
 - (void) createFileListShouldDownload: (NSArray *) filesShouldDownload priorities: (NSArray *) filePriorities;
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
             withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-            fileSize: (uint64_t) size index: (int) index priority: (int) priority;
+            flatList: (NSMutableArray *) flatList fileSize: (uint64_t) size index: (int) index priority: (int) priority;
 - (NSImage *) advancedBar;
 - (void) trashFile: (NSString *) path;
 
@@ -1317,19 +1317,13 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return tr_torrentFileCompletion(fHandle, index);
 }
 
-- (int) checkForFile: (int) index
-{
-    return (tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0)
-            ? NSOnState : NSOffState;
-}
-
-- (int) checkForFileFolder: (NSIndexSet *) indexSet
+- (int) checkForFiles: (NSIndexSet *) indexSet
 {
     BOOL onState = NO, offState = NO;
     int index;
     for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
     {
-        if ([self checkForFile: index] == NSOnState)
+        if (tr_torrentGetFilePriority(fHandle, index) != TR_PRI_DND || [self fileProgress: index] >= 1.0)
             onState = YES;
         else
             offState = YES;
@@ -1340,28 +1334,24 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     return onState ? NSOnState : NSOffState;
 }
 
-- (BOOL) canChangeDownloadCheckFile: (int) index
-{
-    return [self fileProgress: index] < 1.0;
-}
-
-- (BOOL) canChangeDownloadCheckForFileFolder: (NSIndexSet *) indexSet
+- (BOOL) canChangeDownloadCheckForFiles: (NSIndexSet *) indexSet
 {
     int index;
     for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
-        if ([self canChangeDownloadCheckFile: index])
+        if ([self fileProgress: index] < 1.0)
             return YES;
     return NO;
 }
 
-- (void) setFileCheckState: (int) state forFileItem: (NSDictionary *) item
+- (void) setFileCheckState: (int) state forIndexes: (NSIndexSet *) indexSet
 {
-    if (![[item objectForKey: @"IsFolder"] boolValue])
+    int index;
+    for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
     {
         tr_priority_t actualPriority;
         if (state == NSOnState)
         {
-            int priority = [[item objectForKey: @"Priority"] intValue];
+            int priority = [[[fFlatFileList objectAtIndex: index] objectForKey: @"Priority"] intValue];
             if (priority == PRIORITY_HIGH)
                 actualPriority = TR_PRI_HIGH;
             else if (priority == PRIORITY_LOW)
@@ -1372,25 +1362,20 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         else
             actualPriority = TR_PRI_DND;
         
-        tr_torrentSetFilePriority(fHandle, [[item objectForKey: @"Index"] intValue], actualPriority);
-    }
-    else
-    {
-        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
-        NSDictionary * child;
-        while ((child = [enumerator nextObject]))
-            [self setFileCheckState: state forFileItem: child];
+        tr_torrentSetFilePriority(fHandle, index, actualPriority);
     }
 }
 
-- (void) setFilePriority: (int) priority forFileItem: (NSMutableDictionary *) item
+- (void) setFilePriority: (int) priority forIndexes: (NSIndexSet *) indexSet
 {
-    if (![[item objectForKey: @"IsFolder"] boolValue])
+    NSNumber * priorityValue = [NSNumber numberWithInt: priority];
+    
+    int index;
+    for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
     {
-        [item setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
+        [[fFlatFileList objectAtIndex: index] setObject: priorityValue forKey: @"Priority"];
         
-        int index = [[item objectForKey: @"Index"] intValue];
-        if ([self checkForFile: index] == NSOnState)
+        if ([self checkForFiles: [NSIndexSet indexSetWithIndex: index]] == NSOnState)
         {
             tr_priority_t actualPriority;
             if (priority == PRIORITY_HIGH)
@@ -1402,28 +1387,15 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
             tr_torrentSetFilePriority(fHandle, index, actualPriority);
         }
     }
-    else
-    {
-        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
-        NSMutableDictionary * child;
-        while ((child = [enumerator nextObject]))
-            [self setFilePriority: priority forFileItem: child];
-    }
 }
 
-- (BOOL) hasFilePriority: (int) priority forItem: (NSDictionary *) item
+- (BOOL) hasFilePriority: (int) priority forIndexes: (NSIndexSet *) indexSet
 {
-    if (![[item objectForKey: @"IsFolder"] boolValue])
-        return priority == [[item objectForKey: @"Priority"] intValue];
-    else
-    {
-        NSEnumerator * enumerator = [[item objectForKey: @"Children"] objectEnumerator];
-        NSDictionary * child;
-        while ((child = [enumerator nextObject]))
-            if ([self hasFilePriority: priority forItem: child])
-                return YES;
-        return NO;
-    }
+    int index;
+    for (index = [indexSet firstIndex]; index != NSNotFound; index = [indexSet indexGreaterThanIndex: index])
+        if (priority == [[[fFlatFileList objectAtIndex: index] objectForKey: @"Priority"] intValue])
+            return YES;
+    return NO;
 }
 
 - (NSDate *) dateAdded
@@ -1615,7 +1587,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     int priority;
     tr_priority_t actualPriority;
     
-    NSMutableArray * fileList = [[NSMutableArray alloc] init];
+    NSMutableArray * fileList = [[NSMutableArray alloc] init],
+                    * flatFileList = [[NSMutableArray alloc] initWithCapacity: count];
     
     for (i = 0; i < count; i++)
     {
@@ -1632,7 +1605,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         
         priority = filePriorities ? [[filePriorities objectAtIndex: i] intValue] : PRIORITY_NORMAL;
         [self insertPath: pathComponents forSiblings: fileList withParent: nil previousPath: path
-                fileSize: file->length index: i priority: priority];
+                flatList: flatFileList fileSize: file->length index: i priority: priority];
         [pathComponents autorelease];
         
         if (!filesShouldDownload || [[filesShouldDownload objectAtIndex: i] boolValue])
@@ -1652,11 +1625,13 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     
     fFileList = [[NSArray alloc] initWithArray: fileList];
     [fileList release];
+    fFlatFileList = [[NSArray alloc] initWithArray: flatFileList];
+    [flatFileList release];
 }
 
 - (void) insertPath: (NSMutableArray *) components forSiblings: (NSMutableArray *) siblings
         withParent: (NSMutableDictionary *) parent previousPath: (NSString *) previousPath
-        fileSize: (uint64_t) size index: (int) index priority: (int) priority
+        flatList: (NSMutableArray *) flatList fileSize: (uint64_t) size index: (int) index priority: (int) priority
 {
     NSString * name = [components objectAtIndex: 0];
     BOOL isFolder = [components count] > 1;
@@ -1686,26 +1661,25 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         }
         else
         {
-            [dict setObject: [NSNumber numberWithInt: index] forKey: @"Index"];
+            [dict setObject: [NSIndexSet indexSetWithIndex: index] forKey: @"Indexes"];
             [dict setObject: [NSNumber numberWithUnsignedLongLong: size] forKey: @"Size"];
             [dict setObject: [[NSWorkspace sharedWorkspace] iconForFileType: [name pathExtension]] forKey: @"Icon"];
             [dict setObject: [NSNumber numberWithInt: priority] forKey: @"Priority"];
+            
+            [flatList addObject: dict];
         }
         
         if (parent)
             [dict setObject: parent forKey: @"Parent"];
     }
     else
-    {
-        if (isFolder)
-            [[dict objectForKey: @"Indexes"] addIndex: index];
-    }
+        [[dict objectForKey: @"Indexes"] addIndex: index];
     
     if (isFolder)
     {
         [components removeObjectAtIndex: 0];
         [self insertPath: components forSiblings: [dict objectForKey: @"Children"]
-            withParent: dict previousPath: currentPath fileSize: size index: index priority: priority];
+            withParent: dict previousPath: currentPath flatList: flatList fileSize: size index: index priority: priority];
     }
 }
 
