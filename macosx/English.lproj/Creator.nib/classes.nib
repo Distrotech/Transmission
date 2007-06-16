@@ -1,0 +1,24 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {cancelCreate = id; create = id; setLocation = id; }; 
+            CLASS = CreatorWindowController; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                fCommentView = NSTextView; 
+                fIcon = NSImageView; 
+                fLocationField = NSTextField; 
+                fLocationIcon = NSImageView; 
+                fNameField = NSTextField; 
+                fPiecesField = NSTextField; 
+                fPrivateCheck = NSButton; 
+                fStatusField = NSTextField; 
+                fTorrentNameField = NSTextField; 
+                fTrackerField = NSTextField; 
+            }; 
+            SUPERCLASS = NSWindowController; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }
+    ); 
+    IBVersion = 1; 
+}

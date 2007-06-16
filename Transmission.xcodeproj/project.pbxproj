@@ -424,7 +424,7 @@
 		A2D4F0840A915F7200890C32 /* GreenDot.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; name = GreenDot.tiff; path = macosx/Images/GreenDot.tiff; sourceTree = "<group>"; };
 		A2DF37040C220D03006523C1 /* CreatorWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CreatorWindowController.h; path = macosx/CreatorWindowController.h; sourceTree = "<group>"; };
 		A2DF37050C220D03006523C1 /* CreatorWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = CreatorWindowController.m; path = macosx/CreatorWindowController.m; sourceTree = "<group>"; };
-		A2DF377B0C222E2D006523C1 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = ../Transmission/macosx/English.lproj/Creator.nib; sourceTree = SOURCE_ROOT; };
+		A2DF377B0C222E2D006523C1 /* Creator.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Creator.nib; path = macosx/English.lproj/Creator.nib; sourceTree = "<group>"; };
 		A2F6DB070A55F31C0058D1E5 /* SpeedLimitButton.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = SpeedLimitButton.png; path = macosx/Images/SpeedLimitButton.png; sourceTree = "<group>"; };
 		A2F8951E0A2D4BA500ED2127 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Credits.rtf; path = macosx/Credits.rtf; sourceTree = "<group>"; };
 		A2FB057C0BFEB6800095564D /* DragOverlayView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DragOverlayView.h; path = macosx/DragOverlayView.h; sourceTree = "<group>"; };
@@ -1419,7 +1419,7 @@
 		A2DF377A0C222E2D006523C1 /* Creator.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
-				A2DF377B0C222E2D006523C1 /* English */,
+				A2DF377B0C222E2D006523C1 /* Creator.nib */,
 			);
 			name = Creator.nib;
 			sourceTree = "<group>";
