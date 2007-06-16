@@ -182,7 +182,7 @@ tr_metaInfoBuilderCreate( const char * topFile )
     freeFileList( files );
     
     ret->pieceSize = bestPieceSize( ret->totalSize );
-    ret->pieceCount = ret->totalSize / ret->pieceSize;
+    ret->pieceCount = MAX( 1, ret->totalSize / ret->pieceSize );
     return ret;
 }
 
