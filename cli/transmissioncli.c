@@ -93,15 +93,15 @@ char * getStringRatio( float ratio )
 #define LINEWIDTH 80
 
 static void
-progress_func( const meta_info_builder_t * builder     UNUSED,
+progress_func( const meta_info_builder_t * builder,
                size_t                      pieceIndex,
                int                       * abortFlag   UNUSED,
                void                      * userData    UNUSED )
 {
-    double percent = (double)pieceIndex / pieceCount;
+    double percent = (double)pieceIndex / builder->pieceCount;
     printf( "%d%% done (on block %lu of %lu)\n",
             (int)(100.0*percent + 0.5),
-            pieceIndex, pieceCount );
+            pieceIndex, builder->pieceCount );
 }
 
 
