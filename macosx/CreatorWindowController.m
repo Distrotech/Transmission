@@ -138,7 +138,6 @@
             [alert setAlertStyle: NSWarningAlertStyle];
             
             [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
-            
             return;
         }
     }
@@ -149,20 +148,20 @@
     if ([[torrentName pathExtension] caseInsensitiveCompare: @"torrent"] != NSOrderedSame)
     {
         NSAlert * alert = [[[NSAlert alloc] init] autorelease];
-        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> .torrent warning -> button")];
+        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> torrent extension warning -> button")];
         [alert setMessageText: NSLocalizedString(@"Torrents must end in \".torrent\".",
-                                                "Create torrent -> .torrent warning -> title")];
+                                                "Create torrent -> torrent extension warning -> title")];
         [alert setInformativeText: NSLocalizedString(@"Add this file extension to create the torrent.",
-                                                    "Create torrent -> .torrent warning -> warning")];
+                                                    "Create torrent -> torrent extension warning -> warning")];
         [alert setAlertStyle: NSWarningAlertStyle];
         
         [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
-        
         return;
     }
     
-    tr_makeMetaInfo(fInfo, [[fLocation stringByAppendingPathComponent: torrentName] UTF8String], [trackerString UTF8String],
-                            [[fCommentView string] UTF8String], [fPrivateCheck state] == NSOnState);
+    #warning fix
+    tr_makeMetaInfo(fInfo, NULL, self, [[fLocation stringByAppendingPathComponent: torrentName] UTF8String],
+            [trackerString UTF8String], [[fCommentView string] UTF8String], [fPrivateCheck state] == NSOnState);
     
     #warning add to T
 
