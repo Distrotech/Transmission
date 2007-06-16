@@ -29,7 +29,7 @@
 {
     IBOutlet NSImageView * fIcon, * fLocationIcon;
     IBOutlet NSTextField * fNameField, * fStatusField, * fPiecesField, * fLocationField,
-                * fTrackerField;
+                * fTrackerField, * fTorrentNameField;
     IBOutlet NSTextView * fCommentView;
     IBOutlet NSButton * fPrivateCheck;
     

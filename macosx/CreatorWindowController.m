@@ -91,6 +91,8 @@
     [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: fLocation]];
     [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
     [fLocationField setToolTip: fLocation];
+    
+    [fTorrentNameField setStringValue: [name stringByAppendingPathExtension: @"torrent"]];
 }
 
 - (void) dealloc
@@ -131,7 +133,7 @@
             [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> http warning -> button")];
             [alert setMessageText: NSLocalizedString(@"Tracker address must begin with \"http://\".",
                                                     "Create torrent -> http warning -> title")];
-            [alert setInformativeText: NSLocalizedString(@"Please change the tracker address to create the torrent.",
+            [alert setInformativeText: NSLocalizedString(@"Change the tracker address to create the torrent.",
                                                         "Create torrent -> http warning -> warning")];
             [alert setAlertStyle: NSWarningAlertStyle];
             
@@ -143,12 +145,24 @@
     else
         trackerString = [@"http://" stringByAppendingString: trackerString];
     
-    #warning make user-settable
-    NSString * file = [fLocation stringByAppendingPathComponent:
-                        [[fPath lastPathComponent] stringByAppendingPathExtension: @"torrent"]];
+    NSString * torrentName = [fTorrentNameField stringValue];
+    if ([[torrentName pathExtension] caseInsensitiveCompare: @"torrent"] != NSOrderedSame)
+    {
+        NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> .torrent warning -> button")];
+        [alert setMessageText: NSLocalizedString(@"Torrents must end in \".torrent\".",
+                                                "Create torrent -> .torrent warning -> title")];
+        [alert setInformativeText: NSLocalizedString(@"Add this file extension to create the torrent.",
+                                                    "Create torrent -> .torrent warning -> warning")];
+        [alert setAlertStyle: NSWarningAlertStyle];
+        
+        [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
+        
+        return;
+    }
     
-    tr_makeMetaInfo(fInfo, [file UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
-                    [fPrivateCheck state] == NSOnState);
+    tr_makeMetaInfo(fInfo, [[fLocation stringByAppendingPathComponent: torrentName] UTF8String], [trackerString UTF8String],
+                            [[fCommentView string] UTF8String], [fPrivateCheck state] == NSOnState);
     
     #warning add to T
 
