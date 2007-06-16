@@ -78,15 +78,6 @@ getFiles( const char        * dir,
     return list;
 }
 
-static int
-getListSize( const struct FileList * list )
-{
-    int i;
-    for( i=0; list!=NULL; list=list->next )
-        ++i;
-    return i;
-}
-
 static void
 freeFileList( struct FileList * list )
 {
@@ -183,6 +174,9 @@ tr_metaInfoBuilderCreate( const char * topFile )
     
     ret->pieceSize = bestPieceSize( ret->totalSize );
     ret->pieceCount = MAX( 1, ret->totalSize / ret->pieceSize );
+    if( ret->totalSize % ret->pieceSize )
+        ++ret->pieceCount;
+
     return ret;
 }
 
@@ -202,40 +196,33 @@ tr_metaInfoBuilderFree( meta_info_builder_t * builder )
 ****/
 
 static uint8_t*
-getHashInfo ( const char              * topFile,
-              const struct FileList   * files,
-              int                       pieceSize,
-              int                     * setmeCount )
+getHashInfo ( const meta_info_builder_t  * builder,
+              int                        * setmeCount )
 {
-    int i;
+    size_t i;
     tr_torrent_t t;
     uint8_t *ret, *walk;
-    const struct FileList * fwalk;
-    const size_t topLen = strlen(topFile) + 1; /* +1 for '/' */
+    const size_t topLen = strlen(builder->top) + 1; /* +1 for '/' */
 
     /* build a mock tr_torrent_t that we can feed to tr_ioRecalculateHash() */  
     memset( &t, 0, sizeof( tr_torrent_t ) );
     tr_lockInit ( &t.lock );
-    t.destination = (char*) topFile;
-    t.info.fileCount = getListSize( files );
+    t.destination = (char*) builder->top;
+    t.info.fileCount = builder->fileCount;
     t.info.files = calloc( t.info.fileCount, sizeof( tr_file_t ) );
-    
-    for( fwalk=files, i=0; fwalk!=NULL; fwalk=fwalk->next, ++i ) {
+    t.info.totalSize = builder->totalSize;
+    t.info.pieceSize = builder->pieceSize;
+    t.info.pieceCount = builder->pieceCount;
+    for( i=0; i<builder->fileCount; ++i ) {
         tr_file_t * file = &t.info.files[i];
-        file->length = getFileSize( fwalk->filename );
-        strlcpy( file->name, fwalk->filename + topLen, sizeof( file->name ) );
-        t.info.totalSize += file->length;
+        file->length = builder->fileLengths[i];
+        strlcpy( file->name, builder->files[i]+topLen, sizeof(file->name) );
     }
-    t.info.pieceSize = pieceSize;
-    t.info.pieceCount = t.info.totalSize / pieceSize;
-    if ( t.info.totalSize % pieceSize )
-        ++t.info.pieceCount;
     t.info.pieces = calloc( t.info.pieceCount, sizeof( tr_piece_t ) );
     tr_torrentInitFilePieces( &t );
-
     ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * t.info.pieceCount );
     walk = ret;
-    for( i=0; i<t.info.pieceCount; ++i ) {
+    for( i=0; i<(size_t)t.info.pieceCount; ++i ) {
         tr_ioRecalculateHash( &t, i, walk );
         walk += SHA_DIGEST_LENGTH;
     }
@@ -290,15 +277,14 @@ getFileInfo( const char * topFile,
 }
 
 static void
-makeFilesList( benc_val_t            * list,
-               const char            * topFile,
-               const struct FileList * files )
+makeFilesList( benc_val_t                 * list,
+               const meta_info_builder_t  * builder )
 {
-    const struct FileList * walk;
+    size_t i = 0;
 
-    tr_bencListReserve( list, getListSize(files) );
+    tr_bencListReserve( list, builder->fileCount );
 
-    for( walk=files; walk!=NULL; walk=walk->next )
+    for( i=0; i<builder->fileCount; ++i )
     {
         benc_val_t * dict = tr_bencListAdd( list );
         benc_val_t *length, *pathVal;
@@ -307,18 +293,15 @@ makeFilesList( benc_val_t            * list,
         tr_bencDictReserve( dict, 2 );
         length = tr_bencDictAdd( dict, "length" );
         pathVal = tr_bencDictAdd( dict, "path" );
-        getFileInfo( topFile, walk->filename, length, pathVal );
+        getFileInfo( builder->top, builder->files[i], length, pathVal );
     }
 }
 
 static void
-makeInfoDict ( benc_val_t              * dict,
-               const char              * topFile,
-               const struct FileList   * files,
-               int                       isPrivate )
+makeInfoDict ( benc_val_t                 * dict,
+               const meta_info_builder_t  * builder,
+               int                          isPrivate )
 {
-    static const int pieceSize = 262144; /* 256 KiB. TODO: let user choose? */
-    const int single = files->next == NULL;
     uint8_t * pch;
     int pieceCount = 0;
     benc_val_t * val;
@@ -327,56 +310,42 @@ makeInfoDict ( benc_val_t              * dict,
     tr_bencDictReserve( dict, 5 );
 
     val = tr_bencDictAdd( dict, "name" );
-    strlcpy( base, topFile, sizeof( base ) );
+    strlcpy( base, builder->top, sizeof( base ) );
     tr_bencInitStrDup ( val, basename( base ) );
 
     val = tr_bencDictAdd( dict, "piece length" );
-    tr_bencInitInt( val, pieceSize );
+    tr_bencInitInt( val, builder->pieceSize );
 
-    pch = getHashInfo( topFile, files, pieceSize, &pieceCount );
+    pch = getHashInfo( builder, &pieceCount );
     val = tr_bencDictAdd( dict, "pieces" );
     tr_bencInitStr( val, pch, SHA_DIGEST_LENGTH * pieceCount, 0 );
 
-    if ( single )
+    if ( builder->isSingleFile )
     {
         val = tr_bencDictAdd( dict, "length" );
-        tr_bencInitInt( val, getFileSize(files->filename) );
+        tr_bencInitInt( val, builder->fileLengths[0] );
     }
     else
     {
         val = tr_bencDictAdd( dict, "files" );
         tr_bencInit( val, TYPE_LIST );
-        makeFilesList( val, topFile, files );
+        makeFilesList( val, builder );
     }
 
     val = tr_bencDictAdd( dict, "private" );
     tr_bencInitInt( val, isPrivate ? 1 : 0 );
 }
 
+/* if outputFile is NULL, builder->top + ".torrent" is used */
 int
-tr_makeMetaInfo( const char   * outputFile,
-                 const char   * announce,
-                 const char   * comment,
-                 const char   * topFile,
-                 int            isPrivate )
+tr_makeMetaInfo( const meta_info_builder_t  * builder,
+                 const char                 * outputFile,
+                 const char                 * announce,
+                 const char                 * comment,
+                 int                          isPrivate )
 {
     int n = 5;
     benc_val_t top, *val;
-    struct FileList *files;
-
-    /* build a list of files containing topFile and,
-       if it's a directory, all of its children */
-    if (1) {
-        char *dir, *base;
-        char dirbuf[MAX_PATH_LENGTH];
-        char basebuf[MAX_PATH_LENGTH];
-        strlcpy( dirbuf, topFile, sizeof( dirbuf ) );
-        strlcpy( basebuf, topFile, sizeof( basebuf ) );
-        dir = dirname( dirbuf );
-        base = basename( basebuf );
-        files = getFiles( dir, base, NULL );
-        assert( files != NULL  );
-    }
 
     tr_bencInit ( &top, TYPE_DICT );
     if ( comment && *comment ) ++n;
@@ -402,22 +371,28 @@ tr_makeMetaInfo( const char   * outputFile,
         val = tr_bencDictAdd( &top, "info" );
         tr_bencInit( val, TYPE_DICT );
         tr_bencDictReserve( val, 666 );
-        makeInfoDict( val, topFile, files, isPrivate );
+        makeInfoDict( val, builder, isPrivate );
 
     /* debugging... */
     tr_bencPrint( &top );
 
     /* save the file */
     if (1) {
-        FILE * fp = fopen( outputFile, "wb+" );
-        char * pch = tr_bencSaveMalloc( &top, &n );
+        char out[MAX_PATH_LENGTH];
+        FILE * fp;
+        char * pch;
+        if ( !outputFile || !*outputFile ) {
+            snprintf( out, sizeof(out), "%s.torrent", builder->top);
+            outputFile = out;
+        }
+        fp = fopen( outputFile, "wb+" );
+        pch = tr_bencSaveMalloc( &top, &n );
         fwrite( pch, n, 1, fp );
         free( pch );
         fclose( fp );
     }
 
     /* cleanup */
-    freeFileList( files );
     tr_bencFree( & top );
     return 0;
 }

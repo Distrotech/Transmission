@@ -22,33 +22,11 @@
  * DEALINGS IN THE SOFTWARE.
  *****************************************************************************/
 
-#ifndef TR_MAKEMETA_H
-#define TR_MAKEMETA_H 1
+#ifndef MAKE_META_UI__H
+#define MAKE_META_UI__H
 
-typedef struct
-{
-    char * top;
-    char ** files;
-    size_t * fileLengths;
-    size_t totalSize;
-    size_t fileCount;
-    size_t pieceSize;
-    size_t pieceCount;
-    int isSingleFile;
-}
-meta_info_builder_t;
+#include <gtk/gtk.h>
 
-meta_info_builder_t*
-tr_metaInfoBuilderCreate( const char * topFile );
-
-int
-tr_makeMetaInfo( const meta_info_builder_t * builder,
-                 const char                * outputFile, /* NULL for builder->top + ".torrent" */
-                 const char                * announce,
-                 const char                * comment,
-                 int                         isPrivate );
-
-void
-tr_metaInfoBuilderFree( meta_info_builder_t* );
+GtkWidget* make_meta_ui( GtkWindow * parent );
 
 #endif

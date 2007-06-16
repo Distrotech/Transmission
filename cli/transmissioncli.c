@@ -133,11 +133,12 @@ int main( int argc, char ** argv )
     h = tr_init( "cli" );
 
     if( sourceFile && *sourceFile ) /* creating a torrent */
-        return tr_makeMetaInfo( torrentPath,
-                                announce,
-                                comment,
-                                sourceFile,
-                                isPrivate );
+    {
+        meta_info_builder_t* builder = tr_metaInfoBuilderCreate( sourceFile );
+        int ret = tr_makeMetaInfo( builder, NULL, announce, comment, isPrivate );
+        tr_metaInfoBuilderFree( builder );
+        return ret;
+    }
 
     /* Open and parse torrent file */
     if( !( tor = tr_torrentInit( h, torrentPath, NULL, 0, &error ) ) )

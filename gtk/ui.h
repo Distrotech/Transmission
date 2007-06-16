@@ -8,6 +8,8 @@ const char * fallback_ui_file =
 "      <menuitem action='recheck-torrent'/>\n"
 "      <menuitem action='remove-torrent'/>\n"
 "      <separator/>\n"
+"      <menuitem action='create-torrent'/>\n"
+"      <separator/>\n"
 "      <menuitem action='close'/>\n"
 "      <menuitem action='quit'/>\n"
 "    </menu>\n"

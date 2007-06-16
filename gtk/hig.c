@@ -102,7 +102,7 @@ hig_workarea_add_label_w (GtkWidget   * table,
                           GtkWidget   * l)
 {
   if (GTK_IS_MISC(l))
-    gtk_misc_set_alignment (GTK_MISC(l), 0.0f, 0.0f);
+    gtk_misc_set_alignment (GTK_MISC(l), 0.0f, 0.5f);
   if (GTK_IS_LABEL(l))
     gtk_label_set_use_markup (GTK_LABEL(l), TRUE);
   gtk_table_attach (GTK_TABLE(table), l, 1, 2, row, row+1, GTK_FILL, GTK_FILL, 0, 0);

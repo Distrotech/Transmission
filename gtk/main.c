@@ -40,6 +40,7 @@
 #include "conf.h"
 #include "dialogs.h"
 #include "ipc.h"
+#include "make-meta-ui.h"
 #include "msgwin.h"
 #include "torrent-inspector.h"
 #include "tr_cell_renderer_progress.h"
@@ -990,6 +991,11 @@ doAction ( const char * action_name, gpointer user_data )
     {
         GtkTreeSelection * s = tr_window_get_selection(data->wind);
         gtk_tree_selection_selected_foreach( s, showInfoForeach, data->wind );
+    }
+    else if (!strcmp (action_name, "create-torrent"))
+    {
+        GtkWidget * w = make_meta_ui( GTK_WINDOW( data->wind ) );
+        gtk_widget_show_all( w );
     }
     else if (!strcmp (action_name, "remove-torrent"))
     {
