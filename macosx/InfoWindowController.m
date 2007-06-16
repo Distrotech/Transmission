@@ -887,9 +887,6 @@
         Torrent * torrent = [fTorrents objectAtIndex: 0];
         [torrent setFileCheckState: [object intValue] != NSOffState ? NSOnState : NSOffState
                                         forIndexes: [item objectForKey: @"Indexes"]];
-        
-        [torrent update];
-        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
         [fFileOutline reloadData];
     }
     else if ([identifier isEqualToString: @"Priority"])

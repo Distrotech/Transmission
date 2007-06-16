@@ -344,6 +344,8 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         fStat = tr_torrentStat(fHandle);
         [[NSNotificationCenter defaultCenter] postNotificationName: @"TorrentFinishedDownloading" object: self];
     }
+    else if (tr_getIncomplete(fHandle))
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
     
     //check to stop for ratio
     float stopRatio;
@@ -1365,6 +1367,10 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         
         tr_torrentSetFilePriority(fHandle, index, actualPriority);
     }
+    
+    [self update];
+    if (![self isActive])
+        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
 }
 
 - (void) setFilePriority: (int) priority forIndexes: (NSIndexSet *) indexSet
