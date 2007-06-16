@@ -1368,9 +1368,9 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
         tr_torrentSetFilePriority(fHandle, index, actualPriority);
     }
     
+    #warning when going seeding to download, update queue
     [self update];
-    if (![self isActive])
-        [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
 }
 
 - (void) setFilePriority: (int) priority forIndexes: (NSIndexSet *) indexSet
