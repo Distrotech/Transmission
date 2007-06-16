@@ -346,6 +346,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     }
     else if (tr_getIncomplete(fHandle))
         [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+    else;
     
     //check to stop for ratio
     float stopRatio;
@@ -1370,7 +1371,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     
     #warning when going seeding to download, update queue
     [self update];
-    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self];
+    [[NSNotificationCenter defaultCenter] postNotificationName: @"UpdateQueue" object: self]; //for paused torrents
 }
 
 - (void) setFilePriority: (int) priority forIndexes: (NSIndexSet *) indexSet

@@ -28,6 +28,7 @@
 #import "Torrent.h"
 #import "TorrentCell.h"
 #import "TorrentTableView.h"
+#import "CreatorWindowController.h"
 #import "StringAdditions.h"
 #import "UKKQueue.h"
 #import "ActionMenuSpeedToDisplayLimitTransformer.h"
@@ -38,6 +39,7 @@
 
 #import <Sparkle/Sparkle.h>
 
+#define TOOLBAR_CREATE          @"Toolbar Create"
 #define TOOLBAR_OPEN            @"Toolbar Open"
 #define TOOLBAR_REMOVE          @"Toolbar Remove"
 #define TOOLBAR_INFO            @"Toolbar Info"
@@ -927,6 +929,11 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         NSURL * url = [NSURL URLWithString: urlString];
         [self performSelectorOnMainThread: @selector(openURL:) withObject: url waitUntilDone: NO];
     }
+}
+
+- (void) createFile: (id) sender
+{
+    [CreatorWindowController createTorrentFile];
 }
 
 - (void) resumeSelectedTorrents: (id) sender
@@ -2397,7 +2404,17 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 {
     NSToolbarItem * item = [[NSToolbarItem alloc] initWithItemIdentifier: ident];
 
-    if ([ident isEqualToString: TOOLBAR_OPEN])
+    if ([ident isEqualToString: TOOLBAR_CREATE])
+    {
+        [item setLabel: NSLocalizedString(@"Create", "Create toolbar item -> label")];
+        [item setPaletteLabel: NSLocalizedString(@"Create Torrent File", "Create toolbar item -> palette label")];
+        [item setToolTip: NSLocalizedString(@"Create torrent file", "Create toolbar item -> tooltip")];
+        [item setImage: [NSImage imageNamed: @"Create.png"]];
+        [item setTarget: self];
+        [item setAction: @selector(createFile:)];
+        [item setAutovalidates: NO];
+    }
+    else if ([ident isEqualToString: TOOLBAR_OPEN])
     {
         [item setLabel: NSLocalizedString(@"Open", "Open toolbar item -> label")];
         [item setPaletteLabel: NSLocalizedString(@"Open Torrent Files", "Open toolbar item -> palette label")];
@@ -2484,7 +2501,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 - (NSArray *) toolbarAllowedItemIdentifiers: (NSToolbar *) t
 {
     return [NSArray arrayWithObjects:
-            TOOLBAR_OPEN, TOOLBAR_REMOVE,
+            TOOLBAR_CREATE, TOOLBAR_OPEN, TOOLBAR_REMOVE,
             TOOLBAR_PAUSE_SELECTED, TOOLBAR_RESUME_SELECTED,
             TOOLBAR_PAUSE_ALL, TOOLBAR_RESUME_ALL, TOOLBAR_FILTER, TOOLBAR_INFO,
             NSToolbarSeparatorItemIdentifier,
@@ -2496,7 +2513,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 - (NSArray *) toolbarDefaultItemIdentifiers: (NSToolbar *) t
 {
     return [NSArray arrayWithObjects:
-            TOOLBAR_OPEN, TOOLBAR_REMOVE,
+            TOOLBAR_CREATE, TOOLBAR_OPEN, TOOLBAR_REMOVE,
             NSToolbarSeparatorItemIdentifier,
             TOOLBAR_PAUSE_ALL, TOOLBAR_RESUME_ALL,
             NSToolbarFlexibleSpaceItemIdentifier,
