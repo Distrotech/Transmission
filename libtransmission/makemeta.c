@@ -136,13 +136,13 @@ static int pstrcmp( const void * va, const void * vb)
     return strcmp( a, b );
 }
 
-MetaInfoBuilder*
+meta_info_builder_t*
 tr_metaInfoBuilderCreate( const char * topFile )
 {
     size_t i;
     struct FileList * files;
     const struct FileList * walk;
-    MetaInfoBuilder * ret = calloc( 1, sizeof(MetaInfoBuilder) );
+    meta_info_builder_t * ret = calloc( 1, sizeof(meta_info_builder_t) );
     ret->top = tr_strdup( topFile );
 
     /* build a list of files containing topFile and,
@@ -181,7 +181,7 @@ tr_metaInfoBuilderCreate( const char * topFile )
 }
 
 void
-tr_metaInfoBuilderFree( MetaInfoBuilder * builder )
+tr_metaInfoBuilderFree( meta_info_builder_t * builder )
 {
     size_t i;
 

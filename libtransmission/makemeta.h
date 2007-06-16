@@ -36,13 +36,13 @@ typedef struct
     size_t pieceCount;
     
 }
-MetaInfoBuilder;
+meta_info_builder_t;
 
-MetaInfoBuilder*
+meta_info_builder_t*
 tr_metaInfoBuilderCreate( const char * topFile );
 
 void
-tr_metaInfoBuilderFree( MetaInfoBuilder* );
+tr_metaInfoBuilderFree( meta_info_builder_t* );
 
 
 int
