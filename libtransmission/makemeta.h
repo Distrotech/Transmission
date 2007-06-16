@@ -34,7 +34,7 @@ typedef struct
     size_t fileCount;
     size_t pieceSize;
     size_t pieceCount;
-    
+    int isSingleFile;
 }
 meta_info_builder_t;
 

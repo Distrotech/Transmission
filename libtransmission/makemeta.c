@@ -145,6 +145,12 @@ tr_metaInfoBuilderCreate( const char * topFile )
     meta_info_builder_t * ret = calloc( 1, sizeof(meta_info_builder_t) );
     ret->top = tr_strdup( topFile );
 
+    if (1) {
+        struct stat sb;
+        stat( topFile, &sb );
+        ret->isSingleFile = !S_ISDIR( sb.st_mode );
+    }
+
     /* build a list of files containing topFile and,
        if it's a directory, all of its children */
     if (1) {
