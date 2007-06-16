@@ -305,7 +305,7 @@ static uint32_t kRed   = BE(0xFF6450FF), //255, 100, 80
     fStat = tr_torrentStat(fHandle);
     
     //notification when downloading finished
-    if (tr_getFinished(fHandle))
+    if (tr_getComplete(fHandle) || tr_getDone(fHandle))
     {
         BOOL canMove = YES;
         

@@ -338,12 +338,14 @@ void   tr_torrentStart( tr_torrent_t * );
 void tr_torrentStop( tr_torrent_t * );
 
 /***********************************************************************
- * tr_getFinished
+ * tr_getComplete, tr_getIncomplete and tr_getPartial
  ***********************************************************************
- * The first call after a torrent is completed returns 1. Returns 0
+ * The first call after a torrent changed state returns 1. Returns 0
  * in other cases.
  **********************************************************************/
-int tr_getFinished( tr_torrent_t * );
+int tr_getIncomplete( tr_torrent_t * tor );
+int tr_getDone( tr_torrent_t * tor );
+int tr_getComplete( tr_torrent_t * tor );
 
 
 /***********************************************************************

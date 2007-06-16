@@ -172,7 +172,7 @@ static tr_torrent_t * torrentRealInit( tr_handle_t * h, tr_torrent_t * tor,
     tor->id       = h->id;
     tor->key      = h->key;
     tor->azId     = h->azId;
-    tor->finished = 0;
+    tor->hasChangedState = -1;
 
     /* Escaped info hash for HTTP queries */
     for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
@@ -377,11 +377,31 @@ void tr_torrentDisablePex( tr_torrent_t * tor, int disable )
     tr_lockUnlock( &tor->lock );
 }
 
-int tr_getFinished( tr_torrent_t * tor )
+int tr_getIncomplete( tr_torrent_t * tor )
 {
-    if( tor->finished )
+    if( tor->hasChangedState == TR_CP_INCOMPLETE )
     {
-        tor->finished = 0;
+        tor->hasChangedState = -1;
+        return 1;
+    }
+    return 0;
+}
+
+int tr_getDone( tr_torrent_t * tor )
+{
+    if( tor->hasChangedState == TR_CP_DONE )
+    {
+        tor->hasChangedState = -1;
+        return 1;
+    }
+    return 0;
+}
+
+int tr_getComplete( tr_torrent_t * tor )
+{
+    if( tor->hasChangedState == TR_CP_COMPLETE )
+    {
+        tor->hasChangedState = -1;
         return 1;
     }
     return 0;
@@ -968,7 +988,7 @@ static void downloadLoop( void * _tor )
                 case TR_CP_INCOMPLETE: tor->status = TR_STATUS_DOWNLOAD; break;
             }
 
-            tor->finished = cpState != TR_CP_INCOMPLETE;
+            tor->hasChangedState = cpState;
 
             if( cpState == TR_CP_COMPLETE )
                 tr_trackerCompleted( tor->tracker );
