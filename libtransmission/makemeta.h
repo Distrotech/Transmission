@@ -41,18 +41,34 @@ meta_info_builder_t;
 meta_info_builder_t*
 tr_metaInfoBuilderCreate( const char * topFile );
 
-/* set abortFlag to nonzero to abort the checksum generation */
+/** 
+ * Called periodically during the checksum generation.
+ *
+ * 'builder' is the builder passed into tr_makeMetaInfo
+ * 'pieceIndex' is the current piece having a checksum generated
+ * 'abortFlag' is an int pointer to set if the user wants to abort
+ * 'userData' is the data passed into tr_makeMetaInfo
+ */
 typedef
 void (*makemeta_progress_func)(const meta_info_builder_t * builder,
                                size_t                      pieceIndex,
-                               size_t                      pieceCount,
                                int                       * abortFlag,
                                void                      * userData );
+
+/**
+ * Builds a .torrent metainfo file.
+ *
+ * 'outputFile' if NULL, builder->top + ".torrent" will be used.
+ * 'progress_func' a client-implemented callback function (see above)
+ * 'progress_func_user_data' is passed back to the user in the progress func.
+ *     It can be used to pass a resource or handle from tr_makeMetaInfo's
+ *     caller to progress_func, or anything else.  Pass NULL if not needed.
+ */
 int
 tr_makeMetaInfo( const meta_info_builder_t  * builder,
                  makemeta_progress_func       progress_func,
                  void                       * progress_func_user_data,
-                 const char                 * outputFile_or_NULL,
+                 const char                 * outputFile,
                  const char                 * announce,
                  const char                 * comment,
                  int                          isPrivate );

@@ -95,7 +95,6 @@ char * getStringRatio( float ratio )
 static void
 progress_func( const meta_info_builder_t * builder     UNUSED,
                size_t                      pieceIndex,
-               size_t                      pieceCount,
                int                       * abortFlag   UNUSED,
                void                      * userData    UNUSED )
 {

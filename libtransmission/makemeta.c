@@ -233,7 +233,7 @@ getHashInfo ( const meta_info_builder_t  * builder,
     /* FIXME: call the periodically while getting the SHA1 sums.
        this will take a little tweaking to ioRecalculateHash,
        probably will get done Sunday or Monday */
-    (progress_func)( builder, 0, t.info.pieceCount, &abort, progress_func_user_data );
+    (progress_func)( builder, 0, &abort, progress_func_user_data );
 
     for( i=0; i<(size_t)t.info.pieceCount; ++i ) {
         tr_ioRecalculateHash( &t, i, walk );

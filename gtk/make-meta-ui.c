@@ -52,11 +52,10 @@ cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer cancel_flag )
 static void
 progress_cb( const meta_info_builder_t  * builder    UNUSED,
              size_t                       pieceIndex,
-             size_t                       pieceCount,
              int                        * abortFlag,
              void                       * user_data  UNUSED)
 {
-    g_message ("%lu of %lu", pieceIndex, pieceCount);
+    g_message ("%lu of %lu", pieceIndex, builder->pieceCount);
 
     *abortFlag = *(gboolean*)user_data;
 }
