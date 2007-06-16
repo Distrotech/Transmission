@@ -158,7 +158,6 @@ tr_metaInfoBuilderCreate( const char * topFile )
         dir = dirname( dirbuf );
         base = basename( basebuf );
         files = getFiles( dir, base, NULL );
-        assert( files != NULL  );
     }
 
     for( walk=files; walk!=NULL; walk=walk->next )
@@ -202,9 +201,12 @@ tr_metaInfoBuilderFree( meta_info_builder_t * builder )
 
 static uint8_t*
 getHashInfo ( const meta_info_builder_t  * builder,
+              makemeta_progress_func       progress_func,
+              void                       * progress_func_user_data,
               int                        * setmeCount )
 {
     size_t i;
+    int abort = 0;;
     tr_torrent_t t;
     uint8_t *ret, *walk;
     const size_t topLen = strlen(builder->top) + 1; /* +1 for '/' */
@@ -227,6 +229,12 @@ getHashInfo ( const meta_info_builder_t  * builder,
     tr_torrentInitFilePieces( &t );
     ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * t.info.pieceCount );
     walk = ret;
+
+    /* FIXME: call the periodically while getting the SHA1 sums.
+       this will take a little tweaking to ioRecalculateHash,
+       probably will get done Sunday or Monday */
+    (progress_func)( builder, 0, t.info.pieceCount, &abort, progress_func_user_data );
+
     for( i=0; i<(size_t)t.info.pieceCount; ++i ) {
         tr_ioRecalculateHash( &t, i, walk );
         walk += SHA_DIGEST_LENGTH;
@@ -305,6 +313,8 @@ makeFilesList( benc_val_t                 * list,
 static void
 makeInfoDict ( benc_val_t                 * dict,
                const meta_info_builder_t  * builder,
+               makemeta_progress_func       progress_func,
+               void                       * progress_func_user_data,
                int                          isPrivate )
 {
     uint8_t * pch;
@@ -321,7 +331,10 @@ makeInfoDict ( benc_val_t                 * dict,
     val = tr_bencDictAdd( dict, "piece length" );
     tr_bencInitInt( val, builder->pieceSize );
 
-    pch = getHashInfo( builder, &pieceCount );
+    pch = getHashInfo( builder,
+                       progress_func,
+                       progress_func_user_data,
+                       &pieceCount );
     val = tr_bencDictAdd( dict, "pieces" );
     tr_bencInitStr( val, pch, SHA_DIGEST_LENGTH * pieceCount, 0 );
 
@@ -344,6 +357,8 @@ makeInfoDict ( benc_val_t                 * dict,
 /* if outputFile is NULL, builder->top + ".torrent" is used */
 int
 tr_makeMetaInfo( const meta_info_builder_t  * builder,
+                 makemeta_progress_func       progress_func,
+                 void                       * progress_func_user_data,
                  const char                 * outputFile,
                  const char                 * announce,
                  const char                 * comment,
@@ -376,7 +391,9 @@ tr_makeMetaInfo( const meta_info_builder_t  * builder,
         val = tr_bencDictAdd( &top, "info" );
         tr_bencInit( val, TYPE_DICT );
         tr_bencDictReserve( val, 666 );
-        makeInfoDict( val, builder, isPrivate );
+        makeInfoDict( val, builder,
+                      progress_func, progress_func_user_data,
+                      isPrivate );
 
     /* debugging... */
     tr_bencPrint( &top );

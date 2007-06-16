@@ -44,14 +44,63 @@ typedef struct
 MakeMetaUI;
 
 static void
-response_cb( GtkDialog* d, int response, gpointer user_data UNUSED )
+cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer cancel_flag )
 {
-    if( response == GTK_RESPONSE_ACCEPT )
+    *(int*)cancel_flag = TRUE;
+}
+
+static void
+progress_cb( const meta_info_builder_t  * builder    UNUSED,
+             size_t                       pieceIndex,
+             size_t                       pieceCount,
+             int                        * abortFlag,
+             void                       * user_data  UNUSED)
+{
+    g_message ("%lu of %lu", pieceIndex, pieceCount);
+
+    *abortFlag = *(gboolean*)user_data;
+}
+
+static void
+response_cb( GtkDialog* d, int response, gpointer user_data )
+{
+    int ret;
+    gboolean cancelFlag = FALSE;
+    MakeMetaUI * ui = (MakeMetaUI*) user_data;
+    GtkWidget *w, *l, *p;
+    char *tmp, *name;
+
+    if( response != GTK_RESPONSE_ACCEPT )
     {
-        g_message( "go for it!");
+        gtk_widget_destroy( GTK_WIDGET( d ) );
+        return;
     }
 
-    gtk_widget_destroy( GTK_WIDGET( d ) );
+    w = gtk_dialog_new_with_buttons( _("Making Torrent..."), 
+                                     GTK_WINDOW(d),
+                                     GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+                                     GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                                     NULL );
+    g_signal_connect( w, "response", G_CALLBACK(cancel_cb), &cancelFlag );
+
+    tmp = g_path_get_basename (ui->builder->top);
+    name = g_strdup_printf ( "%s.torrent", tmp );
+    l = gtk_label_new( name );
+    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), l );
+    p = gtk_progress_bar_new ();
+    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), l );
+    gtk_widget_show_all ( w );
+    g_free( name );
+    g_free( tmp );
+
+    ret = tr_makeMetaInfo( ui->builder,
+                           progress_cb, &cancelFlag,
+                           NULL, 
+                           gtk_entry_get_text( GTK_ENTRY( ui->announce_entry ) ),
+                           gtk_entry_get_text( GTK_ENTRY( ui->comment_entry ) ),
+                           gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( ui->private_check ) ) );
+    if( !ret )
+      gtk_widget_destroy( GTK_WIDGET( d ) );
 }
 
 static void
@@ -117,7 +166,7 @@ make_meta_ui( GtkWindow * parent )
                                      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                      GTK_STOCK_NEW, GTK_RESPONSE_ACCEPT,
                                      NULL );
-    g_signal_connect( d, "response", G_CALLBACK(response_cb), NULL );
+    g_signal_connect( d, "response", G_CALLBACK(response_cb), ui );
     g_object_set_data_full( G_OBJECT(d), "ui", ui, g_free );
 
     t = hig_workarea_create ();

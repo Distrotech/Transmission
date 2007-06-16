@@ -41,12 +41,22 @@ meta_info_builder_t;
 meta_info_builder_t*
 tr_metaInfoBuilderCreate( const char * topFile );
 
+/* set abortFlag to nonzero to abort the checksum generation */
+typedef
+void (*makemeta_progress_func)(const meta_info_builder_t * builder,
+                               size_t                      pieceIndex,
+                               size_t                      pieceCount,
+                               int                       * abortFlag,
+                               void                      * userData );
 int
-tr_makeMetaInfo( const meta_info_builder_t * builder,
-                 const char                * outputFile, /* NULL for builder->top + ".torrent" */
-                 const char                * announce,
-                 const char                * comment,
-                 int                         isPrivate );
+tr_makeMetaInfo( const meta_info_builder_t  * builder,
+                 makemeta_progress_func       progress_func,
+                 void                       * progress_func_user_data,
+                 const char                 * outputFile_or_NULL,
+                 const char                 * announce,
+                 const char                 * comment,
+                 int                          isPrivate );
+
 
 void
 tr_metaInfoBuilderFree( meta_info_builder_t* );

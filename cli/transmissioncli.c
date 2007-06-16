@@ -35,6 +35,13 @@
 #define usleep snooze
 #endif
 
+/* macro to shut up "unused parameter" warnings */
+#ifdef __GNUC__
+#define UNUSED                  __attribute__((unused))
+#else
+#define UNUSED
+#endif
+
 const char * USAGE =
 "Usage: %s [options] file.torrent [options]\n\n"
 "Options:\n"
@@ -84,6 +91,20 @@ char * getStringRatio( float ratio )
 }
 
 #define LINEWIDTH 80
+
+static void
+progress_func( const meta_info_builder_t * builder     UNUSED,
+               size_t                      pieceIndex,
+               size_t                      pieceCount,
+               int                       * abortFlag   UNUSED,
+               void                      * userData    UNUSED )
+{
+    double percent = (double)pieceIndex / pieceCount;
+    printf( "%d%% done (on block %lu of %lu)\n",
+            (int)(100.0*percent + 0.5),
+            pieceIndex, pieceCount );
+}
+
 
 int main( int argc, char ** argv )
 {
@@ -135,7 +156,9 @@ int main( int argc, char ** argv )
     if( sourceFile && *sourceFile ) /* creating a torrent */
     {
         meta_info_builder_t* builder = tr_metaInfoBuilderCreate( sourceFile );
-        int ret = tr_makeMetaInfo( builder, NULL, announce, comment, isPrivate );
+        int ret = tr_makeMetaInfo( builder,
+                                   progress_func, NULL,
+                                   NULL, announce, comment, isPrivate );
         tr_metaInfoBuilderFree( builder );
         return ret;
     }
