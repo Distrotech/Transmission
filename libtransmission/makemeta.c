@@ -57,15 +57,16 @@ getFiles( const char        * dir,
     sb.st_size = 0;
 
     snprintf( buf, sizeof(buf), "%s"TR_PATH_DELIMITER_STR"%s", dir, base );
-fprintf(stderr, "looking at [%s]\n", buf);
     i = stat( buf, &sb );
-fprintf(stderr, "stat returned %d (%s)\n", i, (i?strerror(errno):"no error"));
+    if( i ) {
+        tr_err("makemeta couldn't stat \"%s\"; skipping. (%s)", buf, strerror(errno));
+        return list;
+    }
 
     if ( S_ISDIR( sb.st_mode ) )
     {
         DIR * odir = opendir( buf );
         struct dirent *d;
-fprintf(stderr, "it's a directory\n");
         for (d = readdir( odir ); d!=NULL; d=readdir( odir ) )
             if( strcmp( d->d_name,"." ) && strcmp( d->d_name,".." ) )
                 list = getFiles( buf, d->d_name, list );
@@ -75,7 +76,6 @@ fprintf(stderr, "it's a directory\n");
     {
         struct FileList * node = malloc( sizeof( struct FileList ) );
         snprintf( node->filename, sizeof( node->filename ), "%s", buf );
-fprintf(stderr, "it's a file... keeping [%s]\n", node->filename);
         node->next = list;
         list = node;
     }
