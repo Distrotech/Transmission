@@ -38,6 +38,7 @@ typedef struct
 {
     char torrent_name[2048];
     GtkWidget * size_lb;
+    GtkWidget * pieces_lb;
     GtkWidget * announce_entry;
     GtkWidget * comment_entry;
     GtkWidget * progressbar;
@@ -103,7 +104,7 @@ refresh_cb ( gpointer user_data )
         else
         {
             GtkWidget * w = ui->progress_dialog;
-            gtk_window_set_title (GTK_WINDOW(ui->progress_dialog), _("Torrent Created!"));
+            gtk_window_set_title (GTK_WINDOW(ui->progress_dialog), _("Torrent Created"));
             gtk_dialog_set_response_sensitive (GTK_DIALOG(w), GTK_RESPONSE_CANCEL, FALSE);
             gtk_dialog_set_response_sensitive (GTK_DIALOG(w), GTK_RESPONSE_CLOSE, TRUE);
             gtk_progress_bar_set_text( p, buf );
@@ -190,8 +191,8 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     char * pch;
     char * filename;
     char buf[512];
-    int fileCount = 0;
-    uint64_t totalSize = 0;
+    size_t fileCount=0, totalSize=0;
+    size_t pieceCount=0, pieceSize=0;
 
     if( ui->builder ) {
         tr_metaInfoBuilderFree( ui->builder );
@@ -202,15 +203,25 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     if( filename ) {
         ui->builder = tr_metaInfoBuilderCreate( ui->handle, filename );
         g_free( filename );
-        fileCount = (int) ui->builder->fileCount;
+        fileCount = ui->builder->fileCount;
         totalSize = ui->builder->totalSize;
+        pieceCount = ui->builder->pieceCount;
+        pieceSize = ui->builder->pieceSize;
     }
 
     pch = readablesize( totalSize );
-    g_snprintf( buf, sizeof(buf), "<i>%s; %d %s</i>",
+    g_snprintf( buf, sizeof(buf), "<i>%s; %lu %s</i>",
                 pch, fileCount,
-                ngettext("file", "files", fileCount));
+                ngettext("file", "files", fileCount) );
     gtk_label_set_markup ( GTK_LABEL(ui->size_lb), buf );
+    g_free( pch );
+
+    pch = readablesize( pieceSize );
+    g_snprintf( buf, sizeof(buf), "<i>%lu %s @ %s</i>",
+                pieceCount,
+                ngettext("piece", "pieces", fileCount),
+                pch );
+    gtk_label_set_markup ( GTK_LABEL(ui->pieces_lb), buf );
     g_free( pch );
 }
 
@@ -255,10 +266,16 @@ make_meta_ui( GtkWindow * parent, tr_handle_t * handle )
         hig_workarea_add_row (t, &row, name, w, NULL);
 
         g_snprintf( name, sizeof(name), "<i>%s</i>", _("No Files Selected"));
+        h = gtk_hbox_new( FALSE, GUI_PAD_SMALL );
         w = ui->size_lb = gtk_label_new (NULL);
         gtk_label_set_markup ( GTK_LABEL(w), name );
-        gtk_misc_set_alignment( GTK_MISC(w), 0.0f, 0.5f );
-        hig_workarea_add_row (t, &row, "", w, NULL);
+        gtk_box_pack_start( GTK_BOX(h), w, FALSE, FALSE, 0 );
+        w = ui->pieces_lb = gtk_label_new (NULL);
+        gtk_box_pack_end( GTK_BOX(h), w, FALSE, FALSE, 0 );
+        w = gtk_alignment_new (0.0f, 0.0f, 0.0f, 0.0f);
+        gtk_widget_set_usize (w, 2 * GUI_PAD_BIG, 0);
+        gtk_box_pack_start_defaults ( GTK_BOX(h), w );
+        hig_workarea_add_row (t, &row, "", h, NULL);
         
 
     hig_workarea_add_section_divider( t, &row );
