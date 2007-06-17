@@ -82,13 +82,16 @@ refresh_cb ( gpointer user_data )
 
         if( ui->builder->failed )
         {
+            const char * reason = ui->builder->abortFlag
+                ? _("Torrent creation aborted.")
+                : _("Torrent creation failed.");
             w = gtk_message_dialog_new (GTK_WINDOW(ui->progress_dialog),
                                         GTK_DIALOG_DESTROY_WITH_PARENT,
                                         GTK_MESSAGE_ERROR,
-                                        GTK_BUTTONS_CLOSE,
-                                        _("Torrent creation failed.")); /* FIXME: tell why */
+                                        GTK_BUTTONS_CLOSE, reason );
             gtk_dialog_run( GTK_DIALOG( w ) );
             gtk_widget_destroy( ui->progress_dialog );
+            ui->builder->abortFlag = 0;
         }
         else
         {

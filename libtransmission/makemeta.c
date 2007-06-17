@@ -291,7 +291,6 @@ getFileInfo( const char * topFile,
 
         memcpy( buf, prev, pch-prev );
         buf[pch-prev] = '\0';
-        /*fprintf ( stderr, "adding [%s] to the list of paths\n", buf );*/
 
         sub = tr_bencListAdd( uninitialized_path );
         tr_bencInitStrDup( sub, buf );
@@ -364,7 +363,6 @@ static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
 {
     int n = 5;
     benc_val_t top, *val;
-fprintf( stderr, "builder %p in realMakeMetaInfo\n", builder );
 
     tr_bencInit ( &top, TYPE_DICT );
     if ( builder->comment && *builder->comment ) ++n;
@@ -393,10 +391,15 @@ fprintf( stderr, "builder %p in realMakeMetaInfo\n", builder );
         makeInfoDict( val, builder );
 
     /* save the file */
-    if (1) {
-        FILE * fp = fopen( builder->outputFile, "wb+" );
+    if ( !builder->abortFlag ) {
+        size_t nmemb;
         char * pch = tr_bencSaveMalloc( &top, &n );
-        fwrite( pch, n, 1, fp );
+        FILE * fp = fopen( builder->outputFile, "wb+" );
+        nmemb = n;
+        if( fp == NULL )
+            builder->failed = 1;
+        else if( fwrite( pch, 1, nmemb, fp ) != nmemb )
+            builder->failed = 1;
         free( pch );
         fclose( fp );
     }
@@ -404,7 +407,7 @@ fprintf( stderr, "builder %p in realMakeMetaInfo\n", builder );
     /* cleanup */
     tr_bencFree( & top );
     builder->isDone = 1;
-    builder->failed = builder->abortFlag; /* FIXME: doesn't catch all failures */
+    builder->failed |= builder->abortFlag;
 }
 
 /***
@@ -455,11 +458,9 @@ static void workerFunc( void * user_data )
         if( builder == NULL )
           break;
 
-fprintf( stderr, "worker thread got builder %p\n", builder);
         tr_realMakeMetaInfo ( builder );
     }
 
-fprintf( stderr, "worker thread exiting\n" );
     workerIsRunning = 0;
 }
 
@@ -482,7 +483,6 @@ tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
         builder->outputFile = tr_strdup( out );
     }
 
-fprintf( stderr, "enqueuing a builder %p\n", builder);
     /* enqueue the builder */
     lock = getQueueLock ( builder->handle );
     tr_lockLock( lock );
@@ -490,7 +490,6 @@ fprintf( stderr, "enqueuing a builder %p\n", builder);
     queue = builder;
     if( !workerIsRunning ) {
         workerIsRunning = 1;
-fprintf( stderr, "making new worker thread\n" );
         tr_threadCreate( &workerThread, workerFunc, builder->handle, "makeMeta" );
     }
     tr_lockUnlock( lock );

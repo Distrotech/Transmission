@@ -329,20 +329,20 @@ tr_dupstr( const char * base, int len )
 int
 tr_ioErrorFromErrno( void )
 {
-    if( EACCES == errno || EROFS == errno )
+    switch( errno )
     {
-        return TR_ERROR_IO_PERMISSIONS;
+        case EACCES:
+        case EROFS:
+            return TR_ERROR_IO_PERMISSIONS;
+        case ENOSPC:
+            return TR_ERROR_IO_SPACE;
+        case EMFILE:
+        case EFBIG:
+            return TR_ERROR_IO_RESOURCES;
+        default:
+            tr_dbg( "generic i/o errno from errno: %s", strerror( errno ) );
+            return TR_ERROR_IO_OTHER;
     }
-    else if( ENOSPC == errno )
-    {
-        return TR_ERROR_IO_SPACE;
-    }
-    else if( EMFILE == errno || EFBIG == errno )
-    {
-        return TR_ERROR_IO_RESOURCES;
-    }
-    tr_dbg( "generic i/o errno from errno: %s", strerror( errno ) );
-    return TR_ERROR_IO_OTHER;
 }
 
 char *

@@ -351,7 +351,6 @@ gtksetup( int * argc, char *** argv, struct cbdata * callback_data )
     bind_textdomain_codeset( "transmission-gtk", "UTF-8" );
     textdomain( "transmission-gtk" );
 
-    g_thread_init (0);
     g_set_application_name( _("Transmission") );
     gtk_init( argc, argv );
 
