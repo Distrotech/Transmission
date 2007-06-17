@@ -48,7 +48,7 @@
         
         fWhiteGradient = [[CTGradient progressWhiteGradient] retain];
         fGrayGradient = [[CTGradient progressGrayGradient] retain];
-        fLightGrayGradient = [[CTGradient unifiedNormalGradient] retain];
+        fLightGrayGradient = [[CTGradient progressLightGrayGradient] retain];
         fBlueGradient = [[CTGradient progressBlueGradient] retain];
         fGreenGradient = [[CTGradient progressGreenGradient] retain];
         fLightGreenGradient = [[CTGradient progressLightGreenGradient] retain];
