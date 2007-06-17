@@ -194,6 +194,8 @@ tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 
     for( i=0; i<builder->fileCount; ++i )
         tr_free( builder->files[i] );
+    tr_free( builder->files );
+    tr_free( builder->fileLengths );
     tr_free( builder->top );
     tr_free( builder->comment );
     tr_free( builder->announce );
@@ -214,9 +216,11 @@ getHashInfo ( tr_metainfo_builder_t * b )
     uint8_t *walk = ret;
     uint8_t *buf = malloc( b->pieceSize );
     size_t totalRemain;
+    FILE * fp;
 
     b->pieceIndex = 0;
     totalRemain = b->totalSize;
+    fp = fopen( b->files[fileIndex], "rb" );
     while ( totalRemain )
     {
         uint8_t *bufptr = buf;
@@ -227,19 +231,18 @@ getHashInfo ( tr_metainfo_builder_t * b )
 
         while( pieceRemain )
         {
-            FILE * fp = fopen( b->files[fileIndex], "rb" );
             const size_t n_this_pass = MIN( (b->fileLengths[fileIndex] - off), pieceRemain );
-            if( off )
-                fseek( fp, off, SEEK_SET );
             fread( bufptr, 1, n_this_pass, fp );
             bufptr += n_this_pass;
             off += n_this_pass;
             pieceRemain -= n_this_pass;
-            fclose( fp );
-
             if( off == b->fileLengths[fileIndex] ) {
                 off = 0;
-                ++fileIndex;
+                fclose( fp );
+                fp = NULL;
+                if( ++fileIndex < b->fileCount ) {
+                    fp = fopen( b->files[fileIndex], "rb" );
+                }
             }
         }
 
@@ -258,6 +261,7 @@ getHashInfo ( tr_metainfo_builder_t * b )
     }
     assert( b->abortFlag || (walk-ret == (int)(SHA_DIGEST_LENGTH*b->pieceCount)) );
     assert( b->abortFlag || !totalRemain );
+    assert( fp == NULL );
 
     free( buf );
     return ret;

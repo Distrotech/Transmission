@@ -50,6 +50,15 @@ typedef struct
 MakeMetaUI;
 
 static void
+freeMetaUI( gpointer p )
+{
+    MakeMetaUI * ui = (MakeMetaUI *) p;
+    tr_metaInfoBuilderFree( ui->builder );
+    memset( ui, ~0, sizeof(MakeMetaUI) );
+    g_free( ui );
+}
+
+static void
 progress_response_cb ( GtkDialog *d UNUSED, int response, gpointer user_data )
 {
     MakeMetaUI * ui = (MakeMetaUI *) user_data;
@@ -215,7 +224,7 @@ make_meta_ui( GtkWindow * parent, tr_handle_t * handle )
                                      GTK_STOCK_NEW, GTK_RESPONSE_ACCEPT,
                                      NULL );
     g_signal_connect( d, "response", G_CALLBACK(response_cb), ui );
-    g_object_set_data_full( G_OBJECT(d), "ui", ui, g_free );
+    g_object_set_data_full( G_OBJECT(d), "ui", ui, freeMetaUI );
     ui->dialog = d;
 
     t = hig_workarea_create ();
