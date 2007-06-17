@@ -60,13 +60,4 @@ void tr_ioSync( tr_io_t * );
 
 void      tr_ioClose       ( tr_io_t * );
 
-/**
- * Recalculate the hash value straight from disk.
- * If your piece is incomplete, you'll get a meaningless hash back. 
- */
-int tr_ioRecalculateHash( tr_torrent_t  * tor,
-                          int             pieceIndex,
-                          uint8_t       * setme_buf );
-
-
 #endif

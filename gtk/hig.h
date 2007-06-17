@@ -92,6 +92,12 @@ void
 hig_workarea_finish (GtkWidget   * table,
                      int         * row);
 
+void
+hig_message_dialog_set_text (GtkMessageDialog * dialog,
+                             const char       * primary,
+                             const char       * secondary);
+
+
 /**
 ***
 **/

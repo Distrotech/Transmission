@@ -180,7 +180,7 @@ tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
     freeFileList( files );
     
     ret->pieceSize = bestPieceSize( ret->totalSize );
-    ret->pieceCount = MAX( 1, ret->totalSize / ret->pieceSize );
+    ret->pieceCount = ret->totalSize / ret->pieceSize;
     if( ret->totalSize % ret->pieceSize )
         ++ret->pieceCount;
 
@@ -206,44 +206,60 @@ tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 ****/
 
 static uint8_t*
-getHashInfo ( const tr_metainfo_builder_t  * builder,
-              int                        * setmeCount )
+getHashInfo ( tr_metainfo_builder_t * b )
 {
-    size_t i;
-    tr_torrent_t t;
-    uint8_t *ret, *walk;
-    const size_t topLen = strlen(builder->top) + 1; /* +1 for '/' */
+    size_t off = 0;
+    size_t fileIndex = 0;
+    uint8_t *ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * b->pieceCount );
+    uint8_t *walk = ret;
+    uint8_t *buf = malloc( b->pieceSize );
+    size_t totalRemain;
 
-    /* build a mock tr_torrent_t that we can feed to tr_ioRecalculateHash() */  
-    memset( &t, 0, sizeof( tr_torrent_t ) );
-    tr_lockInit ( &t.lock );
-    t.destination = (char*) builder->top;
-    t.info.fileCount = builder->fileCount;
-    t.info.files = calloc( t.info.fileCount, sizeof( tr_file_t ) );
-    t.info.totalSize = builder->totalSize;
-    t.info.pieceSize = builder->pieceSize;
-    t.info.pieceCount = builder->pieceCount;
-    for( i=0; i<builder->fileCount; ++i ) {
-        tr_file_t * file = &t.info.files[i];
-        file->length = builder->fileLengths[i];
-        strlcpy( file->name, builder->files[i]+topLen, sizeof(file->name) );
-    }
-    t.info.pieces = calloc( t.info.pieceCount, sizeof( tr_piece_t ) );
-    tr_torrentInitFilePieces( &t );
-    ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * t.info.pieceCount );
-    walk = ret;
+    b->pieceIndex = 0;
+    totalRemain = b->totalSize;
+    while ( totalRemain )
+    {
+        uint8_t *bufptr = buf;
+        const size_t thisPieceSize = MIN( b->pieceSize, totalRemain );
+        size_t pieceRemain = thisPieceSize;
 
-    /* FIXME: check the abort flag */
-    for( i=0; i<(size_t)t.info.pieceCount; ++i ) {
-        tr_ioRecalculateHash( &t, i, walk );
+        assert( b->pieceIndex < b->pieceCount );
+
+        while( pieceRemain )
+        {
+            FILE * fp = fopen( b->files[fileIndex], "rb" );
+            const size_t n_this_pass = MIN( (b->fileLengths[fileIndex] - off), pieceRemain );
+            if( off )
+                fseek( fp, off, SEEK_SET );
+            fread( bufptr, 1, n_this_pass, fp );
+            bufptr += n_this_pass;
+            off += n_this_pass;
+            pieceRemain -= n_this_pass;
+            fclose( fp );
+
+            if( off == b->fileLengths[fileIndex] ) {
+                off = 0;
+                ++fileIndex;
+            }
+        }
+
+        assert( bufptr-buf == (int)thisPieceSize );
+        assert( pieceRemain == 0 );
+        SHA1( buf, thisPieceSize, walk );
         walk += SHA_DIGEST_LENGTH;
-    }
-    assert( walk-ret == SHA_DIGEST_LENGTH*t.info.pieceCount );
 
-    *setmeCount = t.info.pieceCount;
-    tr_lockClose ( &t.lock );
-    free( t.info.pieces );
-    free( t.info.files );
+        if( b->abortFlag ) {
+            b->failed = 1;
+            break;
+        }
+
+        totalRemain -= thisPieceSize;
+        ++b->pieceIndex;
+    }
+    assert( walk-ret == (int)(SHA_DIGEST_LENGTH*b->pieceCount) );
+    assert( totalRemain == 0 );
+
+    free( buf );
     return ret;
 }
 
@@ -277,7 +293,7 @@ getFileInfo( const char * topFile,
 
         memcpy( buf, prev, pch-prev );
         buf[pch-prev] = '\0';
-        fprintf ( stderr, "adding [%s] to the list of paths\n", buf );
+        /*fprintf ( stderr, "adding [%s] to the list of paths\n", buf );*/
 
         sub = tr_bencListAdd( uninitialized_path );
         tr_bencInitStrDup( sub, buf );
@@ -310,11 +326,10 @@ makeFilesList( benc_val_t                 * list,
 }
 
 static void
-makeInfoDict ( benc_val_t                 * dict,
-               const tr_metainfo_builder_t  * builder )
+makeInfoDict ( benc_val_t             * dict,
+               tr_metainfo_builder_t  * builder )
 {
     uint8_t * pch;
-    int pieceCount = 0;
     benc_val_t * val;
     char base[MAX_PATH_LENGTH];
 
@@ -327,9 +342,9 @@ makeInfoDict ( benc_val_t                 * dict,
     val = tr_bencDictAdd( dict, "piece length" );
     tr_bencInitInt( val, builder->pieceSize );
 
-    pch = getHashInfo( builder, &pieceCount );
+    pch = getHashInfo( builder );
     val = tr_bencDictAdd( dict, "pieces" );
-    tr_bencInitStr( val, pch, SHA_DIGEST_LENGTH * pieceCount, 0 );
+    tr_bencInitStr( val, pch, SHA_DIGEST_LENGTH * builder->pieceCount, 0 );
 
     if ( builder->isSingleFile )
     {
@@ -351,6 +366,7 @@ static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
 {
     int n = 5;
     benc_val_t top, *val;
+fprintf( stderr, "builder %p in realMakeMetaInfo\n", builder );
 
     tr_bencInit ( &top, TYPE_DICT );
     if ( builder->comment && *builder->comment ) ++n;
@@ -377,9 +393,6 @@ static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
         tr_bencInit( val, TYPE_DICT );
         tr_bencDictReserve( val, 666 );
         makeInfoDict( val, builder );
-
-    /* debugging... */
-    tr_bencPrint( &top );
 
     /* save the file */
     if (1) {
@@ -444,9 +457,11 @@ static void workerFunc( void * user_data )
         if( builder == NULL )
           break;
 
+fprintf( stderr, "worker thread got builder %p\n", builder);
         tr_realMakeMetaInfo ( builder );
     }
 
+fprintf( stderr, "worker thread exiting\n" );
     workerIsRunning = 0;
 }
 
@@ -469,6 +484,7 @@ tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
         builder->outputFile = tr_strdup( out );
     }
 
+fprintf( stderr, "enqueuing a builder %p\n", builder);
     /* enqueue the builder */
     lock = getQueueLock ( builder->handle );
     tr_lockLock( lock );
@@ -476,6 +492,7 @@ tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
     queue = builder;
     if( !workerIsRunning ) {
         workerIsRunning = 1;
+fprintf( stderr, "making new worker thread\n" );
         tr_threadCreate( &workerThread, workerFunc, builder->handle, "makeMeta" );
     }
     tr_lockUnlock( lock );

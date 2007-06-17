@@ -190,7 +190,7 @@ tr_ioWrite( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
 *****
 ****/
 
-int
+static int
 tr_ioRecalculateHash ( tr_torrent_t  * tor,
                        int             pieceIndex,
                        uint8_t       * setme )

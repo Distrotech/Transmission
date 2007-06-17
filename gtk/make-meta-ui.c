@@ -39,7 +39,10 @@ typedef struct
     GtkWidget * size_lb;
     GtkWidget * announce_entry;
     GtkWidget * comment_entry;
+    GtkWidget * progressbar;
     GtkWidget * private_check;
+    GtkWidget * dialog;
+    GtkWidget * progress_dialog;
     tr_metainfo_builder_t * builder;
     tr_handle_t * handle;
 }
@@ -55,9 +58,41 @@ cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer user_data )
 static gboolean
 refresh_cb ( gpointer user_data )
 {
+    double fraction;
     MakeMetaUI * ui = (MakeMetaUI *) user_data;
 
-    g_message ("refresh");
+    fraction = (double)ui->builder->pieceIndex / ui->builder->pieceCount;
+    gtk_progress_bar_set_fraction( GTK_PROGRESS_BAR( ui->progressbar ), fraction );
+
+    if( ui->builder->isDone )
+    {
+        GtkWidget * w;
+
+        if( ui->builder->failed )
+        {
+            w = gtk_message_dialog_new (GTK_WINDOW(ui->progress_dialog),
+                                        GTK_DIALOG_DESTROY_WITH_PARENT,
+                                        GTK_MESSAGE_ERROR,
+                                        GTK_BUTTONS_CLOSE,
+                                        _("Torrent creation failed.")); /* FIXME: tell why */
+            gtk_dialog_run( GTK_DIALOG( w ) );
+            gtk_widget_destroy( ui->progress_dialog );
+        }
+        else
+        {
+            w = gtk_message_dialog_new_with_markup (
+                GTK_WINDOW(ui->progress_dialog),
+                GTK_DIALOG_DESTROY_WITH_PARENT,
+                GTK_MESSAGE_INFO,
+                GTK_BUTTONS_CLOSE,
+                NULL);
+            hig_message_dialog_set_text (GTK_MESSAGE_DIALOG(w),
+                _("<b>Torrent Created!</b>"),
+                ui->builder->outputFile);
+            gtk_dialog_run( GTK_DIALOG( w ) );
+            gtk_widget_destroy( ui->dialog );
+        }
+    }
 
     return !ui->builder->isDone;
 }
@@ -66,7 +101,7 @@ static void
 response_cb( GtkDialog* d, int response, gpointer user_data )
 {
     MakeMetaUI * ui = (MakeMetaUI*) user_data;
-    GtkWidget *w, *l, *p;
+    GtkWidget *w, *p, *fr;
     char *tmp, *name;
 
     if( response != GTK_RESPONSE_ACCEPT )
@@ -77,17 +112,22 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
 
     w = gtk_dialog_new_with_buttons( _("Making Torrent..."), 
                                      GTK_WINDOW(d),
-                                     GTK_DIALOG_MODAL|GTK_DIALOG_DESTROY_WITH_PARENT,
+                                     GTK_DIALOG_DESTROY_WITH_PARENT,
                                      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
                                      NULL );
     g_signal_connect( w, "response", G_CALLBACK(cancel_cb), ui );
+    ui->progress_dialog = w;
+
 
     tmp = g_path_get_basename (ui->builder->top);
-    name = g_strdup_printf ( "%s.torrent", tmp );
-    l = gtk_label_new( name );
-    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), l );
-    p = gtk_progress_bar_new ();
-    gtk_box_pack_start_defaults ( GTK_BOX(GTK_DIALOG(w)->vbox), p );
+    name = g_strdup_printf( "%s.torrent", tmp );
+    p = ui->progressbar = gtk_progress_bar_new ();
+    gtk_progress_bar_set_text( GTK_PROGRESS_BAR(p), name );
+    fr = gtk_frame_new (NULL);
+    gtk_frame_set_shadow_type (GTK_FRAME(fr), GTK_SHADOW_NONE);
+    gtk_container_set_border_width( GTK_CONTAINER(fr), 20 );
+    gtk_container_add (GTK_CONTAINER(fr), p);
+    gtk_box_pack_start_defaults( GTK_BOX(GTK_DIALOG(w)->vbox), fr );
     gtk_widget_show_all ( w );
     g_free( name );
     g_free( tmp );
@@ -98,7 +138,7 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
                      gtk_entry_get_text( GTK_ENTRY( ui->comment_entry ) ),
                      gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( ui->private_check ) ) );
 
-    g_timeout_add ( 1000, refresh_cb, ui );
+    g_timeout_add ( 200, refresh_cb, ui );
 }
 
 static void
@@ -167,6 +207,7 @@ make_meta_ui( GtkWindow * parent, tr_handle_t * handle )
                                      NULL );
     g_signal_connect( d, "response", G_CALLBACK(response_cb), ui );
     g_object_set_data_full( G_OBJECT(d), "ui", ui, g_free );
+    ui->dialog = d;
 
     t = hig_workarea_create ();
 
