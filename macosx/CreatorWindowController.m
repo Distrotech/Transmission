@@ -115,7 +115,6 @@
     
     fLocation = [[[DEFAULT_SAVE_LOCATION stringByAppendingPathComponent: [name stringByAppendingPathExtension: @"torrent"]]
                                             stringByExpandingTildeInPath] retain];
-    [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: [fLocation stringByDeletingLastPathComponent]]];
     [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
     [fLocationField setToolTip: fLocation];
 }
@@ -223,7 +222,6 @@
         [fLocation release];
         fLocation = [[panel filename] retain];
         
-        [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: [fLocation stringByDeletingLastPathComponent]]];
         [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
         [fLocationField setToolTip: fLocation];
     }

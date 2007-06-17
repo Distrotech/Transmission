@@ -13,7 +13,6 @@
                 fCommentView = NSTextView; 
                 fIcon = NSImageView; 
                 fLocationField = NSTextField; 
-                fLocationIcon = NSImageView; 
                 fNameField = NSTextField; 
                 fPiecesField = NSTextField; 
                 fPrivateCheck = NSButton; 

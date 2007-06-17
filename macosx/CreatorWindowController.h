@@ -28,7 +28,7 @@
 
 @interface CreatorWindowController : NSWindowController
 {
-    IBOutlet NSImageView * fIcon, * fLocationIcon;
+    IBOutlet NSImageView * fIcon;
     IBOutlet NSTextField * fNameField, * fStatusField, * fPiecesField, * fTrackerField, * fLocationField;
     IBOutlet NSTextView * fCommentView;
     IBOutlet NSButton * fPrivateCheck;
