@@ -5,11 +5,12 @@ NEWS file for Transmission <http://transmission.m0k.org/>
  - Torrent creation
  - Partial licensing change -- see the LICENSE file for details
  - Fix to UPnP support
+ - Rechecking torrents is now done one torrent at a time
+   to avoid hammering the disk
  - Many miscellaneous bugfixes and small improvements
  - OS X:
    + Overlay when dragging torrent files onto window
    + Various smaller interface changes and improvements
-
  - GTK:
    + Interface significantly reworks to closer match the Mac version
    + Torrent inspector

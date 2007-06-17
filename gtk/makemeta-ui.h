@@ -1,18 +1,11 @@
 /*
  * This file Copyright (C) 2007 Charles Kerr <charles@rebelbase.com>
  *
- * This file is available under the
- * Attribution-Noncommercial-Share Alike 3.0 License.
- * Overview:  http://creativecommons.org/licenses/by-nc-sa/3.0/
- * Full text: http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
- *
- * Loosely speaking, you're free to use and adapt this work
- * provided that it's for noncommercial uses and that you share your
- * changes under a compatible license.
- *
- * To be blunt, I'm happy to let the Transmission project use my
- * code because Transmission is free software.  Closed-source and/or
- * commercial projects may not use this file.
+ * This file is licensed by the GPL version 2.  Works owned by the
+ * Transmission project are granted a special exemption to clause 2(b)
+ * so that the bulk of its code can remain under the MIT license. 
+ * This exemption does not extend to derived works not owned by
+ * the Transmission project.
  */
 
 #ifndef MAKE_META_UI__H
