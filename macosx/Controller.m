@@ -415,6 +415,10 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     //change that just impacts the dock badge
     [nc addObserver: self selector: @selector(updateDockBadge:)
                     name: @"DockBadgeChange" object: nil];
+    
+    //open newly created torrent file
+    [nc addObserver: self selector: @selector(openCreatedFile:)
+                    name: @"OpenCreatedTorrentFile" object: nil];
 
     //timer to update the interface every second
     [self updateUI];
@@ -633,7 +637,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 {
     NSString * path = [[fPendingTorrentDownloads objectForKey: [[download request] URL]] objectForKey: @"Path"];
     
-    [self openFiles: [NSArray arrayWithObject: path] ignoreDownloadFolder:
+    [self openFiles: [NSArray arrayWithObject: path] forcePath: nil ignoreDownloadFolder:
         ![[fDefaults stringForKey: @"DownloadChoice"] isEqualToString: @"Constant"] forceDeleteTorrent: YES];
     
     [fPendingTorrentDownloads removeObjectForKey: [[download request] URL]];
@@ -645,19 +649,20 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) application: (NSApplication *) app openFiles: (NSArray *) filenames
 {
-    [self openFiles: filenames ignoreDownloadFolder: NO forceDeleteTorrent: NO];
+    [self openFiles: filenames forcePath: nil ignoreDownloadFolder: NO forceDeleteTorrent: NO];
 }
 
-- (void) openFiles: (NSArray *) filenames ignoreDownloadFolder: (BOOL) ignore forceDeleteTorrent: (BOOL) delete
+- (void) openFiles: (NSArray *) filenames forcePath: (NSString *) path ignoreDownloadFolder: (BOOL) ignore
+        forceDeleteTorrent: (BOOL) delete
 {
     NSString * downloadChoice = [fDefaults stringForKey: @"DownloadChoice"];
-    if (ignore || [downloadChoice isEqualToString: @"Ask"])
+    if (ignore || (!path && [downloadChoice isEqualToString: @"Ask"]))
     {
         [self openFilesAsk: [filenames mutableCopy] forceDeleteTorrent: delete];
         return;
     }
     
-    if ([fDefaults boolForKey: @"UseIncompleteDownloadFolder"]
+    if (!path && [fDefaults boolForKey: @"UseIncompleteDownloadFolder"]
         && access([[[fDefaults stringForKey: @"IncompleteDownloadFolder"] stringByExpandingTildeInPath] UTF8String], 0))
     {
         NSOpenPanel * panel = [NSOpenPanel openPanel];
@@ -681,7 +686,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
                 didEndSelector: @selector(incompleteChoiceClosed:returnCode:contextInfo:) contextInfo: dict];
         return;
     }
-    if ([downloadChoice isEqualToString: @"Constant"]
+    if (!path && [downloadChoice isEqualToString: @"Constant"]
         && access([[[fDefaults stringForKey: @"DownloadFolder"] stringByExpandingTildeInPath] UTF8String], 0))
     {
         NSOpenPanel * panel = [NSOpenPanel openPanel];
@@ -712,13 +717,17 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     {
         if (!(torrent = [[Torrent alloc] initWithPath: torrentPath forceDeleteTorrent: delete lib: fLib]))
             continue;
-
+        
         //add it to the "File > Open Recent" menu
         [[NSDocumentController sharedDocumentController] noteNewRecentDocumentURL: [NSURL fileURLWithPath: torrentPath]];
-
-        NSString * folder = [downloadChoice isEqualToString: @"Constant"]
-            ? [[fDefaults stringForKey: @"DownloadFolder"] stringByExpandingTildeInPath]
-            : [torrentPath stringByDeletingLastPathComponent];
+        
+        NSString * folder;
+        if (path)
+            folder = path;
+        else if ([downloadChoice isEqualToString: @"Constant"])
+            folder = [[fDefaults stringForKey: @"DownloadFolder"] stringByExpandingTildeInPath];
+        else
+            folder = [torrentPath stringByDeletingLastPathComponent];
         
         [torrent setDownloadFolder: folder];
         [torrent update];
@@ -728,6 +737,14 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     }
 
     [self updateTorrentsInQueue];
+}
+
+- (void) openCreatedFile: (NSNotification *) notification
+{
+    NSDictionary * dict = [notification userInfo];
+    [self openFiles: [NSArray arrayWithObject: [dict objectForKey: @"File"]] forcePath: [dict objectForKey: @"Path"]
+            ignoreDownloadFolder: NO forceDeleteTorrent: NO];
+    [dict release];
 }
 
 - (void) incompleteChoiceClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (NSDictionary *) dictionary
@@ -753,7 +770,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) openFilesWithDict: (NSDictionary *) dictionary
 {
-    [self openFiles: [dictionary objectForKey: @"Filenames"]
+    [self openFiles: [dictionary objectForKey: @"Filenames"] forcePath: nil
         ignoreDownloadFolder: [[dictionary objectForKey: @"Ignore"] boolValue]
         forceDeleteTorrent: [[dictionary objectForKey: @"Delete"] boolValue]];
     
@@ -843,7 +860,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) openFiles: (NSArray *) filenames
 {
-    [self openFiles: filenames ignoreDownloadFolder: NO forceDeleteTorrent: NO];
+    [self openFiles: filenames forcePath: nil ignoreDownloadFolder: NO forceDeleteTorrent: NO];
 }
 
 - (void) openShowSheet: (id) sender
@@ -871,7 +888,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) openFromSheet: (NSDictionary *) dictionary
 {
-    [self openFiles: [dictionary objectForKey: @"Files"]
+    [self openFiles: [dictionary objectForKey: @"Files"] forcePath: nil
         ignoreDownloadFolder: [[dictionary objectForKey: @"Ignore"] boolValue] forceDeleteTorrent: NO];
     
     [dictionary release];
