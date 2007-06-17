@@ -190,17 +190,19 @@ tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
 void
 tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 {
-    size_t i;
-
-    for( i=0; i<builder->fileCount; ++i )
-        tr_free( builder->files[i] );
-    tr_free( builder->files );
-    tr_free( builder->fileLengths );
-    tr_free( builder->top );
-    tr_free( builder->comment );
-    tr_free( builder->announce );
-    tr_free( builder->outputFile );
-    tr_free( builder );
+    if( builder != NULL )
+    {
+        size_t i;
+        for( i=0; i<builder->fileCount; ++i )
+            tr_free( builder->files[i] );
+        tr_free( builder->files );
+        tr_free( builder->fileLengths );
+        tr_free( builder->top );
+        tr_free( builder->comment );
+        tr_free( builder->announce );
+        tr_free( builder->outputFile );
+        tr_free( builder );
+    }
 }
 
 /****
