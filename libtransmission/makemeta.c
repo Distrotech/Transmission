@@ -42,6 +42,7 @@ getFiles( const char        * dir,
     int i;
     char buf[MAX_PATH_LENGTH];
     struct stat sb;
+    DIR * odir = NULL;
     sb.st_size = 0;
 
     snprintf( buf, sizeof(buf), "%s"TR_PATH_DELIMITER_STR"%s", dir, base );
@@ -51,9 +52,8 @@ getFiles( const char        * dir,
         return list;
     }
 
-    if ( S_ISDIR( sb.st_mode ) )
+    if ( S_ISDIR( sb.st_mode ) && (( odir = opendir ( buf ) )) )
     {
-        DIR * odir = opendir( buf );
         struct dirent *d;
         for (d = readdir( odir ); d!=NULL; d=readdir( odir ) )
             if( strcmp( d->d_name,"." ) && strcmp( d->d_name,".." ) )
