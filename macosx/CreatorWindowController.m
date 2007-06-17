@@ -178,6 +178,7 @@
     else
         trackerString = [@"http://" stringByAppendingString: trackerString];
     
+    fOpenTorrent = [fOpenCheck state] == NSOnState;
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
                     [fPrivateCheck state] == NSOnState);
     
@@ -259,7 +260,7 @@
         }
         else
         {
-            if ([fOpenCheck state] == NSOnState)
+            if (fOpenTorrent)
             {
                 NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: fLocation, @"File",
                                         [fPath stringByDeletingLastPathComponent], @"Path", nil];

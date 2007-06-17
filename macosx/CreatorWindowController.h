@@ -38,6 +38,7 @@
     
     tr_metainfo_builder_t * fInfo;
     NSString * fPath, * fLocation;
+    BOOL fOpenTorrent;
     
     NSTimer * fTimer;
     BOOL fStarted;
