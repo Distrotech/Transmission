@@ -259,10 +259,12 @@
         }
         else
         {
-            #warning make optional
-            NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: fLocation, @"File",
-                                    [fPath stringByDeletingLastPathComponent], @"Path", nil];
-            [[NSNotificationCenter defaultCenter] postNotificationName: @"OpenCreatedTorrentFile" object: self userInfo: dict];
+            if ([fOpenCheck state] == NSOnState)
+            {
+                NSDictionary * dict = [[NSDictionary alloc] initWithObjectsAndKeys: fLocation, @"File",
+                                        [fPath stringByDeletingLastPathComponent], @"Path", nil];
+                [[NSNotificationCenter defaultCenter] postNotificationName: @"OpenCreatedTorrentFile" object: self userInfo: dict];
+            }
         }
         
         [[self window] close];

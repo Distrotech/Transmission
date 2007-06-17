@@ -14,6 +14,7 @@
                 fIcon = NSImageView; 
                 fLocationField = NSTextField; 
                 fNameField = NSTextField; 
+                fOpenCheck = NSButton; 
                 fPiecesField = NSTextField; 
                 fPrivateCheck = NSButton; 
                 fProgressIndicator = NSProgressIndicator; 
