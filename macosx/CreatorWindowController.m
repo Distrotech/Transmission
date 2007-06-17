@@ -32,6 +32,7 @@
 + (NSString *) chooseFile;
 - (void) locationSheetClosed: (NSSavePanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
 - (void) checkProgress: (NSTimer *) timer;
+- (void) failureSheetClosed: (NSAlert *) alert returnCode: (int) code contextInfo: (void *) info;
 
 @end
 
@@ -102,8 +103,15 @@
     }
     [fStatusField setStringValue: statusString];
     
-    [fPiecesField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%d pieces, %@ each", "Create torrent -> info"),
-                                    fInfo->pieceCount, [NSString stringForFileSize: fInfo->pieceSize]]];
+    NSString * piecesCountString;
+    int piecesCount = fInfo->pieceCount;
+    if (piecesCount == 1)
+        piecesCountString = NSLocalizedString(@"1 piece", "Create torrent -> info");
+    else
+        piecesCountString = [NSString stringWithFormat: NSLocalizedString(@"%d pieces", "Create torrent -> info"),
+                                                                piecesCount];
+    [fPiecesField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@, %@ each", "Create torrent -> info"),
+                                        piecesCountString, [NSString stringForFileSize: fInfo->pieceSize]]];
     
     fLocation = [[[DEFAULT_SAVE_LOCATION stringByAppendingPathComponent: [name stringByAppendingPathExtension: @"torrent"]]
                                             stringByExpandingTildeInPath] retain];
@@ -228,11 +236,26 @@
         [timer invalidate];
         timer = nil;
         
-        #warning check failed or not
-        
         if ([[self window] attachedSheet])
+        {
             [NSApp endSheet: fProgressWindow];
-        [fProgressWindow orderOut: nil];
+            [fProgressWindow orderOut: nil];
+        }
+        
+        if (fInfo->failed /*&& !fInfo->abortFlag*/)
+        {
+            NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+            [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> failed -> button")];
+            [alert setMessageText: [NSString stringWithFormat: NSLocalizedString(@"Creation of \"%@\" failed.",
+                                            "Create torrent -> failed -> title"), [fLocation lastPathComponent]]];
+            [alert setInformativeText: NSLocalizedString(@"There was an error parsing the data file. "
+                                        "The torrent file was not created.", "Create torrent -> failed -> warning")];
+            [alert setAlertStyle: NSWarningAlertStyle];
+            
+            [alert beginSheetModalForWindow: [self window] modalDelegate: self
+                    didEndSelector: @selector(failureSheetClosed:returnCode:contextInfo:) contextInfo: nil];
+            return;
+        }
         
         #warning add to T
         
@@ -245,6 +268,12 @@
             [NSApp beginSheet: fProgressWindow modalForWindow: [self window] modalDelegate: self
                     didEndSelector: nil contextInfo: nil];
     }
+}
+
+- (void) failureSheetClosed: (NSAlert *) alert returnCode: (int) code contextInfo: (void *) info
+{
+    [[alert window] orderOut: nil];
+    [[self window] close: nil];
 }
 
 @end
