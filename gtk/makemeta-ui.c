@@ -20,6 +20,8 @@
 #include "makemeta-ui.h"
 #include "util.h"
 
+#define UPDATE_INTERVAL_MSEC 200
+
 typedef struct
 {
     char torrent_name[2048];
@@ -88,7 +90,6 @@ refresh_cb ( gpointer user_data )
                                         GTK_BUTTONS_CLOSE, reason );
             gtk_dialog_run( GTK_DIALOG( w ) );
             gtk_widget_destroy( ui->progress_dialog );
-            ui->builder->abortFlag = 0;
         }
         else
         {
@@ -104,12 +105,19 @@ refresh_cb ( gpointer user_data )
 }
 
 static void
+remove_tag (gpointer tag)
+{
+  g_source_remove (GPOINTER_TO_UINT(tag)); /* stop the periodic refresh */
+}
+
+static void
 response_cb( GtkDialog* d, int response, gpointer user_data )
 {
     MakeMetaUI * ui = (MakeMetaUI*) user_data;
     GtkWidget *w, *p, *fr;
     char *tmp;
     char buf[1024];
+    guint tag;
 
     if( response != GTK_RESPONSE_ACCEPT )
     {
@@ -146,7 +154,8 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
                      gtk_entry_get_text( GTK_ENTRY( ui->comment_entry ) ),
                      gtk_toggle_button_get_active( GTK_TOGGLE_BUTTON( ui->private_check ) ) );
 
-    g_timeout_add ( 200, refresh_cb, ui );
+    tag = g_timeout_add (UPDATE_INTERVAL_MSEC, refresh_cb, ui);
+    g_object_set_data_full (G_OBJECT(w), "tag", GUINT_TO_POINTER(tag), remove_tag);
 }
 
 static void

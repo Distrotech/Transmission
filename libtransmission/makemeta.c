@@ -403,8 +403,8 @@ static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
 
     /* cleanup */
     tr_bencFree( & top );
-    builder->isDone = 1;
     builder->failed |= builder->abortFlag;
+    builder->isDone = 1;
 }
 
 /***
@@ -469,6 +469,9 @@ tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
                  int                      isPrivate )
 {
     tr_lock_t * lock;
+
+    builder->abortFlag = 0;
+    builder->isDone = 0;
     builder->announce = tr_strdup( announce );
     builder->comment = tr_strdup( comment );
     builder->isPrivate = isPrivate;
