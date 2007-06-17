@@ -1,26 +1,15 @@
-/******************************************************************************
- * $Id:$
+/*
+ * This file Copyright (C) 2007 Charles Kerr <charles@rebelbase.com>
  *
- * Copyright (c) 2005-2007 Transmission authors and contributors
+ * This file is available under the
+ * Attribution-Noncommercial-Share Alike 3.0 License.
+ * Overview:  http://creativecommons.org/licenses/by-nc-sa/3.0/
+ * Full text: http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
  *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
- * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
- * DEALINGS IN THE SOFTWARE.
- *****************************************************************************/
+ * Loosely speaking, you're free to use and adapt this work
+ * provided that it's for noncommercial uses and that you share your
+ * changes under a compatible license.
+ */
 
 #include <sys/types.h>
 #include <sys/stat.h>

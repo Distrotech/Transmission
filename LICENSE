@@ -1,5 +1,14 @@
-The Transmission binaries and source code are distributed under the MIT
-license.
+The Transmission binaries and most of its source code is
+distributed under the MIT license.
+
+The exception to this are the files copyrighted by Charles Kerr,
+which are distributed under the Creative Commons
+Attribution-Noncommercial-Share Alike 3.0 License.
+Overview:  http://creativecommons.org/licenses/by-nc-sa/3.0/
+Full text: http://creativecommons.org/licenses/by-nc-sa/3.0/legalcode
+
+The remainder of this text pertains only to the MIT-licensed
+portions of Transmission.
 
 -----
 Permission is hereby granted, free of charge, to any person obtaining
