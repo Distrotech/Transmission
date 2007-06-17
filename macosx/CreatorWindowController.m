@@ -169,6 +169,7 @@
     
     fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress:)
                         userInfo: nil repeats: YES];
+    [fTimer fire];
 }
 
 - (void) cancelCreateWindow: (id) sender
@@ -183,7 +184,8 @@
 
 - (void) cancelCreateProgress: (id) sender
 {
-
+    fInfo->abortFlag = 1;
+    [fTimer fire];
 }
 
 @end
