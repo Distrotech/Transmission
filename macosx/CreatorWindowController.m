@@ -31,6 +31,7 @@
 
 + (NSString *) chooseFile;
 - (void) locationSheetClosed: (NSSavePanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
+- (void) checkProgress: (NSTimer *) timer;
 
 @end
 
@@ -120,6 +121,9 @@
     if (fInfo)
         tr_metaInfoBuilderFree(fInfo);
     
+    if (fTimer)
+        [fTimer invalidate];
+    
     [super dealloc];
 }
 
@@ -137,6 +141,8 @@
 
 - (void) create: (id) sender
 {
+    #warning check already exists
+    
     //parse tracker string
     NSString * trackerString = [fTrackerField stringValue];
     if ([trackerString rangeOfString: @"://"].location != NSNotFound)
@@ -158,16 +164,11 @@
     else
         trackerString = [@"http://" stringByAppendingString: trackerString];
     
-    //[NSApp beginSheet: fProgressWindow modalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
-    
-    #warning fix
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
                     [fPrivateCheck state] == NSOnState);
     
-    #warning move to "check" method
-    /*#warning add to T
-
-    [[self window] close];*/
+    fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress:)
+                        userInfo: nil repeats: YES];
 }
 
 - (void) cancelCreate: (id) sender
@@ -210,6 +211,32 @@
         [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: [fLocation stringByDeletingLastPathComponent]]];
         [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
         [fLocationField setToolTip: fLocation];
+    }
+}
+
+- (void) checkProgress: (NSTimer *) timer
+{
+    if (fInfo->isDone)
+    {
+        [timer invalidate];
+        timer = nil;
+        
+        #warning check failed or not
+        
+        if ([[self window] attachedSheet])
+            [NSApp endSheet: fProgressWindow];
+        [fProgressWindow orderOut: nil];
+        
+        #warning add to T
+        
+        [[self window] close];
+    }
+    else
+    {
+        [fProgressIndicator setDoubleValue: (double)fInfo->pieceIndex / fInfo->pieceCount];
+        if (![[self window] attachedSheet])
+            [NSApp beginSheet: fProgressWindow modalForWindow: [self window] modalDelegate: self
+                    didEndSelector: nil contextInfo: nil];
     }
 }
 

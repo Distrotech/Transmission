@@ -38,6 +38,8 @@
     
     tr_metainfo_builder_t * fInfo;
     NSString * fPath, * fLocation;
+    
+    NSTimer * fTimer;
 }
 
 + (void) createTorrentFile: (tr_handle_t *) handle;
