@@ -12,8 +12,9 @@
                 fNameField = NSTextField; 
                 fPiecesField = NSTextField; 
                 fPrivateCheck = NSButton; 
+                fProgressIndicator = NSProgressIndicator; 
+                fProgressWindow = NSWindow; 
                 fStatusField = NSTextField; 
-                fTorrentNameField = NSTextField; 
                 fTrackerField = NSTextField; 
             }; 
             SUPERCLASS = NSWindowController; 

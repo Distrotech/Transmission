@@ -23,21 +23,26 @@
  *****************************************************************************/
 
 #import <Cocoa/Cocoa.h>
+#import "transmission.h"
 #import "makemeta.h"
 
 @interface CreatorWindowController : NSWindowController
 {
     IBOutlet NSImageView * fIcon, * fLocationIcon;
-    IBOutlet NSTextField * fNameField, * fStatusField, * fPiecesField, * fLocationField,
-                * fTrackerField, * fTorrentNameField;
+    IBOutlet NSTextField * fNameField, * fStatusField, * fPiecesField, * fTrackerField, * fLocationField;
     IBOutlet NSTextView * fCommentView;
     IBOutlet NSButton * fPrivateCheck;
     
-    meta_info_builder_t * fInfo;
+    IBOutlet NSWindow * fProgressWindow;
+    IBOutlet NSProgressIndicator * fProgressIndicator;
+    
+    tr_metainfo_builder_t * fInfo;
     NSString * fPath, * fLocation;
 }
 
-+ (void) createTorrentFile;
++ (void) createTorrentFile: (tr_handle_t *) handle;
+
+- (id) initWithWindowNibName: (NSString *) name handle: (tr_handle_t *) handle path: (NSString *) path;
 
 - (void) setLocation: (id) sender;
 - (void) create: (id) sender;

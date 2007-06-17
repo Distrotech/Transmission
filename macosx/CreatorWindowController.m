@@ -27,35 +27,53 @@
 
 #define DEFAULT_SAVE_LOCATION @"~/Desktop/"
 
-#warning rename?
 @interface CreatorWindowController (Private)
 
 + (NSString *) chooseFile;
-- (void) setPath: (NSString *) path;
-- (void) locationSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
+- (void) locationSheetClosed: (NSSavePanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
 
 @end
 
 @implementation CreatorWindowController
 
-+ (void) createTorrentFile
++ (void) createTorrentFile: (tr_handle_t *) handle
 {
     //get file/folder for torrent
     NSString * path;
     if (!(path = [CreatorWindowController chooseFile]))
         return;
     
-    CreatorWindowController * creator = [[self alloc] initWithWindowNibName: @"Creator"];
-    [creator setPath: path];
+    CreatorWindowController * creator = [[self alloc] initWithWindowNibName: @"Creator" handle: handle path: path];
     [creator showWindow: nil];
+}
+
+- (id) initWithWindowNibName: (NSString *) name handle: (tr_handle_t *) handle path: (NSString *) path
+{
+    if ((self = [super initWithWindowNibName: name]))
+    {
+        fPath = [path retain];
+        fInfo = tr_metaInfoBuilderCreate(handle, [fPath UTF8String]);
+        if (fInfo->fileCount == 0)
+        {
+            NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+            [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> no files -> button")];
+            [alert setMessageText: NSLocalizedString(@"This folder contains no files.",
+                                                    "Create torrent -> no files -> title")];
+            [alert setInformativeText: NSLocalizedString(@"There must be at least one file in a folder to create a torrent file.",
+                                                        "Create torrent -> no files -> warning")];
+            [alert setAlertStyle: NSWarningAlertStyle];
+            
+            [alert runModal];
+            
+            [self release];
+            return nil;
+        }
+    }
+    return self;
 }
 
 - (void) awakeFromNib
 {
-    fInfo = tr_metaInfoBuilderCreate([fPath UTF8String]);
-    
-    #warning if count == 0, end
-    
     NSString * name = [fPath lastPathComponent];
     
     [[self window] setTitle: name];
@@ -74,7 +92,6 @@
     if (multifile)
     {
         NSString * fileString;
-    
         int count = fInfo->fileCount;
         if (count != 1)
             fileString = [NSString stringWithFormat: NSLocalizedString(@"%d Files, ", "Create torrent -> info"), count];
@@ -87,12 +104,11 @@
     [fPiecesField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%d pieces, %@ each", "Create torrent -> info"),
                                     fInfo->pieceCount, [NSString stringForFileSize: fInfo->pieceSize]]];
     
-    fLocation = [[DEFAULT_SAVE_LOCATION stringByExpandingTildeInPath] retain];
-    [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: fLocation]];
+    fLocation = [[[DEFAULT_SAVE_LOCATION stringByAppendingPathComponent: [name stringByAppendingPathExtension: @"torrent"]]
+                                            stringByExpandingTildeInPath] retain];
+    [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: [fLocation stringByDeletingLastPathComponent]]];
     [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
     [fLocationField setToolTip: fLocation];
-    
-    [fTorrentNameField setStringValue: [name stringByAppendingPathExtension: @"torrent"]];
 }
 
 - (void) dealloc
@@ -109,15 +125,13 @@
 
 - (void) setLocation: (id) sender
 {
-    NSOpenPanel * panel = [NSOpenPanel openPanel];
+    NSSavePanel * panel = [NSSavePanel savePanel];
 
     [panel setPrompt: @"Select"];
-    [panel setAllowsMultipleSelection: NO];
-    [panel setCanChooseFiles: NO];
-    [panel setCanChooseDirectories: YES];
-    [panel setCanCreateDirectories: YES];
+    [panel setRequiredFileType: @"torrent"];
+    [panel setCanSelectHiddenExtension: YES];
 
-    [panel beginSheetForDirectory: nil file: nil types: nil modalForWindow: [self window] modalDelegate: self
+    [panel beginSheetForDirectory: nil file: [fLocation lastPathComponent] modalForWindow: [self window] modalDelegate: self
             didEndSelector: @selector(locationSheetClosed:returnCode:contextInfo:) contextInfo: nil];
 }
 
@@ -144,28 +158,16 @@
     else
         trackerString = [@"http://" stringByAppendingString: trackerString];
     
-    NSString * torrentName = [fTorrentNameField stringValue];
-    if ([[torrentName pathExtension] caseInsensitiveCompare: @"torrent"] != NSOrderedSame)
-    {
-        NSAlert * alert = [[[NSAlert alloc] init] autorelease];
-        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> torrent extension warning -> button")];
-        [alert setMessageText: NSLocalizedString(@"Torrents must end in \".torrent\".",
-                                                "Create torrent -> torrent extension warning -> title")];
-        [alert setInformativeText: NSLocalizedString(@"Add this file extension to create the torrent.",
-                                                    "Create torrent -> torrent extension warning -> warning")];
-        [alert setAlertStyle: NSWarningAlertStyle];
-        
-        [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
-        return;
-    }
+    //[NSApp beginSheet: fProgressWindow modalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
     
     #warning fix
-    tr_makeMetaInfo(fInfo, NULL, self, [[fLocation stringByAppendingPathComponent: torrentName] UTF8String],
-            [trackerString UTF8String], [[fCommentView string] UTF8String], [fPrivateCheck state] == NSOnState);
+    tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
+                    [fPrivateCheck state] == NSOnState);
     
-    #warning add to T
+    #warning move to "check" method
+    /*#warning add to T
 
-    [[self window] close];
+    [[self window] close];*/
 }
 
 - (void) cancelCreate: (id) sender
@@ -198,19 +200,14 @@
     return success ? [[panel filenames] objectAtIndex: 0] : nil;
 }
 
-- (void) setPath: (NSString *) path
-{
-    fPath = [path retain];
-}
-
-- (void) locationSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info
+- (void) locationSheetClosed: (NSSavePanel *) panel returnCode: (int) code contextInfo: (void *) info
 {
     if (code == NSOKButton)
     {
         [fLocation release];
-        fLocation = [[[openPanel filenames] objectAtIndex: 0] retain];
+        fLocation = [[panel filename] retain];
         
-        [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: fLocation]];
+        [fLocationIcon setImage: [[NSWorkspace sharedWorkspace] iconForFile: [fLocation stringByDeletingLastPathComponent]]];
         [fLocationField setStringValue: [fLocation stringByAbbreviatingWithTildeInPath]];
         [fLocationField setToolTip: fLocation];
     }

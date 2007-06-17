@@ -933,7 +933,7 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) createFile: (id) sender
 {
-    [CreatorWindowController createTorrentFile];
+    [CreatorWindowController createTorrentFile: fLib];
 }
 
 - (void) resumeSelectedTorrents: (id) sender
