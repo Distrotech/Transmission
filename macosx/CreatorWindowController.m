@@ -87,10 +87,9 @@
     
     BOOL multifile = !fInfo->isSingleFile;
     
-    NSImage * icon = [[[NSWorkspace sharedWorkspace] iconForFileType: multifile
-                        ? NSFileTypeForHFSTypeCode('fldr') : [fPath pathExtension]] copy];
-    [fIcon setImage: icon];
-    [icon release];
+    #warning fix when resizing window
+    [fIcon setImage: [[NSWorkspace sharedWorkspace] iconForFileType: multifile
+                        ? NSFileTypeForHFSTypeCode('fldr') : [fPath pathExtension]]];
     
     NSString * statusString = [NSString stringForFileSize: fInfo->totalSize];
     if (multifile)
@@ -175,7 +174,7 @@
     
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
                     [fPrivateCheck state] == NSOnState);
-    #warning delay at first?
+    
     fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress)
                         userInfo: nil repeats: YES];
 }
