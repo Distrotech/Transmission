@@ -297,7 +297,7 @@ int main( int argc, char ** argv )
             fprintf( stderr, "\n" );
         }
         
-        if( tr_getFinished( tor ) )
+        if( tr_getDone(tor) || tr_getComplete(tor) )
         {
             result = system(finishCall);
         }

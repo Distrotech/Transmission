@@ -190,6 +190,8 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     char * pch;
     char * filename;
     char buf[512];
+    int fileCount = 0;
+    uint64_t totalSize = 0;
 
     if( ui->builder ) {
         tr_metaInfoBuilderFree( ui->builder );
@@ -197,13 +199,17 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     }
 
     filename = gtk_file_chooser_get_filename( chooser );
-    ui->builder = tr_metaInfoBuilderCreate( ui->handle, filename );
-    g_free( filename );
+    if( filename ) {
+        ui->builder = tr_metaInfoBuilderCreate( ui->handle, filename );
+        g_free( filename );
+        fileCount = (int) ui->builder->fileCount;
+        totalSize = ui->builder->totalSize;
+    }
 
-    pch = readablesize( ui->builder->totalSize );
-    g_snprintf( buf, sizeof(buf), "<i>%s; %lu %s</i>",
-                pch, ui->builder->fileCount,
-                ngettext("file", "files", (int)ui->builder->fileCount));
+    pch = readablesize( totalSize );
+    g_snprintf( buf, sizeof(buf), "<i>%s; %d %s</i>",
+                pch, fileCount,
+                ngettext("file", "files", fileCount));
     gtk_label_set_markup ( GTK_LABEL(ui->size_lb), buf );
     g_free( pch );
 }

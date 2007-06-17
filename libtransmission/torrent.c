@@ -377,34 +377,27 @@ void tr_torrentDisablePex( tr_torrent_t * tor, int disable )
     tr_lockUnlock( &tor->lock );
 }
 
+static int tr_didStateChangeTo ( tr_torrent_t * tor, int status )
+{
+    if( tor->hasChangedState == status )
+    {
+        tor->hasChangedState = -1;
+        return 1;
+    }
+    return 0;
+}
+
 int tr_getIncomplete( tr_torrent_t * tor )
 {
-    if( tor->hasChangedState == TR_CP_INCOMPLETE )
-    {
-        tor->hasChangedState = -1;
-        return 1;
-    }
-    return 0;
+    return tr_didStateChangeTo( tor, TR_CP_INCOMPLETE );
 }
-
 int tr_getDone( tr_torrent_t * tor )
 {
-    if( tor->hasChangedState == TR_CP_DONE )
-    {
-        tor->hasChangedState = -1;
-        return 1;
-    }
-    return 0;
+    return tr_didStateChangeTo( tor, TR_CP_DONE );
 }
-
 int tr_getComplete( tr_torrent_t * tor )
 {
-    if( tor->hasChangedState == TR_CP_COMPLETE )
-    {
-        tor->hasChangedState = -1;
-        return 1;
-    }
-    return 0;
+    return tr_didStateChangeTo( tor, TR_CP_COMPLETE );
 }
 
 void tr_manualUpdate( tr_torrent_t * tor )
