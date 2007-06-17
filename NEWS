@@ -1,11 +1,19 @@
 NEWS file for Transmission <http://transmission.m0k.org/>
 
-0.80 (2007/0X/YY)
- - Added ability to selectively download & prioritize files
- - Can now create new torrents
- - Fixed memory leaks
- - GTK: added Torrent Inspector; other minor improvements
+0.80 ()
+ - Ability to selectively download and prioritize files
+ - Torrent creation
  - Partial licensing change -- see the LICENSE file for details
+ - Fix to UPnP support
+ - Many miscellaneous bugfixes and small improvements
+ - OS X:
+   + Overlay when dragging torrent files onto window
+   + Various smaller interface changes and improvements
+
+ - GTK:
+   + Interface significantly reworks to closer match the Mac version
+   + Torrent inspector
+   + Other minor improvements
 
 0.72 (2007/04/30)
  - Reset download/upload amounts when sending "started"
