@@ -242,7 +242,7 @@
             [fProgressWindow orderOut: nil];
         }
         
-        if (fInfo->failed /*&& !fInfo->abortFlag*/)
+        if (fInfo->failed && !fInfo->abortFlag)
         {
             NSAlert * alert = [[[NSAlert alloc] init] autorelease];
             [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> failed -> button")];
