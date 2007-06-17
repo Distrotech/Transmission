@@ -171,7 +171,7 @@
                         userInfo: nil repeats: YES];
 }
 
-- (void) cancelCreate: (id) sender
+- (void) cancelCreateWindow: (id) sender
 {
     [[self window] close];
 }
@@ -179,6 +179,11 @@
 - (void) windowWillClose: (NSNotification *) notification
 {
     [self release];
+}
+
+- (void) cancelCreateProgress: (id) sender
+{
+
 }
 
 @end

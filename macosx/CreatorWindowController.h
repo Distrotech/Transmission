@@ -48,6 +48,7 @@
 
 - (void) setLocation: (id) sender;
 - (void) create: (id) sender;
-- (void) cancelCreate: (id) sender;
+- (void) cancelCreateWindow: (id) sender;
+- (void) cancelCreateProgress: (id) sender;
 
 @end

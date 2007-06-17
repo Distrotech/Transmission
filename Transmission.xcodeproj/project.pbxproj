@@ -115,6 +115,7 @@
 		A2DF37060C220D03006523C1 /* CreatorWindowController.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = A2DF37040C220D03006523C1 /* CreatorWindowController.h */; };
 		A2DF37070C220D03006523C1 /* CreatorWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = A2DF37050C220D03006523C1 /* CreatorWindowController.m */; };
 		A2DF377C0C222E2D006523C1 /* Creator.nib in Resources */ = {isa = PBXBuildFile; fileRef = A2DF377A0C222E2D006523C1 /* Creator.nib */; };
+		A2E9AA760C249AF400085DCF /* Create.png in Resources */ = {isa = PBXBuildFile; fileRef = A2E9AA750C249AF400085DCF /* Create.png */; };
 		A2F40AE40A361C00006B8288 /* Transmission.icns in Resources */ = {isa = PBXBuildFile; fileRef = 4D2784360905709500687951 /* Transmission.icns */; };
 		A2F6DB090A55F31C0058D1E5 /* SpeedLimitButton.png in Resources */ = {isa = PBXBuildFile; fileRef = A2F6DB070A55F31C0058D1E5 /* SpeedLimitButton.png */; };
 		A2FB057F0BFEB6800095564D /* DragOverlayView.m in Sources */ = {isa = PBXBuildFile; fileRef = A2FB057D0BFEB6800095564D /* DragOverlayView.m */; };
@@ -425,6 +426,7 @@
 		A2DF37040C220D03006523C1 /* CreatorWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CreatorWindowController.h; path = macosx/CreatorWindowController.h; sourceTree = "<group>"; };
 		A2DF37050C220D03006523C1 /* CreatorWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = CreatorWindowController.m; path = macosx/CreatorWindowController.m; sourceTree = "<group>"; };
 		A2DF377B0C222E2D006523C1 /* Creator.nib */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Creator.nib; path = macosx/English.lproj/Creator.nib; sourceTree = "<group>"; };
+		A2E9AA750C249AF400085DCF /* Create.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = Create.png; path = macosx/Images/Create.png; sourceTree = "<group>"; };
 		A2F6DB070A55F31C0058D1E5 /* SpeedLimitButton.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; name = SpeedLimitButton.png; path = macosx/Images/SpeedLimitButton.png; sourceTree = "<group>"; };
 		A2F8951E0A2D4BA500ED2127 /* Credits.rtf */ = {isa = PBXFileReference; lastKnownFileType = text.rtf; name = Credits.rtf; path = macosx/Credits.rtf; sourceTree = "<group>"; };
 		A2FB057C0BFEB6800095564D /* DragOverlayView.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DragOverlayView.h; path = macosx/DragOverlayView.h; sourceTree = "<group>"; };
@@ -661,6 +663,7 @@
 				4D043A7E090AE979009FEDA8 /* TransmissionDocument.icns */,
 				4DF7500808A103AD007B0D70 /* Info.png */,
 				4DF7500708A103AD007B0D70 /* Open.png */,
+				A2E9AA750C249AF400085DCF /* Create.png */,
 				4DF7500908A103AD007B0D70 /* Remove.png */,
 				35B037F90AC5B53800A10FDF /* ResumeNoWaitOn.png */,
 				35B037FA0AC5B53800A10FDF /* ResumeNoWaitOff.png */,
@@ -1165,6 +1168,7 @@
 				A24103070AF80E390001C8D0 /* FilterButtonPressedLeft.png in Resources */,
 				A241528B0C0261B8007DD3B4 /* Globe.tiff in Resources */,
 				A2DF377C0C222E2D006523C1 /* Creator.nib in Resources */,
+				A2E9AA760C249AF400085DCF /* Create.png in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

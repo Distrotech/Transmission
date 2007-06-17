@@ -1,7 +1,12 @@
 {
     IBClasses = (
         {
-            ACTIONS = {cancelCreate = id; create = id; setLocation = id; }; 
+            ACTIONS = {
+                cancelCreateProgress = id; 
+                cancelCreateWindow = id; 
+                create = id; 
+                setLocation = id; 
+            }; 
             CLASS = CreatorWindowController; 
             LANGUAGE = ObjC; 
             OUTLETS = {
