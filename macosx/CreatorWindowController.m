@@ -31,7 +31,7 @@
 
 + (NSString *) chooseFile;
 - (void) locationSheetClosed: (NSSavePanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
-- (void) checkProgress: (NSTimer *) timer;
+- (void) checkProgress;
 - (void) failureSheetClosed: (NSAlert *) alert returnCode: (int) code contextInfo: (void *) info;
 
 @end
@@ -175,7 +175,7 @@
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
                     [fPrivateCheck state] == NSOnState);
     
-    fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress:)
+    fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress)
                         userInfo: nil repeats: YES];
     [fTimer fire];
 }
@@ -229,12 +229,12 @@
     }
 }
 
-- (void) checkProgress: (NSTimer *) timer
+- (void) checkProgress
 {
     if (fInfo->isDone)
     {
-        [timer invalidate];
-        timer = nil;
+        [fTimer invalidate];
+        fTimer = nil;
         
         if ([[self window] attachedSheet])
         {
@@ -242,22 +242,27 @@
             [fProgressWindow orderOut: nil];
         }
         
-        if (fInfo->failed && !fInfo->abortFlag)
+        if (fInfo->failed)
         {
-            NSAlert * alert = [[[NSAlert alloc] init] autorelease];
-            [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> failed -> button")];
-            [alert setMessageText: [NSString stringWithFormat: NSLocalizedString(@"Creation of \"%@\" failed.",
-                                            "Create torrent -> failed -> title"), [fLocation lastPathComponent]]];
-            [alert setInformativeText: NSLocalizedString(@"There was an error parsing the data file. "
-                                        "The torrent file was not created.", "Create torrent -> failed -> warning")];
-            [alert setAlertStyle: NSWarningAlertStyle];
-            
-            [alert beginSheetModalForWindow: [self window] modalDelegate: self
-                    didEndSelector: @selector(failureSheetClosed:returnCode:contextInfo:) contextInfo: nil];
-            return;
+            if (!fInfo->abortFlag)
+            {
+                NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+                [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> failed -> button")];
+                [alert setMessageText: [NSString stringWithFormat: NSLocalizedString(@"Creation of \"%@\" failed.",
+                                                "Create torrent -> failed -> title"), [fLocation lastPathComponent]]];
+                [alert setInformativeText: NSLocalizedString(@"There was an error parsing the data file. "
+                                            "The torrent file was not created.", "Create torrent -> failed -> warning")];
+                [alert setAlertStyle: NSWarningAlertStyle];
+                
+                [alert beginSheetModalForWindow: [self window] modalDelegate: self
+                        didEndSelector: @selector(failureSheetClosed:returnCode:contextInfo:) contextInfo: nil];
+                return;
+            }
         }
-        
-        #warning add to T
+        else
+        {
+            #warning add to T
+        }
         
         [[self window] close];
     }
