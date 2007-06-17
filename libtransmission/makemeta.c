@@ -256,8 +256,8 @@ getHashInfo ( tr_metainfo_builder_t * b )
         totalRemain -= thisPieceSize;
         ++b->pieceIndex;
     }
-    assert( walk-ret == (int)(SHA_DIGEST_LENGTH*b->pieceCount) );
-    assert( totalRemain == 0 );
+    assert( b->abortFlag || (walk-ret == (int)(SHA_DIGEST_LENGTH*b->pieceCount)) );
+    assert( b->abortFlag || !totalRemain );
 
     free( buf );
     return ret;

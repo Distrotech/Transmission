@@ -36,6 +36,7 @@
 
 typedef struct
 {
+    char torrent_name[2048];
     GtkWidget * size_lb;
     GtkWidget * announce_entry;
     GtkWidget * comment_entry;
@@ -49,20 +50,32 @@ typedef struct
 MakeMetaUI;
 
 static void
-cancel_cb( GtkDialog *d UNUSED, int response UNUSED, gpointer user_data )
+progress_response_cb ( GtkDialog *d UNUSED, int response, gpointer user_data )
 {
     MakeMetaUI * ui = (MakeMetaUI *) user_data;
-    ui->builder->abortFlag = TRUE;
+
+    if( response == GTK_RESPONSE_CANCEL )
+    {
+        ui->builder->abortFlag = TRUE;
+    }
+    else
+    {
+        gtk_widget_destroy( ui->dialog );
+    }
 }
 
 static gboolean
 refresh_cb ( gpointer user_data )
 {
+    char buf[1024];
     double fraction;
     MakeMetaUI * ui = (MakeMetaUI *) user_data;
+    GtkProgressBar * p = GTK_PROGRESS_BAR( ui->progressbar );
 
     fraction = (double)ui->builder->pieceIndex / ui->builder->pieceCount;
-    gtk_progress_bar_set_fraction( GTK_PROGRESS_BAR( ui->progressbar ), fraction );
+    gtk_progress_bar_set_fraction( p, fraction );
+    g_snprintf( buf, sizeof(buf), "%s (%d%%)", ui->torrent_name, (int)(fraction*100 + 0.5));
+    gtk_progress_bar_set_text( p, buf );
 
     if( ui->builder->isDone )
     {
@@ -80,17 +93,11 @@ refresh_cb ( gpointer user_data )
         }
         else
         {
-            w = gtk_message_dialog_new_with_markup (
-                GTK_WINDOW(ui->progress_dialog),
-                GTK_DIALOG_DESTROY_WITH_PARENT,
-                GTK_MESSAGE_INFO,
-                GTK_BUTTONS_CLOSE,
-                NULL);
-            hig_message_dialog_set_text (GTK_MESSAGE_DIALOG(w),
-                _("<b>Torrent Created!</b>"),
-                ui->builder->outputFile);
-            gtk_dialog_run( GTK_DIALOG( w ) );
-            gtk_widget_destroy( ui->dialog );
+            GtkWidget * w = ui->progress_dialog;
+            gtk_window_set_title (GTK_WINDOW(ui->progress_dialog), _("Torrent Created!"));
+            gtk_dialog_set_response_sensitive (GTK_DIALOG(w), GTK_RESPONSE_CANCEL, FALSE);
+            gtk_dialog_set_response_sensitive (GTK_DIALOG(w), GTK_RESPONSE_CLOSE, TRUE);
+            gtk_progress_bar_set_text( p, buf );
         }
     }
 
@@ -102,7 +109,8 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
 {
     MakeMetaUI * ui = (MakeMetaUI*) user_data;
     GtkWidget *w, *p, *fr;
-    char *tmp, *name;
+    char *tmp;
+    char buf[1024];
 
     if( response != GTK_RESPONSE_ACCEPT )
     {
@@ -114,22 +122,23 @@ response_cb( GtkDialog* d, int response, gpointer user_data )
                                      GTK_WINDOW(d),
                                      GTK_DIALOG_DESTROY_WITH_PARENT,
                                      GTK_STOCK_CANCEL, GTK_RESPONSE_CANCEL,
+                                     GTK_STOCK_CLOSE, GTK_RESPONSE_CLOSE,
                                      NULL );
-    g_signal_connect( w, "response", G_CALLBACK(cancel_cb), ui );
+    g_signal_connect( w, "response", G_CALLBACK(progress_response_cb), ui );
     ui->progress_dialog = w;
-
+    gtk_dialog_set_response_sensitive (GTK_DIALOG(w), GTK_RESPONSE_CLOSE, FALSE);
 
     tmp = g_path_get_basename (ui->builder->top);
-    name = g_strdup_printf( "%s.torrent", tmp );
+    g_snprintf( ui->torrent_name, sizeof(ui->torrent_name), "%s.torrent", tmp );
+    g_snprintf( buf, sizeof(buf), "%s (%d%%)", ui->torrent_name, 0);
     p = ui->progressbar = gtk_progress_bar_new ();
-    gtk_progress_bar_set_text( GTK_PROGRESS_BAR(p), name );
+    gtk_progress_bar_set_text( GTK_PROGRESS_BAR(p), buf );
     fr = gtk_frame_new (NULL);
     gtk_frame_set_shadow_type (GTK_FRAME(fr), GTK_SHADOW_NONE);
     gtk_container_set_border_width( GTK_CONTAINER(fr), 20 );
     gtk_container_add (GTK_CONTAINER(fr), p);
     gtk_box_pack_start_defaults( GTK_BOX(GTK_DIALOG(w)->vbox), fr );
     gtk_widget_show_all ( w );
-    g_free( name );
     g_free( tmp );
 
     tr_makeMetaInfo( ui->builder,
