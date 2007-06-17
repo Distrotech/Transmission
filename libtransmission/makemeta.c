@@ -263,7 +263,10 @@ getHashInfo ( tr_metainfo_builder_t * b )
     }
     assert( b->abortFlag || (walk-ret == (int)(SHA_DIGEST_LENGTH*b->pieceCount)) );
     assert( b->abortFlag || !totalRemain );
-    assert( fp == NULL );
+    assert( b->abortFlag || fp == NULL );
+
+    if( fp != NULL )
+        fclose( fp );
 
     free( buf );
     return ret;
