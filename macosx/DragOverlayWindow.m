@@ -28,7 +28,7 @@
 
 @implementation DragOverlayWindow
 
-- (id) initWithLib: (tr_handle_t *) lib
+- (id) initWithLib: (tr_handle_t *) lib forWindow: (NSWindow *) window
 {
     if (self = ([super initWithContentRect: NSMakeRect(0, 0, 1.0, 1.0) styleMask: NSBorderlessWindowMask
                     backing: NSBackingStoreBuffered defer: NO]))
@@ -57,6 +57,8 @@
                                 NSViewAnimationFadeOutEffect, NSViewAnimationEffectKey, nil]]];
         [fFadeOutAnimation setDuration: 0.5];
         [fFadeOutAnimation setAnimationBlockingMode: NSAnimationNonblockingThreaded];
+        
+        [window addChildWindow: self ordered: NSWindowAbove];
     }
     return self;
 }
@@ -69,7 +71,7 @@
     [super dealloc];
 }
 
-- (void) setFiles: (NSArray *) files
+- (void) setTorrents: (NSArray *) files
 {
     uint64_t size = 0;
     int count = 0;

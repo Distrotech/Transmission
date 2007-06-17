@@ -4,7 +4,7 @@ NEWS file for Transmission <http://transmission.m0k.org/>
  - Ability to selectively download and prioritize files
  - Torrent file creation
  - Partial licensing change -- see the LICENSE file for details
- - Fix to UPnP support
+ - Fix to UPnP
  - Rechecking torrents is now done one torrent at a time
    to avoid hammering the disk
  - Many miscellaneous bugfixes and small improvements

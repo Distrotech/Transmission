@@ -172,7 +172,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
         fPrefsController = [[PrefsController alloc] initWithWindowNibName: @"PrefsWindow" handle: fLib];
         
         fBadger = [[Badger alloc] initWithLib: fLib];
-        fOverlayWindow = [[DragOverlayWindow alloc] initWithLib: fLib];
         
         fIPCController = [[IPCController alloc] init];
         [fIPCController setDelegate: self];
@@ -197,7 +196,8 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [fTorrents release];
     [fDisplayedTorrents release];
     [fBadger release];
-    [fOverlayWindow release];
+    if (fOverlayWindow)
+        [fOverlayWindow release];
     [fIPCController release];
     
     [fAutoImportedNames release];
@@ -214,7 +214,6 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     [fFilterBar setBackgroundImage: [NSImage imageNamed: @"FilterBarBackground.png"]];
     
     [fWindow setAcceptsMouseMovedEvents: YES]; //ensure filter buttons display correctly
-    [fWindow addChildWindow: fOverlayWindow ordered: NSWindowAbove];
     
     fToolbar = [[NSToolbar alloc] initWithIdentifier: @"Transmission Toolbar"];
     [fToolbar setDelegate: self];
@@ -2140,7 +2139,9 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
             {
                 tr_torrentClose(tempTor);
                 
-                [fOverlayWindow setFiles: files];
+                if (!fOverlayWindow)
+                    fOverlayWindow = [[DragOverlayWindow alloc] initWithLib: fLib forWindow: fWindow];
+                [fOverlayWindow setTorrents: files];
                 
                 return NSDragOperationCopy;
             }
@@ -2148,6 +2149,8 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     }
     else if ([[pasteboard types] containsObject: NSURLPboardType])
     {
+        if (!fOverlayWindow)
+            fOverlayWindow = [[DragOverlayWindow alloc] initWithLib: fLib forWindow: fWindow];
         [fOverlayWindow setURL: [[NSURL URLFromPasteboard: pasteboard] relativeString]];
         
         return NSDragOperationCopy;
@@ -2159,12 +2162,14 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
 
 - (void) draggingExited: (id <NSDraggingInfo>) info
 {
-    [fOverlayWindow fadeOut];
+    if (fOverlayWindow)
+        [fOverlayWindow fadeOut];
 }
 
 - (BOOL) performDragOperation: (id <NSDraggingInfo>) info
 {
-    [fOverlayWindow fadeOut];
+    if (fOverlayWindow)
+        [fOverlayWindow fadeOut];
     
     NSPasteboard * pasteboard = [info draggingPasteboard];
     if ([[pasteboard types] containsObject: NSFilenamesPboardType])

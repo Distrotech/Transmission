@@ -29,11 +29,11 @@
 {
     tr_handle_t * fLib;
     
-    //NSTimer * fFadeInTimer, * fFadeOutTimer;
     NSViewAnimation * fFadeInAnimation, * fFadeOutAnimation;
 }
 
-- (void) setFiles: (NSArray *) files;
+- (id) initWithLib: (tr_handle_t *) lib forWindow: (NSWindow *) window;
+- (void) setTorrents: (NSArray *) files;
 - (void) setURL: (NSString *) url;
 
 - (void) fadeOut;
