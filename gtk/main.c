@@ -40,7 +40,7 @@
 #include "conf.h"
 #include "dialogs.h"
 #include "ipc.h"
-#include "make-meta-ui.h"
+#include "makemeta-ui.h"
 #include "msgwin.h"
 #include "torrent-inspector.h"
 #include "tr_cell_renderer_progress.h"

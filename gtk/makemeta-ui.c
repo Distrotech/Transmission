@@ -31,7 +31,7 @@
 #include "makemeta.h"
 
 #include "hig.h"
-#include "make-meta-ui.h"
+#include "makemeta-ui.h"
 #include "util.h"
 
 typedef struct

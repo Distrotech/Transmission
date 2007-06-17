@@ -4,7 +4,7 @@ include ../mk/config.mk
 include ../mk/common.mk
 
 SRCS = actions.c conf.c dialogs.c hig.c io.c ipc.c main.c msgwin.c \
-       make-meta-ui.c torrent-inspector.c tr_cell_renderer_progress.c \
+       makemeta-ui.c torrent-inspector.c tr_cell_renderer_progress.c \
        tr_core.c tr_icon.c tr_prefs.c tr_torrent.c tr_window.c util.c
 OBJS = $(SRCS:%.c=%.o)
 
