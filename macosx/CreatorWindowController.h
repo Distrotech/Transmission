@@ -44,6 +44,7 @@
 }
 
 + (void) createTorrentFile: (tr_handle_t *) handle;
++ (void) createTorrentFile: (tr_handle_t *) handle forFile: (NSString *) file;
 
 - (id) initWithWindowNibName: (NSString *) name handle: (tr_handle_t *) handle path: (NSString *) path;
 

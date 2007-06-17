@@ -2127,11 +2127,12 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     NSPasteboard * pasteboard = [info draggingPasteboard];
     if ([[pasteboard types] containsObject: NSFilenamesPboardType])
     {
-        //check if any files can be added
+        //check if any torrent files can be added
         NSArray * files = [pasteboard propertyListForType: NSFilenamesPboardType];
         NSEnumerator * enumerator = [files objectEnumerator];
         NSString * file;
         tr_torrent_t * tempTor;
+        BOOL torrent = NO;
         while ((file = [enumerator nextObject]))
         {
             int error;
@@ -2145,6 +2146,21 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
                 
                 return NSDragOperationCopy;
             }
+            else
+            {
+                if (error == TR_EUNSUPPORTED || error == TR_EDUPLICATE)
+                    torrent = YES;
+            }
+        }
+        
+        //create a torrent file if a single file
+        if (!torrent && [files count] == 1)
+        {
+            if (!fOverlayWindow)
+                fOverlayWindow = [[DragOverlayWindow alloc] initWithLib: fLib forWindow: fWindow];
+            [fOverlayWindow setFile: [[files objectAtIndex: 0] lastPathComponent]];
+            
+            return NSDragOperationCopy;
         }
     }
     else if ([[pasteboard types] containsObject: NSURLPboardType])
@@ -2174,9 +2190,12 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
     NSPasteboard * pasteboard = [info draggingPasteboard];
     if ([[pasteboard types] containsObject: NSFilenamesPboardType])
     {
+        BOOL torrent = NO, accept = YES;
+        
         //create an array of files that can be opened
         NSMutableArray * filesToOpen = [[NSMutableArray alloc] init];
-        NSEnumerator * enumerator = [[pasteboard propertyListForType: NSFilenamesPboardType] objectEnumerator];
+        NSArray * files = [pasteboard propertyListForType: NSFilenamesPboardType];
+        NSEnumerator * enumerator = [files objectEnumerator];
         NSString * file;
         tr_torrent_t * tempTor;
         while ((file = [enumerator nextObject]))
@@ -2186,13 +2205,28 @@ static void sleepCallBack(void * controller, io_service_t y, natural_t messageTy
             {
                 tr_torrentClose(tempTor);
                 [filesToOpen addObject: file];
+                
+                torrent = YES;
+            }
+            else
+            {
+                if (error == TR_EUNSUPPORTED || error == TR_EDUPLICATE)
+                    torrent = YES;
             }
         }
         
-        [self application: NSApp openFiles: filesToOpen];
+        if ([filesToOpen count] > 0)
+            [self application: NSApp openFiles: filesToOpen];
+        else
+        {
+            if (!torrent && [files count] == 1)
+                [CreatorWindowController createTorrentFile: fLib forFile: [files objectAtIndex: 0]];
+            else
+                accept = NO;
+        }
         [filesToOpen release];
         
-        return YES;
+        return accept;
     }
     else if ([[pasteboard types] containsObject: NSURLPboardType])
     {

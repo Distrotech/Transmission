@@ -142,6 +142,23 @@
     [fFadeInAnimation startAnimation];
 }
 
+- (void) setFile: (NSString *) file
+{
+        
+    [[self contentView] setOverlay: [NSImage imageNamed: @"Create.png"]
+        mainLine: NSLocalizedString(@"Create a Torrent File", "Drag overlay -> file") subLine: file];
+    
+    //stop other animation and set to same progress
+    if ([fFadeOutAnimation isAnimating])
+    {
+        [fFadeOutAnimation stopAnimation];
+        [fFadeInAnimation setCurrentProgress: 1.0 - [fFadeOutAnimation currentProgress]];
+    }
+    [self setFrame: [[self parentWindow] frame] display: YES];
+    [fFadeInAnimation startAnimation];
+}
+
+
 - (void) setURL: (NSString *) url
 {
     [[self contentView] setOverlay: [NSImage imageNamed: @"Globe.tiff"]
