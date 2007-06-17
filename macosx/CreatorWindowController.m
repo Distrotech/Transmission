@@ -273,7 +273,7 @@
 - (void) failureSheetClosed: (NSAlert *) alert returnCode: (int) code contextInfo: (void *) info
 {
     [[alert window] orderOut: nil];
-    [[self window] close: nil];
+    [[self window] close];
 }
 
 @end
