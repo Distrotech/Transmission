@@ -1,10 +1,11 @@
 NEWS file for Transmission <http://transmission.m0k.org/>
 
 0.80 (2007/0X/YY)
- - added partial downloading
- - added torrent creation
- - licensing change; see the LICENSE file for details
- - gtk+ client adds the torrent inspector
+ - Added ability to selectively download & prioritize files
+ - Can now create new torrents
+ - Fixed memory leaks
+ - GTK: added Torrent Inspector; other minor improvements
+ - Partial licensing change -- see the LICENSE file for details
 
 0.72 (2007/04/30)
  - Reset download/upload amounts when sending "started"
