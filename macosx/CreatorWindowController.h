@@ -33,13 +33,14 @@
     IBOutlet NSTextView * fCommentView;
     IBOutlet NSButton * fPrivateCheck;
     
-    IBOutlet NSWindow * fProgressWindow;
+    IBOutlet NSView * fProgressView;
     IBOutlet NSProgressIndicator * fProgressIndicator;
     
     tr_metainfo_builder_t * fInfo;
     NSString * fPath, * fLocation;
     
     NSTimer * fTimer;
+    BOOL fStarted;
 }
 
 + (void) createTorrentFile: (tr_handle_t *) handle;

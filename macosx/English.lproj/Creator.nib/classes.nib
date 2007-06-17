@@ -17,7 +17,7 @@
                 fPiecesField = NSTextField; 
                 fPrivateCheck = NSButton; 
                 fProgressIndicator = NSProgressIndicator; 
-                fProgressWindow = NSWindow; 
+                fProgressView = NSView; 
                 fStatusField = NSTextField; 
                 fTrackerField = NSTextField; 
             }; 

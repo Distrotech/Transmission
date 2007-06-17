@@ -53,6 +53,8 @@
 {
     if ((self = [super initWithWindowNibName: name]))
     {
+        fStarted = NO;
+        
         fPath = [path retain];
         fInfo = tr_metaInfoBuilderCreate(handle, [fPath UTF8String]);
         if (fInfo->fileCount == 0)
@@ -173,10 +175,9 @@
     
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
                     [fPrivateCheck state] == NSOnState);
-    
+    #warning delay at first?
     fTimer = [NSTimer scheduledTimerWithTimeInterval: 0.1 target: self selector: @selector(checkProgress)
                         userInfo: nil repeats: YES];
-    [fTimer fire];
 }
 
 - (void) cancelCreateWindow: (id) sender
@@ -234,12 +235,6 @@
         [fTimer invalidate];
         fTimer = nil;
         
-        if ([[self window] attachedSheet])
-        {
-            [NSApp endSheet: fProgressWindow];
-            [fProgressWindow orderOut: nil];
-        }
-        
         if (fInfo->failed)
         {
             if (!fInfo->abortFlag)
@@ -267,9 +262,27 @@
     else
     {
         [fProgressIndicator setDoubleValue: (double)fInfo->pieceIndex / fInfo->pieceCount];
-        if (![[self window] attachedSheet])
-            [NSApp beginSheet: fProgressWindow modalForWindow: [self window] modalDelegate: self
-                    didEndSelector: nil contextInfo: nil];
+        
+        if (!fStarted)
+        {
+            NSWindow * window = [self window];
+            
+            NSRect windowRect = [window frame];
+            float difference = [fProgressView frame].size.height - [[window contentView] frame].size.height;
+            windowRect.origin.y -= difference;
+            windowRect.size.height += difference;
+            
+            //don't allow vertical resizing
+            float height = windowRect.size.height;
+            [window setMinSize: NSMakeSize([window minSize].width, height)];
+            [window setMaxSize: NSMakeSize([window maxSize].width, height)];
+            
+            [window setContentView: fProgressView];
+            [window setFrame: windowRect display: YES animate: YES];
+            [fProgressView setHidden: NO];
+            
+            fStarted = YES;
+        }
     }
 }
 
