@@ -90,20 +90,21 @@ getFileSize ( const char * filename )
     return sb.st_size;
 }
 
-#define MiB 1048576ul
-#define GiB 1073741824ul
 
 static int
 bestPieceSize( uint64_t totalSize )
 {
+    const int MiB = 1048576;
+    const int GiB = totalSize / (uint64_t)1073741824;
+
     /* almost always best to have a piee size of 512 or 256 kb.
        common practice seems to be to bump up to 1MB pieces at
        at total size of around 8GiB or so */
 
-    if (totalSize >= (8 * GiB) )
+    if( GiB >= 8 )
         return MiB;
 
-    if (totalSize >= GiB )
+    if( GiB >= 1 )
         return MiB / 2;
 
     return MiB / 4;
