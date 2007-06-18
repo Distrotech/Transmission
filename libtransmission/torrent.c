@@ -624,7 +624,7 @@ tr_torrentFileBytesCompleted ( const tr_torrent_t * tor, int fileIndex )
     const int firstBlockOffset =  file->offset % tor->blockSize;
     const int lastOffset       =  file->length ? file->length-1 : 0;
     const int lastBlock        = (file->offset + lastOffset) / tor->blockSize;
-    const int lastBlockOffset  = (file->offset + lastOffset) % % tor->blockSize;
+    const int lastBlockOffset  = (file->offset + lastOffset) % tor->blockSize;
     size_t haveBytes = 0;
 
     assert( tor != NULL );
