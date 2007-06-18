@@ -155,8 +155,6 @@
 
 - (void) create: (id) sender
 {
-    #warning check already exists
-    
     //parse tracker string
     NSString * trackerString = [fTrackerField stringValue];
     if ([trackerString rangeOfString: @"://"].location != NSNotFound)
@@ -187,6 +185,27 @@
                                                 "Create torrent -> no url warning -> title")];
         [alert setInformativeText: NSLocalizedString(@"Change the tracker address to create the torrent.",
                                                     "Create torrent -> no url warning -> warning")];
+        [alert setAlertStyle: NSWarningAlertStyle];
+        
+        [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
+        return;
+    }
+    
+    //check if a file with the same name and location already exists
+    if ([[NSFileManager defaultManager] fileExistsAtPath: fLocation])
+    {
+        NSArray * pathComponents = [fLocation pathComponents];
+        int count = [pathComponents count];
+        
+        NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> file already exists warning -> button")];
+        [alert setMessageText: NSLocalizedString(@"A torrent file with this name and directory cannot be created.",
+                                                "Create torrent -> file already exists warning -> title")];
+        [alert setInformativeText: [NSString stringWithFormat:
+                NSLocalizedString(@"A file with the name \"%@\" already exists in the directory \"%@\". "
+                    "Choose a new name or directory to create the torrent.",
+                    "Create torrent -> file already exists warning -> warning"),
+                    [pathComponents objectAtIndex: count-1], [pathComponents objectAtIndex: count-2]]];
         [alert setAlertStyle: NSWarningAlertStyle];
         
         [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
