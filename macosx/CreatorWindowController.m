@@ -165,7 +165,7 @@
         {
             NSAlert * alert = [[[NSAlert alloc] init] autorelease];
             [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> http warning -> button")];
-            [alert setMessageText: NSLocalizedString(@"Tracker address must begin with \"http://\".",
+            [alert setMessageText: NSLocalizedString(@"The tracker address must begin with \"http://\".",
                                                     "Create torrent -> http warning -> title")];
             [alert setInformativeText: NSLocalizedString(@"Change the tracker address to create the torrent.",
                                                         "Create torrent -> http warning -> warning")];
@@ -177,6 +177,21 @@
     }
     else
         trackerString = [@"http://" stringByAppendingString: trackerString];
+    
+    //don't allow blank addresses
+    if ([trackerString length] <= 7)
+    {
+        NSAlert * alert = [[[NSAlert alloc] init] autorelease];
+        [alert addButtonWithTitle: NSLocalizedString(@"OK", "Create torrent -> no url warning -> button")];
+        [alert setMessageText: NSLocalizedString(@"The tracker address cannot be blank.",
+                                                "Create torrent -> no url warning -> title")];
+        [alert setInformativeText: NSLocalizedString(@"Change the tracker address to create the torrent.",
+                                                    "Create torrent -> no url warning -> warning")];
+        [alert setAlertStyle: NSWarningAlertStyle];
+        
+        [alert beginSheetModalForWindow: [self window] modalDelegate: self didEndSelector: nil contextInfo: nil];
+        return;
+    }
     
     fOpenTorrent = [fOpenCheck state] == NSOnState;
     tr_makeMetaInfo(fInfo, [fLocation UTF8String], [trackerString UTF8String], [[fCommentView string] UTF8String],
