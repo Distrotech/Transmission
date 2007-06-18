@@ -93,8 +93,8 @@ getFileSize ( const char * filename )
 #define MiB 1048576ul
 #define GiB 1073741824ul
 
-static size_t
-bestPieceSize( size_t totalSize )
+static int
+bestPieceSize( uint64_t totalSize )
 {
     /* almost always best to have a piee size of 512 or 256 kb.
        common practice seems to be to bump up to 1MB pieces at
@@ -123,7 +123,7 @@ static int pstrcmp( const void * va, const void * vb)
 tr_metainfo_builder_t*
 tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
 {
-    size_t i;
+    int i;
     struct FileList * files;
     const struct FileList * walk;
     tr_metainfo_builder_t * ret = calloc( 1, sizeof(tr_metainfo_builder_t) );
@@ -152,7 +152,7 @@ tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
     for( walk=files; walk!=NULL; walk=walk->next )
         ++ret->fileCount;
     ret->files = calloc( ret->fileCount, sizeof(char*) );
-    ret->fileLengths = calloc( ret->fileCount, sizeof(size_t) );
+    ret->fileLengths = calloc( ret->fileCount, sizeof(uint64_t) );
 
     for( i=0, walk=files; walk!=NULL; walk=walk->next, ++i )
         ret->files[i] = tr_strdup( walk->filename );
@@ -166,7 +166,7 @@ tr_metaInfoBuilderCreate( tr_handle_t * handle, const char * topFile )
     freeFileList( files );
     
     ret->pieceSize = bestPieceSize( ret->totalSize );
-    ret->pieceCount = ret->totalSize / ret->pieceSize;
+    ret->pieceCount = (int)( ret->totalSize / ret->pieceSize);
     if( ret->totalSize % ret->pieceSize )
         ++ret->pieceCount;
 
@@ -178,7 +178,7 @@ tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 {
     if( builder != NULL )
     {
-        size_t i;
+        int i;
         for( i=0; i<builder->fileCount; ++i )
             tr_free( builder->files[i] );
         tr_free( builder->files );
@@ -198,12 +198,12 @@ tr_metaInfoBuilderFree( tr_metainfo_builder_t * builder )
 static uint8_t*
 getHashInfo ( tr_metainfo_builder_t * b )
 {
-    size_t off = 0;
-    size_t fileIndex = 0;
+    int fileIndex = 0;
     uint8_t *ret = (uint8_t*) malloc ( SHA_DIGEST_LENGTH * b->pieceCount );
     uint8_t *walk = ret;
     uint8_t *buf = malloc( b->pieceSize );
-    size_t totalRemain;
+    uint64_t totalRemain;
+    uint64_t off = 0;
     FILE * fp;
 
     b->pieceIndex = 0;
@@ -212,14 +212,14 @@ getHashInfo ( tr_metainfo_builder_t * b )
     while ( totalRemain )
     {
         uint8_t *bufptr = buf;
-        const size_t thisPieceSize = MIN( b->pieceSize, totalRemain );
-        size_t pieceRemain = thisPieceSize;
+        const uint64_t thisPieceSize = MIN( (uint32_t)b->pieceSize, totalRemain );
+        uint64_t pieceRemain = thisPieceSize;
 
         assert( b->pieceIndex < b->pieceCount );
 
         while( pieceRemain )
         {
-            const size_t n_this_pass = MIN( (b->fileLengths[fileIndex] - off), pieceRemain );
+            const uint64_t n_this_pass = MIN( (b->fileLengths[fileIndex] - off), pieceRemain );
             fread( bufptr, 1, n_this_pass, fp );
             bufptr += n_this_pass;
             off += n_this_pass;
@@ -302,7 +302,7 @@ static void
 makeFilesList( benc_val_t                 * list,
                const tr_metainfo_builder_t  * builder )
 {
-    size_t i = 0;
+    int i = 0;
 
     tr_bencListReserve( list, builder->fileCount );
 

@@ -217,7 +217,7 @@ file_selection_changed_cb( GtkFileChooser *chooser, gpointer user_data )
     pch = readablesize( pieceSize );
     g_snprintf( buf, sizeof(buf), "<i>%lu %s @ %s</i>",
                 pieceCount,
-                ngettext("piece", "pieces", fileCount),
+                ngettext("piece", "pieces", pieceCount),
                 pch );
     gtk_label_set_markup ( GTK_LABEL(ui->pieces_lb), buf );
     g_free( pch );
