@@ -14,6 +14,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <sys/queue.h> /* for evhttp */
 #include <sys/types.h> /* for evhttp */
@@ -70,6 +71,10 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
     struct evhttp_request * req;
     enum evhttp_cmd_type type;
     char * uri;
+    char * buf;
+    size_t buflen;
+    struct bufferevent * bufev;
+    short mode;
 
 #ifdef DEBUG
     fprintf( stderr, "reading...reads: [%d] writes: [%d]\n", ++reads, writes );
@@ -108,6 +113,22 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             tr_dbg( "read http req from pipe: req.cb_arg is %p", req->cb_arg );
             evhttp_make_request( evcon, req, type, uri );
             tr_free( uri );
+            break;
+
+        case 'm': /* set bufferevent mode */
+            read( fd, &bufev, sizeof(struct evhttp_request*) );
+            read( fd, &mode, sizeof(short) );
+            bufferevent_enable( bufev, mode );
+            bufferevent_disable( bufev, ~mode );
+            break;
+
+        case 'w': /* bufferevent_write */
+            read( fd, &bufev, sizeof(struct bufferevent*) );
+            read( fd, &buf, sizeof(char*) );
+            read( fd, &buflen, sizeof(size_t) );
+            fprintf( stderr, "bufev is %p, buflen is %d, buf is %p\n", bufev, (int)buflen, buf );
+            bufferevent_write( bufev, buf, buflen );
+            tr_free( buf );
             break;
 
         default:
@@ -237,3 +258,41 @@ tr_evhttp_make_request (tr_handle_t               * handle,
     write( fd, &uri, sizeof(char*) );
     tr_lockUnlock( lock );
 }
+
+void
+tr_bufferevent_write( tr_handle_t           * handle,
+                      struct bufferevent    * bufev,
+                      const void            * buf,
+                      size_t                  buflen )
+{
+    const char ch = 'w';
+    int fd = handle->events->fds[1];
+    tr_lock_t * lock = handle->events->lock;
+    char * local = tr_strndup( buf, buflen );
+
+    tr_lockLock( lock );
+fprintf( stderr, "writing to bufev %p: %d bytes starting at %p\n", bufev, (int)buflen, local );
+    tr_dbg( "writing bufferevent_write pipe" );
+    write( fd, &ch, 1 );
+    write( fd, &bufev, sizeof(struct bufferevent*) );
+    write( fd, &local, sizeof(char*) );
+    write( fd, &buflen, sizeof(size_t) );
+    tr_lockUnlock( lock );
+}
+
+void
+tr_setBufferEventMode( struct tr_handle_s * handle,
+                       struct bufferevent * bufev,
+                       short                mode )
+{
+    const char ch = 'm';
+    int fd = handle->events->fds[1];
+    tr_lock_t * lock = handle->events->lock;
+
+    tr_lockLock( lock );
+    write( fd, &ch, 1 );
+    write( fd, &bufev, sizeof(struct bufferevent*) );
+    write( fd, &mode, sizeof(short) );
+    tr_lockUnlock( lock );
+}
+
