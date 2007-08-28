@@ -21,14 +21,14 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "trcompat.h" /* for strlcpy */
+#include "encryption.h" /* tr_sha1 */
+#include "trcompat.h" /* strlcpy */
 #include "transmission.h"
-#include "internal.h" /* for tr_torrent_t */
+#include "internal.h" /* tr_torrent_t */
 #include "bencode.h"
 #include "makemeta.h"
 #include "platform.h" /* threads, locks */
 #include "shared.h" /* shared lock */
-#include "sha1.h"
 #include "utils.h" /* buildpath */
 #include "version.h"
 
@@ -231,7 +231,7 @@ getHashInfo ( tr_metainfo_builder_t * b )
 
         assert( bufptr-buf == (int)thisPieceSize );
         assert( pieceRemain == 0 );
-        SHA1( buf, thisPieceSize, walk );
+        tr_sha1( buf, walk, thisPieceSize, NULL );
         walk += SHA_DIGEST_LENGTH;
 
         if( b->abortFlag ) {

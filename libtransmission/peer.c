@@ -295,7 +295,7 @@ static void tr_htonl( uint32_t a, void * p )
     memcpy ( p, &u, sizeof( uint32_t ) );
 }
 
-static const char* getPeerId( void )
+const char* getPeerId( void )
 {
     static char * peerId = NULL;
     if( !peerId ) {
@@ -797,7 +797,7 @@ int tr_peerIsConnected( const tr_peer_t * peer )
     return peer && (peer->status == PEER_STATUS_CONNECTED);
 }
 
-int tr_peerIsFrom( const tr_peer_t * peer )
+int tr_peerGetFrom( const tr_peer_t * peer )
 {
     return peer->from;
 }

@@ -13,8 +13,10 @@ libtransmission_a_SOURCES = \
     clients.c \
     completion.c \
     dirname.c \
+    encryption.c \
     fastresume.c \
     fdlimit.c \
+    handshake.c \
     http.c \
     inout.c \
     ipcparse.c \
@@ -24,11 +26,11 @@ libtransmission_a_SOURCES = \
     natpmp.c \
     net.c \
     peer.c \
+    peer-connection.c \
     platform.c \
     ptrarray.c \
     publish.c \
     ratecontrol.c \
-    sha1.c \
     shared.c \
     strlcat.c \
     strlcpy.c \
@@ -48,8 +50,10 @@ noinst_HEADERS = \
     choking.h \
     clients.h \
     completion.h \
+    encryption.h \
     fastresume.h \
     fdlimit.h \
+    handshake.h \
     http.h \
     inout.h \
     internal.h \
@@ -66,11 +70,11 @@ noinst_HEADERS = \
     peerparse.h \
     peertree.h \
     peerutils.h \
+    peer-connection.h \
     platform.h \
     ptrarray.h \
     publish.h \
     ratecontrol.h \
-    sha1.h \
     shared.h \
     timer.h \
     tracker.h \

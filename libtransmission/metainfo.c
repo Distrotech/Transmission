@@ -33,10 +33,10 @@
 
 #include "transmission.h"
 #include "bencode.h"
+#include "encryption.h" /* tr_sha1 */
 #include "http.h" /* tr_httpParseUrl */
 #include "metainfo.h"
 #include "platform.h"
-#include "sha1.h"
 #include "utils.h"
 
 #define TORRENT_MAX_SIZE (5*1024*1024)
@@ -192,8 +192,9 @@ realparse( tr_info_t * inf, const uint8_t * buf, size_t size )
         tr_bencFree( &meta );
         return TR_EINVALID;
     }
-    SHA1( (uint8_t *) beInfo->begin,
-          (long) beInfo->end - (long) beInfo->begin, inf->hash );
+
+    tr_sha1( inf->hash, beInfo->begin, beInfo->end - beInfo->begin, NULL );
+
     for( i = 0; i < SHA_DIGEST_LENGTH; i++ )
     {
         snprintf( inf->hashString + i * 2, sizeof( inf->hashString ) - i * 2,

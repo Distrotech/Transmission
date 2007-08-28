@@ -101,7 +101,8 @@ extern "C" {
  * deleting a torrent used by another. The following tags are used:
  *   beos cli daemon gtk macosx
  **********************************************************************/
-typedef struct tr_handle_s tr_handle_t;
+typedef struct tr_handle tr_handle;
+typedef struct tr_handle tr_handle_t;
 tr_handle_t * tr_init( const char * tag );
 
 typedef struct tr_tracker_info_s tr_tracker_info_t;
@@ -179,7 +180,8 @@ int tr_torrentCount( tr_handle_t * h );
  ***********************************************************************
  * Iterates on open torrents
  **********************************************************************/
-typedef struct tr_torrent_s tr_torrent_t;
+typedef struct tr_torrent tr_torrent;
+typedef struct tr_torrent tr_torrent_t;
 typedef void (*tr_callback_t) ( tr_torrent_t *, void * );
 void tr_torrentIterate( tr_handle_t *, tr_callback_t, void * );
 
@@ -317,7 +319,8 @@ tr_torrent_t * tr_torrentInit( tr_handle_t  * handle,
                                int            flags,
                                int          * setme_error );
 
-typedef struct tr_info_s tr_info_t;
+typedef struct tr_info tr_info;
+typedef struct tr_info tr_info_t;
 
 /**
  * Parses the specified metainfo file.
@@ -505,7 +508,7 @@ void tr_torrentRecheck( tr_torrent_t * );
 void tr_torrentClose( tr_torrent_t * );
 
 /***********************************************************************
- * tr_info_s
+ * tr_info
  **********************************************************************/
 
 typedef struct tr_file_s
@@ -528,7 +531,7 @@ typedef struct tr_piece_s
 }
 tr_piece_t;
     
-struct tr_info_s
+struct tr_info
 {
     /* Path to torrent */
     char                 torrent[MAX_PATH_LENGTH];

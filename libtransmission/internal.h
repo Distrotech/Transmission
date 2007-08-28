@@ -55,20 +55,22 @@ struct tr_peer_s;
 
 void tr_peerIdNew ( char* buf, int buflen );
 
-void tr_torrentResetTransferStats( tr_torrent_t * );
+void tr_torrentResetTransferStats( tr_torrent * );
 
-int tr_torrentAddCompact( tr_torrent_t * tor, int from,
+int tr_torrentAddCompact( tr_torrent * tor, int from,
                            const uint8_t * buf, int count );
-int tr_torrentAttachPeer( tr_torrent_t * tor, struct tr_peer_s * );
+int tr_torrentAttachPeer( tr_torrent * tor, struct tr_peer_s * );
 
-void tr_torrentSetHasPiece( tr_torrent_t * tor, int pieceIndex, int has );
+void tr_torrentSetHasPiece( tr_torrent * tor, int pieceIndex, int has );
 
-void tr_torrentReaderLock    ( const tr_torrent_t * );
-void tr_torrentReaderUnlock  ( const tr_torrent_t * );
-void tr_torrentWriterLock    ( tr_torrent_t * );
-void tr_torrentWriterUnlock  ( tr_torrent_t * );
+void tr_torrentReaderLock    ( const tr_torrent * );
+void tr_torrentReaderUnlock  ( const tr_torrent * );
+void tr_torrentWriterLock    ( tr_torrent * );
+void tr_torrentWriterUnlock  ( tr_torrent * );
 
-void tr_torrentChangeMyPort  ( tr_torrent_t *, int port );
+void tr_torrentChangeMyPort  ( tr_torrent *, int port );
+
+tr_torrent* tr_torrentFindFromObfuscatedHash( tr_handle *, const uint8_t* );
 
 /* get the index of this piece's first block */
 #define tr_torPieceFirstBlock(tor,piece) ( (piece) * (tor)->blockCountInPiece )
@@ -89,7 +91,7 @@ void tr_torrentChangeMyPort  ( tr_torrent_t *, int port );
     ( ((block)==((tor)->blockCount-1)) ? (tor)->lastBlockSize : (tor)->blockSize )
 
 #define tr_block(a,b) _tr_block(tor,a,b)
-int _tr_block( const tr_torrent_t * tor, int index, int begin );
+int _tr_block( const tr_torrent * tor, int index, int begin );
 
 
 typedef enum
@@ -105,7 +107,7 @@ run_status_t;
 
 #define TR_ID_LEN  20
 
-struct tr_torrent_s
+struct tr_torrent
 {
     tr_handle_t               * handle;
     tr_info_t                   info;
@@ -119,6 +121,8 @@ struct tr_torrent_s
     int                        error;
     char                       errorString[128];
     int                        hasChangedState;
+
+    uint8_t                    obfuscatedHash[SHA_DIGEST_LENGTH];
 
     uint8_t                  * azId;
     int                        publicPort;
@@ -171,15 +175,15 @@ struct tr_torrent_s
     int8_t                     statCur;
     tr_stat_t                  stats[2];
 
-    tr_torrent_t             * next;
+    tr_torrent               * next;
 };
 
-struct tr_handle_s
+struct tr_handle
 {
     struct tr_event_handle_s * events;
 
     int                        torrentCount;
-    tr_torrent_t             * torrentList;
+    tr_torrent               * torrentList;
 
     char                     * tag;
     int                        isPortSet;

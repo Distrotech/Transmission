@@ -52,7 +52,7 @@ typedef struct tr_event_handle_s
     struct event_base * base;
     struct event pipeEvent;
 }
-tr_event_handle_t;
+tr_event_handle;
 
 #ifdef DEBUG
 static int reads = 0;
@@ -119,7 +119,7 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             read( fd, &bufev, sizeof(struct evhttp_request*) );
             read( fd, &mode, sizeof(short) );
             bufferevent_enable( bufev, mode );
-            bufferevent_disable( bufev, ~mode );
+            bufferevent_disable( bufev, mode==EV_READ ? EV_WRITE : EV_READ );
             break;
 
         case 'w': /* bufferevent_write */
@@ -127,6 +127,8 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             read( fd, &buf, sizeof(char*) );
             read( fd, &buflen, sizeof(size_t) );
             fprintf( stderr, "bufev is %p, buflen is %d, buf is %p\n", bufev, (int)buflen, buf );
+            bufferevent_enable( bufev, EV_WRITE );
+            bufferevent_disable( bufev, EV_READ );
             bufferevent_write( bufev, buf, buflen );
             tr_free( buf );
             break;
@@ -156,7 +158,7 @@ logFunc( int severity, const char * message )
 static void
 libeventThreadFunc( void * veh )
 {
-    tr_event_handle_t * eh = (tr_event_handle_t *) veh;
+    tr_event_handle * eh = (tr_event_handle *) veh;
     tr_dbg( "Starting libevent thread" );
 
     eh->base = event_init( );
@@ -179,9 +181,9 @@ libeventThreadFunc( void * veh )
 void
 tr_eventInit( tr_handle_t * handle )
 {
-    tr_event_handle_t * eh;
+    tr_event_handle * eh;
 
-    eh = tr_new0( tr_event_handle_t, 1 );
+    eh = tr_new0( tr_event_handle, 1 );
     eh->lock = tr_lockNew( );
     pipe( eh->fds );
     eh->h = handle;
@@ -192,7 +194,7 @@ tr_eventInit( tr_handle_t * handle )
 void
 tr_eventClose( tr_handle_t * handle )
 {
-    tr_event_handle_t * eh = handle->events;
+    tr_event_handle * eh = handle->events;
 
     event_base_loopexit( eh->base, NULL );
 }
@@ -281,7 +283,7 @@ fprintf( stderr, "writing to bufev %p: %d bytes starting at %p\n", bufev, (int)b
 }
 
 void
-tr_setBufferEventMode( struct tr_handle_s * handle,
+tr_setBufferEventMode( struct tr_handle   * handle,
                        struct bufferevent * bufev,
                        short                mode )
 {

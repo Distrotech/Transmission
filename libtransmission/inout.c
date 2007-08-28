@@ -20,11 +20,11 @@
 
 #include "transmission.h"
 #include "completion.h"
+#include "encryption.h"
 #include "fdlimit.h"
 #include "inout.h"
 #include "net.h"
 #include "peer.h"
-#include "sha1.h"
 #include "utils.h"
 
 struct tr_io_s
@@ -211,9 +211,8 @@ tr_ioRecalculateHash ( tr_torrent_t  * tor,
 
     buf = malloc( n );
     ret = readOrWritePiece ( tor, TR_IO_READ, pieceIndex, 0, buf, n );
-    if( !ret ) {
-        SHA1( buf, n, setme );
-    }
+    if( !ret )
+        tr_sha1( setme, buf, n, NULL );
     free( buf );
 
     return ret;

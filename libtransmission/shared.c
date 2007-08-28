@@ -25,14 +25,17 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 #include <sys/types.h>
 
 #include "transmission.h"
 #include "choking.h"
+#include "handshake.h"
 #include "natpmp.h"
 #include "net.h"
 #include "peer.h"
+#include "peer-connection.h"
 #include "platform.h"
 #include "shared.h"
 #include "upnp.h"
@@ -333,6 +336,16 @@ static void SetPublicPort( tr_shared_t * s, int port )
         tr_torrentChangeMyPort( tor, port );
 }
 
+
+static void
+myHandshakeDoneCB( struct tr_peerConnection * c, int isConnected, void * unused UNUSED )
+{
+    if( isConnected )
+        fprintf( stderr, "FIXME: add some way to push this connection to the tor\n" );
+    else
+        tr_peerConnectionFree( c );
+}
+
 /***********************************************************************
  * AcceptPeers
  ***********************************************************************
@@ -345,6 +358,8 @@ static void AcceptPeers( tr_shared_t * s )
 
     for( ;; )
     {
+        tr_peerConnection * connection;
+
         if( s->bindSocket < 0 || s->peerCount >= MAX_PEER_COUNT )
         {
             break;
@@ -355,8 +370,15 @@ static void AcceptPeers( tr_shared_t * s )
         {
             break;
         }
-        s->peers[s->peerCount++] = tr_peerInit( &addr, 0, socket,
-                                                TR_PEER_FROM_INCOMING );
+
+        connection = tr_peerConnectionNewIncoming( s->h,
+                                                   &addr,
+                                                   socket );
+
+        tr_handshakeAdd( connection,
+                         HANDSHAKE_ENCRYPTION_PREFERRED,
+                         myHandshakeDoneCB,
+                         NULL );
     }
 }
 
