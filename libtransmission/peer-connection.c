@@ -36,6 +36,7 @@ struct tr_peerConnection
     int port;
     int socket;
     int extensions;
+    int encryptionMode;
     struct bufferevent * bufev;
     uint8_t peerId[20];
 
@@ -201,37 +202,6 @@ tr_peerConnectionReconnect( tr_peerConnection * connection )
     return connection->socket >= 0 ? 0 : -1;
 }
 
-
-tr_crypto* 
-tr_peerConnectionGetCrypto( tr_peerConnection * c )
-{
-    return c->crypto;
-}
-
-/**
-***
-**/
-
-void
-tr_peerConnectionWrite( tr_peerConnection   * connection,
-                        const void          * writeme,
-                        int                   writeme_len )
-{
-    tr_bufferevent_write( connection->handle,
-                          connection->bufev,
-                          writeme,
-                          writeme_len );
-}
-
-void
-tr_peerConnectionWriteBuf  ( tr_peerConnection   * connection,
-                             struct evbuffer     * buf )
-{
-    tr_peerConnectionWrite( connection,
-                            EVBUFFER_DATA(buf),
-                            EVBUFFER_LENGTH(buf) );
-}
-
 /**
 ***
 **/
@@ -298,4 +268,136 @@ tr_peerConnectionGetExtension( const tr_peerConnection * connection )
     assert( connection != NULL );
 
     return connection->extensions;
+}
+
+/**
+***
+**/
+ 
+void
+tr_peerConnectionWrite( tr_peerConnection   * connection,
+                        const void          * writeme,
+                        int                   writeme_len )
+{
+    tr_bufferevent_write( connection->handle,
+                          connection->bufev,
+                          writeme,
+                          writeme_len );
+}
+
+void
+tr_peerConnectionWriteBuf( tr_peerConnection   * connection,
+                           struct evbuffer     * buf )
+{
+    tr_peerConnectionWrite( connection,
+                            EVBUFFER_DATA(buf),
+                            EVBUFFER_LENGTH(buf) );
+}
+
+/**
+***
+**/
+
+tr_crypto* 
+tr_peerConnectionGetCrypto( tr_peerConnection * c )
+{
+    return c->crypto;
+}
+
+void 
+tr_peerConnectionSetEncryption( tr_peerConnection * connection,
+                                int                 encryptionMode )
+{
+    assert( connection != NULL );
+    assert( encryptionMode==PEER_ENCRYPTION_PLAINTEXT || encryptionMode==PEER_ENCRYPTION_RC4 );
+
+    connection->encryptionMode = encryptionMode;
+}
+
+void
+tr_peerConnectionWriteBytes( tr_peerConnection   * conn,
+                             struct evbuffer     * outbuf,
+                             const void          * bytes,
+                             int                   byteCount )
+{
+    uint8_t * tmp;
+
+    switch( conn->encryptionMode )
+    {
+        case PEER_ENCRYPTION_PLAINTEXT:
+            evbuffer_add( outbuf, bytes, byteCount );
+            break;
+
+        case PEER_ENCRYPTION_RC4:
+            tmp = tr_new( uint8_t, byteCount );
+            tr_cryptoEncrypt( conn->crypto, byteCount, bytes, tmp );
+            tr_bufferevent_write( conn->handle, conn->bufev, tmp, byteCount );
+            tr_free( tmp );
+            break;
+
+        default:
+            assert( 0 );
+    }
+}
+
+void
+tr_peerConnectionWriteUint16( tr_peerConnection * conn,
+                              struct evbuffer   * outbuf,
+                              uint16_t            writeme )
+{
+    uint16_t tmp = htons( writeme );
+    tr_peerConnectionWriteBytes( conn, outbuf, &tmp, sizeof(uint16_t) );
+}
+
+void
+tr_peerConnectionWriteUint32( tr_peerConnection * conn,
+                              struct evbuffer   * outbuf,
+                              uint32_t            writeme )
+{
+    uint32_t tmp = htonl( writeme );
+    tr_peerConnectionWriteBytes( conn, outbuf, &tmp, sizeof(uint32_t) );
+}
+
+void
+tr_peerConnectionReadBytes( tr_peerConnection   * conn,
+                            struct evbuffer     * inbuf,
+                            void                * bytes,
+                            int                   byteCount )
+{
+    assert( (int)EVBUFFER_LENGTH( inbuf ) >= byteCount );
+
+    switch( conn->encryptionMode )
+    {
+        case PEER_ENCRYPTION_PLAINTEXT:
+            evbuffer_remove(  inbuf, bytes, byteCount );
+            break;
+
+        case PEER_ENCRYPTION_RC4:
+            evbuffer_remove(  inbuf, bytes, byteCount );
+            tr_cryptoDecrypt( conn->crypto, byteCount, bytes, bytes );
+            break;
+
+        default:
+            assert( 0 );
+    }
+}
+
+void
+tr_peerConnectionReadUint16( tr_peerConnection * conn,
+                             struct evbuffer   * inbuf,
+                             uint16_t          * setme )
+{
+    uint16_t tmp;
+    tr_peerConnectionReadBytes( conn, inbuf, &tmp, sizeof(uint16_t) );
+    *setme = ntohs( tmp );
+}
+
+void
+tr_peerConnectionReadUint32( tr_peerConnection * conn,
+                             struct evbuffer   * inbuf,
+                             uint32_t          * setme )
+{
+    uint32_t tmp;
+    tr_peerConnectionReadBytes( conn, inbuf, &tmp, sizeof(uint32_t) );
+    *setme = ntohl( tmp );
 }

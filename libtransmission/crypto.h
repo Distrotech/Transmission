@@ -29,14 +29,14 @@ typedef struct tr_crypto tr_crypto;
 tr_crypto*  tr_cryptoNew ( const uint8_t * torrentHash,
                            int             isIncoming );
 
-void            tr_cryptoFree( tr_crypto * crypto );
+void tr_cryptoFree( tr_crypto * crypto );
 
 /**
 ***
 **/
 
-void            tr_cryptoSetTorrentHash( tr_crypto     * crypto,
-                                         const uint8_t * torrentHash );
+void tr_cryptoSetTorrentHash( tr_crypto     * crypto,
+                              const uint8_t * torrentHash );
 
 const uint8_t*  tr_cryptoGetTorrentHash( const tr_crypto * crypto );
 
@@ -61,36 +61,16 @@ void            tr_cryptoDecrypt    ( tr_crypto   * crypto,
 ***
 **/
 
-void            tr_cryptoEncryptInit( tr_crypto   * crypto );
+void  tr_cryptoEncryptInit ( tr_crypto   * crypto );
 
-void            tr_cryptoEncrypt    ( tr_crypto   * crypto,
-                                      size_t        buflen,
-                                      const void  * buf_in,
-                                      void        * buf_out );
+void  tr_cryptoEncrypt     ( tr_crypto   * crypto,
+                             size_t        buflen,
+                             const void  * buf_in,
+                             void        * buf_out );
 
-void            tr_cryptoReadUint16( tr_crypto        * crypto,
-                                     struct evbuffer  * inbuf,
-                                     uint16_t         * setme );
-
-void            tr_cryptoReadUint32( tr_crypto        * crypto,
-                                     struct evbuffer  * inbuf,
-                                     uint32_t         * setme );
-
-void            tr_cryptoReadBytes( tr_crypto        * crypto,
-                                    struct evbuffer  * inbuf,
-                                    uint8_t          * bytes,
-                                    int                byteCount );
-
-/**
-***
-**/
-
-void  tr_sha1( uint8_t* setme,
-               const void * content1, int content1_len,
-               ... );
-
-/**
-***
-**/
+void  tr_sha1              ( uint8_t     * setme,
+                             const void  * content1,
+                             int           content1_len,
+                             ... );
 
 #endif

@@ -72,6 +72,16 @@ int   tr_peerConnectionIsIncoming( const tr_peerConnection * connection );
 ***
 **/
 
+void  tr_peerConnectionSetPeersId( tr_peerConnection * connection,
+                                   const uint8_t     * peer_id );
+
+const uint8_t*
+      tr_peerConnectionGetPeersId( const tr_peerConnection * connection );
+
+/**
+***
+**/
+
 typedef enum { READ_MORE, READ_AGAIN, READ_DONE } ReadState;
 typedef ReadState (*tr_can_read_cb)(struct bufferevent*, void* user_data);
 typedef void (*tr_did_write_cb)(struct bufferevent *, void *);
@@ -88,28 +98,55 @@ void  tr_peerConnectionSetIOMode ( tr_peerConnection   * connection,
 
 void  tr_peerConnectionReadOrWait( tr_peerConnection * connection );
 
-void  tr_peerConnectionWrite     ( tr_peerConnection   * connection,
-                                   const void          * writeme,
-                                   int                   writeme_len );
+void tr_peerConnectionWrite( tr_peerConnection   * connection,
+                             const void          * writeme,
+                             int                   writeme_len );
 
-void  tr_peerConnectionWriteBuf  ( tr_peerConnection   * connection,
-                                   struct evbuffer     * buf );
-
-/**
-***
-**/
-
-struct tr_crypto*
-      tr_peerConnectionGetCrypto( tr_peerConnection * connection );
+void tr_peerConnectionWriteBuf( tr_peerConnection   * connection,
+                                struct evbuffer     * buf );
 
 /**
 ***
 **/
 
-void  tr_peerConnectionSetPeersId( tr_peerConnection * connection,
-                                   const uint8_t     * peer_id );
+struct tr_crypto* tr_peerConnectionGetCrypto( tr_peerConnection * connection );
 
-const uint8_t*
-      tr_peerConnectionGetPeersId( const tr_peerConnection * connection );
+typedef enum
+{
+    /* these match the values in MSE's crypto_select */
+    PEER_ENCRYPTION_PLAINTEXT = (1<<0),
+    PEER_ENCRYPTION_RC4       = (1<<1)
+}
+EncryptionMode;
+
+void tr_peerConnectionSetEncryption( tr_peerConnection  * connection,
+                                     int                  encryptionMode );
+
+void tr_peerConnectionWriteBytes   ( tr_peerConnection  * conn,
+                                     struct evbuffer    * outbuf,
+                                     const void         * bytes,
+                                     int                  byteCount );
+
+void tr_peerConnectionWriteUint16 ( tr_peerConnection   * conn,
+                                    struct evbuffer     * outbuf,
+                                    uint16_t              writeme );
+
+void tr_peerConnectionWriteUint32 ( tr_peerConnection   * conn,
+                                    struct evbuffer     * outbuf,
+                                    uint32_t              writeme );
+
+void tr_peerConnectionReadBytes   ( tr_peerConnection   * conn,
+                                    struct evbuffer     * inbuf,
+                                    void                * bytes,
+                                    int                   byteCount );
+
+void tr_peerConnectionReadUint16  ( tr_peerConnection   * conn,
+                                    struct evbuffer     * inbuf,
+                                    uint16_t            * setme );
+
+void tr_peerConnectionReadUint32  ( tr_peerConnection   * conn,
+                                    struct evbuffer     * inbuf,
+                                    uint32_t            * setme );
+
 
 #endif

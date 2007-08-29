@@ -253,11 +253,11 @@ struct tr_peer_s
     int                 inBegin;
     int                 inLength;
 
-    tr_list_t         * outRequests;
+    tr_list           * outRequests;
     uint64_t            outDate;
 
-    tr_ratecontrol_t  * download;
-    tr_ratecontrol_t  * upload;
+    tr_ratecontrol    * download;
+    tr_ratecontrol    * upload;
 
     char              * client;
     int                 extclient;

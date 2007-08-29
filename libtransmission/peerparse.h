@@ -385,7 +385,7 @@ static int parseCancel( tr_torrent * tor, tr_peer_t * peer,
     tr_info_t * inf = &tor->info;
     int index, begin, length;
     tr_request_t req;
-    tr_list_t * l;
+    tr_list * l;
 
     if( len != 12 )
     {

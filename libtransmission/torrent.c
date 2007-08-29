@@ -37,6 +37,7 @@
 #include "inout.h"
 #include "metainfo.h"
 #include "net.h" /* tr_netNtop */
+#include "p.h"
 #include "peer.h"
 #include "peer-connection.h"
 #include "platform.h"
@@ -119,7 +120,7 @@ tr_torrentSetSpeedLimit( tr_torrent   * tor,
                          int            up_or_down,
                          int            single_KiB_sec )
 {
-    tr_ratecontrol_t * rc = up_or_down==TR_UP ? tor->upload : tor->download;
+    tr_ratecontrol * rc = up_or_down==TR_UP ? tor->upload : tor->download;
     tr_rcSetLimit( rc, single_KiB_sec );
 }
 
@@ -127,7 +128,7 @@ int
 tr_torrentGetSpeedLimit( const tr_torrent  * tor,
                          int                 up_or_down )
 {
-    tr_ratecontrol_t * rc = up_or_down==TR_UP ? tor->upload : tor->download;
+    tr_ratecontrol * rc = up_or_down==TR_UP ? tor->upload : tor->download;
     return tr_rcGetLimit( rc );
 }
 
@@ -1065,10 +1066,10 @@ int tr_torrentAttachPeer( tr_torrent * tor, tr_peer_t * peer )
 }
 
 static void
-tr_torrentAddPeerConnection( tr_torrent        * tor UNUSED,
-                             tr_peerConnection * connection UNUSED )
+tr_torrentAddPeerConnection( tr_torrent        * torrent,
+                             tr_peerConnection * connection )
 {
-    assert( 0 && "FIXME" );
+    tr_peerManagerAdd( torrent, connection );
 }
 
 static void

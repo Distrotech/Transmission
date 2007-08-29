@@ -348,7 +348,7 @@ struct tr_cond_s
     thread_id threads[BEOS_MAX_THREADS];
     int start, end;
 #elif defined(WIN32)
-    tr_list_t * events;
+    tr_list * events;
     tr_lock_t * lock;
 #else
     pthread_cond_t cond;
@@ -491,7 +491,7 @@ tr_condBroadcast( tr_cond_t * c )
 
 #elif defined(WIN32)
 
-    tr_list_t * l;
+    tr_list * l;
     tr_lockLock( c->lock );
     for( l=c->events; l!=NULL; l=l->next )
         SetEvent( (HANDLE)l->data );

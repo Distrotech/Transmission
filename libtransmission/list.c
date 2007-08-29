@@ -14,14 +14,14 @@
 #include "list.h"
 #include "utils.h"
 
-static tr_list_t*
+static tr_list*
 node_alloc( void )
 {
-    return tr_new0( tr_list_t, 1 );
+    return tr_new0( tr_list, 1 );
 }
 
 static void
-node_free( tr_list_t* node )
+node_free( tr_list* node )
 {
     tr_free( node );
 }
@@ -31,20 +31,20 @@ node_free( tr_list_t* node )
 ***/
 
 void
-tr_list_free( tr_list_t** list )
+tr_list_free( tr_list** list )
 {
     while( *list )
     {
-        tr_list_t * node = *list;
+        tr_list * node = *list;
         *list = (*list)->next;
         node_free( node );
     }
 }
 
 void
-tr_list_prepend( tr_list_t ** list, void * data )
+tr_list_prepend( tr_list ** list, void * data )
 {
-    tr_list_t * node = node_alloc ();
+    tr_list * node = node_alloc ();
     node->data = data;
     node->next = *list;
     if( *list )
@@ -53,14 +53,14 @@ tr_list_prepend( tr_list_t ** list, void * data )
 }
 
 void
-tr_list_append( tr_list_t ** list, void * data )
+tr_list_append( tr_list ** list, void * data )
 {
-    tr_list_t * node = node_alloc( );
+    tr_list * node = node_alloc( );
     node->data = data;
     if( !*list )
         *list = node;
     else {
-        tr_list_t * l = *list;
+        tr_list * l = *list;
         while( l->next )
             l = l->next;
         l->next = node;
@@ -69,12 +69,12 @@ tr_list_append( tr_list_t ** list, void * data )
 }
 
 void
-tr_list_insert_sorted( tr_list_t ** list,
+tr_list_insert_sorted( tr_list ** list,
                        void       * data,
                        int          compare(const void*,const void*) )
 {
     /* find l, the node that we'll insert this data before */
-    tr_list_t * l;
+    tr_list * l;
     for( l=*list; l!=NULL; l=l->next ) {
         const int c = (compare)( data, l->data );
         if( c <= 0 )
@@ -86,7 +86,7 @@ tr_list_insert_sorted( tr_list_t ** list,
     else if( l == *list )
         tr_list_prepend( list, data );
     else {
-        tr_list_t * node = node_alloc( );
+        tr_list * node = node_alloc( );
         node->data = data;
         if( l->prev ) { node->prev = l->prev; node->prev->next = node; }
         node->next = l;
@@ -95,8 +95,8 @@ tr_list_insert_sorted( tr_list_t ** list,
 }
 
 
-tr_list_t*
-tr_list_find_data ( tr_list_t * list, const void * data )
+tr_list*
+tr_list_find_data ( tr_list * list, const void * data )
 {
     for(; list; list=list->next )
         if( list->data == data )
@@ -106,19 +106,19 @@ tr_list_find_data ( tr_list_t * list, const void * data )
 }
 
 void
-tr_list_remove_data ( tr_list_t ** list, const void * data )
+tr_list_remove_data ( tr_list ** list, const void * data )
 {
-    tr_list_t * node = tr_list_find_data( *list, data );
-    tr_list_t * prev = node ? node->prev : NULL;
-    tr_list_t * next = node ? node->next : NULL;
+    tr_list * node = tr_list_find_data( *list, data );
+    tr_list * prev = node ? node->prev : NULL;
+    tr_list * next = node ? node->next : NULL;
     if( prev ) prev->next = next;
     if( next ) next->prev = prev;
     if( *list == node ) *list = next;
     node_free( node );
 }
 
-tr_list_t*
-tr_list_find ( tr_list_t * list , const void * b, TrListCompareFunc func )
+tr_list*
+tr_list_find ( tr_list * list , const void * b, TrListCompareFunc func )
 {
     for( ; list; list=list->next )
         if( !func( list->data, b ) )
@@ -128,7 +128,7 @@ tr_list_find ( tr_list_t * list , const void * b, TrListCompareFunc func )
 }
 
 void
-tr_list_foreach( tr_list_t * list, TrListForeachFunc func )
+tr_list_foreach( tr_list * list, TrListForeachFunc func )
 {
     while( list )
     {

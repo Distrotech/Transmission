@@ -341,12 +341,12 @@ readCryptoProvide( tr_handshake * handshake, struct evbuffer * inbuf )
 
     tr_cryptoDecryptInit( handshake->crypto );
 
-    tr_cryptoReadBytes( handshake->crypto, inbuf, vc_in, VC_LENGTH );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, vc_in, VC_LENGTH );
 
-    tr_cryptoReadUint32( handshake->crypto, inbuf, &crypto_provide );
+    tr_peerConnectionReadUint32( handshake->connection, inbuf, &crypto_provide );
     fprintf( stderr, "crypto_provide is %d\n", (int)crypto_provide );
 
-    tr_cryptoReadUint16( handshake->crypto, inbuf, &padc_len );
+    tr_peerConnectionReadUint16( handshake->connection, inbuf, &padc_len );
     fprintf( stderr, "padc is %d\n", (int)padc_len );
     handshake->PadC_len = padc_len;
     setState( handshake, AWAITING_PAD_C );
@@ -364,7 +364,7 @@ readPadC( tr_handshake * handshake, struct evbuffer * inbuf )
 
     evbuffer_drain( inbuf, needlen );
 
-    tr_cryptoReadUint16( handshake->crypto, inbuf, &ia_len );
+    tr_peerConnectionReadUint16( handshake->connection, inbuf, &ia_len );
     fprintf( stderr, "ia_len is %d\n", (int)ia_len );
     handshake->ia_len = ia_len;
     setState( handshake, AWAITING_IA );
@@ -381,7 +381,7 @@ readIA( tr_handshake * handshake, struct evbuffer * inbuf )
         return READ_MORE;
 
     ia = tr_new( uint8_t, handshake->ia_len );
-    tr_cryptoReadBytes( handshake->crypto, inbuf, ia, handshake->ia_len );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, ia, handshake->ia_len );
     fprintf( stderr, "got their payload ia: [%*.*s]\n", (int)needlen, (int)needlen, ia );
 
     handshake->state = -1;
@@ -406,6 +406,9 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
 
     isEncrypted = memcmp( EVBUFFER_DATA(inbuf), HANDSHAKE_NAME, HANDSHAKE_NAME_LEN );
     fprintf( stderr, "got a %s handshake\n", (isEncrypted ? "encrypted" : "plaintext") );
+    tr_peerConnectionSetEncryption( handshake->connection, isEncrypted
+        ? PEER_ENCRYPTION_RC4
+        : PEER_ENCRYPTION_PLAINTEXT );
     if( !isEncrypted ) {
         setState( handshake, AWAITING_HANDSHAKE );
         return READ_AGAIN;
@@ -535,7 +538,6 @@ static int drained = 0;
     return READ_AGAIN;
 }
 
-//ccc
 static int
 readCryptoSelect( tr_handshake * handshake, struct evbuffer * inbuf )
 {
@@ -546,14 +548,12 @@ readCryptoSelect( tr_handshake * handshake, struct evbuffer * inbuf )
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
 
- //   tr_cryptoDecryptInit( handshake->crypto );
-
-    tr_cryptoReadUint32( handshake->crypto, inbuf, &crypto_select );
+    tr_peerConnectionReadUint32( handshake->connection, inbuf, &crypto_select );
     assert( crypto_select==1 || crypto_select==2 );
     handshake->crypto_select = crypto_select;
     fprintf( stderr, "crypto select is %d\n", crypto_select );
 
-    tr_cryptoReadUint16( handshake->crypto, inbuf, &pad_d_len );
+    tr_peerConnectionReadUint16( handshake->connection, inbuf, &pad_d_len );
     fprintf( stderr, "pad_d_len is %d\n", (int)pad_d_len );
     assert( pad_d_len <= 512 );
     handshake->pad_d_len = pad_d_len;
@@ -573,8 +573,11 @@ fprintf( stderr, "pad d: need %d, got %d\n", (int)needlen, (int)EVBUFFER_LENGTH(
         return READ_MORE;
 
     tmp = tr_new( uint8_t, needlen );
-    tr_cryptoReadBytes( handshake->crypto, inbuf, tmp, needlen );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, tmp, needlen );
     tr_free( tmp );
+
+    tr_peerConnectionSetEncryption( handshake->connection,
+                                    handshake->crypto_select );
 
     setState( handshake, AWAITING_HANDSHAKE );
     return READ_AGAIN;
@@ -587,7 +590,7 @@ readHandshake( tr_handshake * handshake, struct evbuffer * inbuf )
     int i;
     int ltep = 0;
     int azmp = 0;
-    int encrypted;
+    int isEncrypted;
     uint8_t pstrlen;
     uint8_t * pstr;
     uint8_t reserved[8];
@@ -602,40 +605,34 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     /* pstrlen */
     evbuffer_remove( inbuf, &pstrlen, 1 );
     fprintf( stderr, "pstrlen 1 is %d [%c]\n", (int)pstrlen, pstrlen );
-    encrypted = pstrlen != 19;
-    if( encrypted ) {
-        fprintf( stderr, "clearly it's encrypted...\n" );
-        //tr_cryptoDecryptInit( handshake->crypto );
+    isEncrypted = pstrlen != 19;
+    tr_peerConnectionSetEncryption( handshake->connection, isEncrypted
+        ? PEER_ENCRYPTION_RC4
+        : PEER_ENCRYPTION_PLAINTEXT );
+    if( isEncrypted ) {
+        fprintf( stderr, "I guess it's encrypted...\n" );
         tr_cryptoDecrypt( handshake->crypto, 1, &pstrlen, &pstrlen );
     }
     fprintf( stderr, "pstrlen is %d [%c]\n", (int)pstrlen, pstrlen );
-    //assert( pstrlen == 19 );
+    assert( pstrlen == 19 );
 
     /* pstr (BitTorrent) */
     pstr = tr_new( uint8_t, pstrlen+1 );
-    evbuffer_remove( inbuf, pstr, pstrlen );
-    if( encrypted )
-        tr_cryptoDecrypt( handshake->crypto, pstrlen, pstr, pstr );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, pstr, pstrlen );
     pstr[pstrlen] = '\0';
     fprintf( stderr, "pstrlen is [%s]\n", pstr );
     assert( !strcmp( (char*)pstr, "BitTorrent protocol" ) );
 
     /* reserved bytes */
-    evbuffer_remove( inbuf, reserved, sizeof(reserved) );
-    if( encrypted )
-        tr_cryptoDecrypt( handshake->crypto, sizeof(reserved), reserved, reserved );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, reserved, sizeof(reserved) );
 
     /* torrent hash */
-    evbuffer_remove( inbuf, hash, sizeof(hash) );
-    if( encrypted )
-        tr_cryptoDecrypt( handshake->crypto, sizeof(hash), hash, hash );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, hash, sizeof(hash) );
     assert( !memcmp( hash, tr_peerConnectionGetTorrent(handshake->connection)->info.hash, SHA_DIGEST_LENGTH ) );
 
 
     /* peer id */
-    evbuffer_remove( inbuf, peer_id, sizeof(peer_id) );
-    if( encrypted )
-        tr_cryptoDecrypt( handshake->crypto, sizeof(peer_id), peer_id, peer_id );
+    tr_peerConnectionReadBytes( handshake->connection, inbuf, peer_id, sizeof(peer_id) );
     fprintf( stderr, "peer_id: " );
     for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
     fprintf( stderr, "\n" );

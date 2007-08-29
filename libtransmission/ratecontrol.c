@@ -42,7 +42,7 @@ typedef struct
 }
 tr_transfer_t;
 
-struct tr_ratecontrol_s
+struct tr_ratecontrol
 {
     tr_lock_t * lock;
     int limit;
@@ -52,7 +52,7 @@ struct tr_ratecontrol_s
 
 /* return the xfer rate over the last `interval' seconds in KiB/sec */
 static float
-rateForInterval( const tr_ratecontrol_t * r, int interval_msec )
+rateForInterval( const tr_ratecontrol * r, int interval_msec )
 {
     uint64_t bytes = 0;
     const uint64_t now = tr_date ();
@@ -75,17 +75,17 @@ rateForInterval( const tr_ratecontrol_t * r, int interval_msec )
 ****
 ***/
 
-tr_ratecontrol_t*
+tr_ratecontrol*
 tr_rcInit( void )
 {
-    tr_ratecontrol_t * r = tr_new0( tr_ratecontrol_t, 1 );
+    tr_ratecontrol * r = tr_new0( tr_ratecontrol, 1 );
     r->limit = 0;
     r->lock = tr_lockNew( );
     return r;
 }
 
 void
-tr_rcClose( tr_ratecontrol_t * r )
+tr_rcClose( tr_ratecontrol * r )
 {
     tr_rcReset( r );
     tr_lockFree( r->lock );
@@ -97,7 +97,7 @@ tr_rcClose( tr_ratecontrol_t * r )
 ***/
 
 int
-tr_rcCanTransfer( const tr_ratecontrol_t * r )
+tr_rcCanTransfer( const tr_ratecontrol * r )
 {
     int ret;
     tr_lockLock( (tr_lock_t*)r->lock );
@@ -109,7 +109,7 @@ tr_rcCanTransfer( const tr_ratecontrol_t * r )
 }
 
 float
-tr_rcRate( const tr_ratecontrol_t * r )
+tr_rcRate( const tr_ratecontrol * r )
 {
     float ret;
     tr_lockLock( (tr_lock_t*)r->lock );
@@ -125,7 +125,7 @@ tr_rcRate( const tr_ratecontrol_t * r )
 ***/
 
 void
-tr_rcTransferred( tr_ratecontrol_t * r, int size )
+tr_rcTransferred( tr_ratecontrol * r, int size )
 {
     uint64_t now;
 
@@ -147,7 +147,7 @@ tr_rcTransferred( tr_ratecontrol_t * r, int size )
 }
 
 void
-tr_rcReset( tr_ratecontrol_t * r )
+tr_rcReset( tr_ratecontrol * r )
 {
     tr_lockLock( (tr_lock_t*)r->lock );
     r->newest = 0;
@@ -156,7 +156,7 @@ tr_rcReset( tr_ratecontrol_t * r )
 }
 
 void
-tr_rcSetLimit( tr_ratecontrol_t * r, int limit )
+tr_rcSetLimit( tr_ratecontrol * r, int limit )
 {
     tr_lockLock( (tr_lock_t*)r->lock );
     r->limit = limit;
@@ -164,7 +164,7 @@ tr_rcSetLimit( tr_ratecontrol_t * r, int limit )
 }
 
 int
-tr_rcGetLimit( const tr_ratecontrol_t * r )
+tr_rcGetLimit( const tr_ratecontrol * r )
 {
     return r->limit;
 }

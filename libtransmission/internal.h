@@ -114,9 +114,9 @@ struct tr_torrent
 
     tr_speedlimit_t             uploadLimitMode;
     tr_speedlimit_t             downloadLimitMode;
-    struct tr_ratecontrol_s   * upload;
-    struct tr_ratecontrol_s   * download;
-    struct tr_ratecontrol_s   * swarmspeed;
+    struct tr_ratecontrol     * upload;
+    struct tr_ratecontrol     * download;
+    struct tr_ratecontrol     * swarmspeed;
 
     int                        error;
     char                       errorString[128];
@@ -190,8 +190,8 @@ struct tr_handle
 
     char                       useUploadLimit;
     char                       useDownloadLimit;
-    struct tr_ratecontrol_s  * upload;
-    struct tr_ratecontrol_s  * download;
+    struct tr_ratecontrol    * upload;
+    struct tr_ratecontrol    * download;
 
     struct tr_shared_s       * shared;
 

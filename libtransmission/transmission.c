@@ -251,7 +251,7 @@ tr_loadTorrents ( tr_handle_t   * h,
     DIR * odir = NULL;
     const char * torrentDir = tr_getTorrentsDirectory( );
     tr_torrent ** torrents;
-    tr_list_t *l=NULL, *list=NULL;
+    tr_list *l=NULL, *list=NULL;
 
     if( !stat( torrentDir, &sb )
         && S_ISDIR( sb.st_mode )

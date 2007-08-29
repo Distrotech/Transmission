@@ -204,6 +204,7 @@ tr_cryptoDecrypt( tr_crypto  * crypto,
 }
 
 
+#if 0
 void
 tr_cryptoReadUint16( tr_crypto        * crypto,
                      struct evbuffer  * inbuf,
@@ -238,6 +239,7 @@ tr_cryptoReadBytes( tr_crypto        * crypto,
     evbuffer_remove( inbuf, bytes, byteCount );
     tr_cryptoDecrypt( crypto, byteCount, bytes, bytes );
 }
+#endif
 
 /**
 ***
