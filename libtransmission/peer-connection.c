@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #include <assert.h>
@@ -17,7 +17,7 @@
 #include <arpa/inet.h>
 #include <event.h>
 #include "transmission.h"
-#include "encryption.h"
+#include "crypto.h"
 #include "net.h"
 #include "peer-connection.h"
 #include "trevent.h"
@@ -48,7 +48,7 @@ struct tr_peerConnection
     tr_net_error_cb    gotError;
     void             * userData;
 
-    tr_encryption * encryption;
+    tr_crypto * crypto;
 };
 
 /**
@@ -102,7 +102,7 @@ tr_peerConnectionNew( struct tr_handle  * handle,
     tr_peerConnection * c;
     c = tr_new0( tr_peerConnection, 1 );
     c->torrent = torrent;
-    c->encryption = tr_encryptionNew( torrent ? torrent->info.hash : NULL, isIncoming );
+    c->crypto = tr_cryptoNew( torrent ? torrent->info.hash : NULL, isIncoming );
     c->handle = handle;
     c->in_addr = *in_addr;
     c->socket = socket;
@@ -149,7 +149,7 @@ tr_peerConnectionFree( tr_peerConnection * c )
 {
     bufferevent_free( c->bufev );
     tr_netClose( c->socket );
-    tr_encryptionFree( c->encryption );
+    tr_cryptoFree( c->crypto );
     tr_free( c );
 }
 
@@ -202,10 +202,10 @@ tr_peerConnectionReconnect( tr_peerConnection * connection )
 }
 
 
-tr_encryption* 
-tr_peerConnectionGetEncryption( tr_peerConnection * c )
+tr_crypto* 
+tr_peerConnectionGetCrypto( tr_peerConnection * c )
 {
-    return c->encryption;
+    return c->crypto;
 }
 
 /**
@@ -242,7 +242,7 @@ tr_peerConnectionSetTorrent( tr_peerConnection  * connection,
 {
     connection->torrent = torrent;
 
-    tr_encryptionSetTorrentHash( connection->encryption, torrent->info.hash );
+    tr_cryptoSetTorrentHash( connection->crypto, torrent->info.hash );
 }
 
 struct tr_torrent*

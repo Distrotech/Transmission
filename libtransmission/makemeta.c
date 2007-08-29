@@ -21,7 +21,7 @@
 #include <unistd.h>
 #include <dirent.h>
 
-#include "encryption.h" /* tr_sha1 */
+#include "crypto.h" /* tr_sha1 */
 #include "trcompat.h" /* strlcpy */
 #include "transmission.h"
 #include "internal.h" /* tr_torrent_t */

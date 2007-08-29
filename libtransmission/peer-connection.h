@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #ifndef TR_PEER_CONNECTION_H
@@ -21,7 +21,7 @@ struct in_addr;
 struct evbuffer;
 struct bufferevent;
 struct tr_handle;
-struct tr_encryption;
+struct tr_crypto;
 struct tr_torrent;
 typedef struct tr_peerConnection tr_peerConnection;
 
@@ -99,8 +99,8 @@ void  tr_peerConnectionWriteBuf  ( tr_peerConnection   * connection,
 ***
 **/
 
-struct tr_encryption*
-      tr_peerConnectionGetEncryption( tr_peerConnection * connection );
+struct tr_crypto*
+      tr_peerConnectionGetCrypto( tr_peerConnection * connection );
 
 /**
 ***

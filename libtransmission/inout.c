@@ -20,7 +20,7 @@
 
 #include "transmission.h"
 #include "completion.h"
-#include "encryption.h"
+#include "crypto.h"
 #include "fdlimit.h"
 #include "inout.h"
 #include "net.h"

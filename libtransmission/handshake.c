@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #include <assert.h>
@@ -23,11 +23,11 @@
 
 #include <event.h>
 
-#include "transmission.h"
-#include "encryption.h"
-#include "handshake.h"
-#include "peer-connection.h"
-#include "utils.h"
+#include <libtransmission/transmission.h>
+#include <libtransmission/crypto.h>
+#include <libtransmission/handshake.h>
+#include <libtransmission/peer-connection.h>
+#include <libtransmission/utils.h>
 
 /***
 ****
@@ -77,7 +77,7 @@ extern const char* getPeerId( void ) ;
 typedef struct tr_handshake
 {
     tr_peerConnection * connection;
-    tr_encryption * encryption;
+    tr_crypto * crypto;
     struct tr_handle * handle;
     uint8_t myPublicKey[96];
     uint8_t mySecret[96];
@@ -179,7 +179,7 @@ sendPublicKey( tr_handshake * handshake )
     uint8_t pad[512];
 
     /* add our public key (Ya) */
-    public_key = tr_encryptionGetMyPublicKey( handshake->encryption, &len );
+    public_key = tr_cryptoGetMyPublicKey( handshake->crypto, &len );
     assert( len == KEY_LEN );
     assert( public_key != NULL );
     evbuffer_add( outbuf, public_key, len );
@@ -202,7 +202,7 @@ static void
 buildHandshakeMessage( tr_handshake * handshake, uint8_t * buf )
 {
     uint8_t *walk = buf;
-    const uint8_t * torrentHash = tr_encryptionGetTorrentHash( handshake->encryption );
+    const uint8_t * torrentHash = tr_cryptoGetTorrentHash( handshake->crypto );
 
     memcpy( walk, HANDSHAKE_NAME, HANDSHAKE_NAME_LEN );
     walk += HANDSHAKE_NAME_LEN;
@@ -258,13 +258,13 @@ readYa( tr_handshake * handshake, struct evbuffer  * inbuf )
 
     /* read the incoming peer's public key */
     evbuffer_remove( inbuf, ya, KEY_LEN );
-    secret = tr_encryptionComputeSecret( handshake->encryption, ya );
+    secret = tr_cryptoComputeSecret( handshake->crypto, ya );
     memcpy( handshake->mySecret, secret, KEY_LEN );
     tr_sha1( handshake->myReq1, "req1", 4, secret, KEY_LEN, NULL );
 
     /* send our public key to the peer */
     walk = outbuf;
-    myKey = tr_encryptionGetMyPublicKey( handshake->encryption, &len );
+    myKey = tr_cryptoGetMyPublicKey( handshake->crypto, &len );
     memcpy( walk, myKey, len );
     len = tr_rand( 512 );
     while( len-- )
@@ -339,22 +339,22 @@ readCryptoProvide( tr_handshake * handshake, struct evbuffer * inbuf )
 
     /* next part: ENCRYPT(VC, crypto_provide, len(PadC), */
 
-    tr_encryptionDecryptInit( handshake->encryption );
+    tr_cryptoDecryptInit( handshake->crypto );
 
     evbuffer_remove( inbuf, vc_in, VC_LENGTH );
-    tr_encryptionDecrypt( handshake->encryption, VC_LENGTH, vc_in, vc_in );
+    tr_cryptoDecrypt( handshake->crypto, VC_LENGTH, vc_in, vc_in );
     fprintf( stderr, "read vc -> %d %d %d %d %d %d %d %d\n",
         (int)vc_in[0], (int)vc_in[1], (int)vc_in[2], (int)vc_in[3],
         (int)vc_in[4], (int)vc_in[5], (int)vc_in[6], (int)vc_in[7] );
 
     evbuffer_remove( inbuf, &crypto_provide, sizeof(crypto_provide) );
-    tr_encryptionDecrypt( handshake->encryption, sizeof(crypto_provide),
+    tr_cryptoDecrypt( handshake->crypto, sizeof(crypto_provide),
                           &crypto_provide, &crypto_provide );
     crypto_provide = ntohl( crypto_provide );
     fprintf( stderr, "crypto_provide is %d\n", (int)crypto_provide );
 
     evbuffer_remove( inbuf, &padc_len, sizeof(padc_len) );
-    tr_encryptionDecrypt( handshake->encryption, sizeof(padc_len), &padc_len, &padc_len );
+    tr_cryptoDecrypt( handshake->crypto, sizeof(padc_len), &padc_len, &padc_len );
     padc_len = ntohs( padc_len );
     fprintf( stderr, "padc is %d\n", (int)padc_len );
     handshake->PadC_len = padc_len;
@@ -392,7 +392,7 @@ readIA( tr_handshake * handshake, struct evbuffer * inbuf )
 
     ia = tr_new( uint8_t, handshake->ia_len );
     evbuffer_remove( inbuf, ia, handshake->ia_len );
-    tr_encryptionDecrypt( handshake->encryption, handshake->ia_len, ia, ia );
+    tr_cryptoDecrypt( handshake->crypto, handshake->ia_len, ia, ia );
     fprintf( stderr, "got their payload ia: [%*.*s]\n", (int)needlen, (int)needlen, ia );
 
     handshake->state = -1;
@@ -424,7 +424,7 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
 
     /* compute the secret */
     evbuffer_remove( inbuf, yb, KEY_LEN );
-    secret = tr_encryptionComputeSecret( handshake->encryption, yb );
+    secret = tr_cryptoComputeSecret( handshake->crypto, yb );
     memcpy( handshake->mySecret, secret, KEY_LEN );
 
     /* now send these: HASH('req1', S), HASH('req2', SKEY) xor HASH('req3', S),
@@ -444,7 +444,7 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
         uint8_t req2[SHA_DIGEST_LENGTH];
         uint8_t req3[SHA_DIGEST_LENGTH];
         uint8_t buf[SHA_DIGEST_LENGTH];
-        tr_sha1( req2, "req2", 4, tr_encryptionGetTorrentHash(handshake->encryption), SHA_DIGEST_LENGTH, NULL );
+        tr_sha1( req2, "req2", 4, tr_cryptoGetTorrentHash(handshake->crypto), SHA_DIGEST_LENGTH, NULL );
         tr_sha1( req3, "req3", 4, secret, KEY_LEN, NULL );
         for( i=0; i<SHA_DIGEST_LENGTH; ++i )
             buf[i] = req2[i] ^ req3[i];
@@ -458,10 +458,10 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
         uint16_t i, len;
         uint32_t crypto_provide;
 
-        tr_encryptionEncryptInit( handshake->encryption );
+        tr_cryptoEncryptInit( handshake->crypto );
        
         /* vc */ 
-        tr_encryptionEncrypt( handshake->encryption, VC_LENGTH, vc, vc );
+        tr_cryptoEncrypt( handshake->crypto, VC_LENGTH, vc, vc );
         evbuffer_add( outbuf, vc, VC_LENGTH );
 
         /* crypto_provide */
@@ -472,14 +472,14 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
             crypto_provide |= (1<<1);
         assert( 1<=crypto_provide && crypto_provide<=3 );
         crypto_provide = htonl( crypto_provide );
-        tr_encryptionEncrypt( handshake->encryption, sizeof(crypto_provide), &crypto_provide, &crypto_provide );
+        tr_cryptoEncrypt( handshake->crypto, sizeof(crypto_provide), &crypto_provide, &crypto_provide );
 fprintf( stderr, "crypto_provide is [%d]\n", crypto_provide );
         evbuffer_add( outbuf, &crypto_provide, sizeof(crypto_provide) );
 
         /* len(padc) */
         i = len = tr_rand( 512 );
         i = htons( i );
-        tr_encryptionEncrypt( handshake->encryption, sizeof(i), &i, &i );
+        tr_cryptoEncrypt( handshake->crypto, sizeof(i), &i, &i );
         evbuffer_add( outbuf, &i, sizeof(i) );
 
         /* padc */
@@ -494,15 +494,15 @@ fprintf( stderr, "crypto_provide is [%d]\n", crypto_provide );
         buildHandshakeMessage( handshake, msg );
 
         i = htons( HANDSHAKE_SIZE );
-        tr_encryptionEncrypt( handshake->encryption, sizeof(uint16_t), &i, &i );
+        tr_cryptoEncrypt( handshake->crypto, sizeof(uint16_t), &i, &i );
         evbuffer_add( outbuf, &i, sizeof(uint16_t) );
 
-        tr_encryptionEncrypt( handshake->encryption, HANDSHAKE_SIZE, msg, msg );
+        tr_cryptoEncrypt( handshake->crypto, HANDSHAKE_SIZE, msg, msg );
         evbuffer_add( outbuf, msg, HANDSHAKE_SIZE );
     }
 
     /* send it */
-    tr_encryptionDecryptInit( handshake->encryption );
+    tr_cryptoDecryptInit( handshake->crypto );
     setState( handshake, SENDING_CRYPTO_PROVIDE );
     tr_peerConnectionWriteBuf( handshake->connection, outbuf );
 
@@ -527,8 +527,8 @@ readVC( tr_handshake * handshake, struct evbuffer * inbuf )
             return READ_MORE;
 
         memcpy( tmp, EVBUFFER_DATA(inbuf), key_len );
-        tr_encryptionDecryptInit( handshake->encryption );
-        tr_encryptionDecrypt( handshake->encryption, key_len, tmp, tmp );
+        tr_cryptoDecryptInit( handshake->crypto );
+        tr_cryptoDecrypt( handshake->crypto, key_len, tmp, tmp );
         if( !memcmp( tmp, key, key_len ) )
             break;
 
@@ -551,10 +551,10 @@ readCryptoSelect( tr_handshake * handshake, struct evbuffer * inbuf )
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
 
- //   tr_encryptionDecryptInit( handshake->encryption );
+ //   tr_cryptoDecryptInit( handshake->crypto );
 
     evbuffer_remove( inbuf, &crypto_select, sizeof(uint32_t) );
-    tr_encryptionDecrypt( handshake->encryption, sizeof(uint32_t), &crypto_select, &crypto_select );
+    tr_cryptoDecrypt( handshake->crypto, sizeof(uint32_t), &crypto_select, &crypto_select );
     fprintf( stderr, "crypto select 1 is %d\n", crypto_select );
     crypto_select = ntohl( crypto_select );
     handshake->crypto_select = crypto_select;
@@ -562,7 +562,7 @@ readCryptoSelect( tr_handshake * handshake, struct evbuffer * inbuf )
     fprintf( stderr, "crypto select 2 is %d\n", crypto_select );
 
     evbuffer_remove( inbuf, &pad_d_len, sizeof(uint16_t) );
-    tr_encryptionDecrypt( handshake->encryption, sizeof(uint16_t), &pad_d_len, &pad_d_len );
+    tr_cryptoDecrypt( handshake->crypto, sizeof(uint16_t), &pad_d_len, &pad_d_len );
     pad_d_len = ntohs( pad_d_len );
     fprintf( stderr, "pad_d_len is %d\n", (int)pad_d_len );
     assert( pad_d_len <= 512 );
@@ -584,7 +584,7 @@ fprintf( stderr, "pad d: need %d, got %d\n", (int)needlen, (int)EVBUFFER_LENGTH(
 
     buf = tr_new( uint8_t, needlen );
     evbuffer_remove( inbuf, buf, needlen );
-    tr_encryptionDecrypt( handshake->encryption, needlen, buf, buf );
+    tr_cryptoDecrypt( handshake->crypto, needlen, buf, buf );
     tr_free( buf );
 
     setState( handshake, AWAITING_HANDSHAKE );
@@ -616,8 +616,8 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     encrypted = pstrlen != 19;
     if( encrypted ) {
         fprintf( stderr, "clearly it's encrypted...\n" );
-        //tr_encryptionDecryptInit( handshake->encryption );
-        tr_encryptionDecrypt( handshake->encryption, 1, &pstrlen, &pstrlen );
+        //tr_cryptoDecryptInit( handshake->crypto );
+        tr_cryptoDecrypt( handshake->crypto, 1, &pstrlen, &pstrlen );
     }
     fprintf( stderr, "pstrlen is %d [%c]\n", (int)pstrlen, pstrlen );
     //assert( pstrlen == 19 );
@@ -626,7 +626,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     pstr = tr_new( uint8_t, pstrlen+1 );
     evbuffer_remove( inbuf, pstr, pstrlen );
     if( encrypted )
-        tr_encryptionDecrypt( handshake->encryption, pstrlen, pstr, pstr );
+        tr_cryptoDecrypt( handshake->crypto, pstrlen, pstr, pstr );
     pstr[pstrlen] = '\0';
     fprintf( stderr, "pstrlen is [%s]\n", pstr );
     assert( !strcmp( (char*)pstr, "BitTorrent protocol" ) );
@@ -634,19 +634,19 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     /* reserved bytes */
     evbuffer_remove( inbuf, reserved, sizeof(reserved) );
     if( encrypted )
-        tr_encryptionDecrypt( handshake->encryption, sizeof(reserved), reserved, reserved );
+        tr_cryptoDecrypt( handshake->crypto, sizeof(reserved), reserved, reserved );
 
     /* torrent hash */
     evbuffer_remove( inbuf, hash, sizeof(hash) );
     if( encrypted )
-        tr_encryptionDecrypt( handshake->encryption, sizeof(hash), hash, hash );
+        tr_cryptoDecrypt( handshake->crypto, sizeof(hash), hash, hash );
     assert( !memcmp( hash, tr_peerConnectionGetTorrent(handshake->connection)->info.hash, SHA_DIGEST_LENGTH ) );
 
 
     /* peer id */
     evbuffer_remove( inbuf, peer_id, sizeof(peer_id) );
     if( encrypted )
-        tr_encryptionDecrypt( handshake->encryption, sizeof(peer_id), peer_id, peer_id );
+        tr_cryptoDecrypt( handshake->crypto, sizeof(peer_id), peer_id, peer_id );
     fprintf( stderr, "peer_id: " );
     for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
     fprintf( stderr, "\n" );
@@ -789,7 +789,7 @@ if( count++ ) return NULL;
 
     handshake = tr_new0( tr_handshake, 1 );
     handshake->connection = connection;
-    handshake->encryption = tr_peerConnectionGetEncryption( connection );
+    handshake->crypto = tr_peerConnectionGetCrypto( connection );
     handshake->encryptionPreference = encryptionPreference;
     handshake->doneCB = doneCB;
     handshake->doneUserData = doneUserData;

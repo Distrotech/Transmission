@@ -31,7 +31,7 @@
 
 #include "transmission.h"
 #include "completion.h"
-#include "encryption.h"
+#include "crypto.h" /* for tr_sha1 */
 #include "fastresume.h"
 #include "handshake.h"
 #include "inout.h"

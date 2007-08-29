@@ -12,8 +12,8 @@ libtransmission_a_SOURCES = \
     choking.c \
     clients.c \
     completion.c \
+    crypto.c \
     dirname.c \
-    encryption.c \
     fastresume.c \
     fdlimit.c \
     handshake.c \
@@ -49,8 +49,8 @@ noinst_HEADERS = \
     bsdtree.h \
     choking.h \
     clients.h \
+    crypto.h \
     completion.h \
-    encryption.h \
     fastresume.h \
     fdlimit.h \
     handshake.h \

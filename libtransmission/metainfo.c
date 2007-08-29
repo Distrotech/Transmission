@@ -33,7 +33,7 @@
 
 #include "transmission.h"
 #include "bencode.h"
-#include "encryption.h" /* tr_sha1 */
+#include "crypto.h" /* tr_sha1 */
 #include "http.h" /* tr_httpParseUrl */
 #include "metainfo.h"
 #include "platform.h"
