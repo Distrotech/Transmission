@@ -341,21 +341,12 @@ readCryptoProvide( tr_handshake * handshake, struct evbuffer * inbuf )
 
     tr_cryptoDecryptInit( handshake->crypto );
 
-    evbuffer_remove( inbuf, vc_in, VC_LENGTH );
-    tr_cryptoDecrypt( handshake->crypto, VC_LENGTH, vc_in, vc_in );
-    fprintf( stderr, "read vc -> %d %d %d %d %d %d %d %d\n",
-        (int)vc_in[0], (int)vc_in[1], (int)vc_in[2], (int)vc_in[3],
-        (int)vc_in[4], (int)vc_in[5], (int)vc_in[6], (int)vc_in[7] );
+    tr_cryptoReadBytes( handshake->crypto, inbuf, vc_in, VC_LENGTH );
 
-    evbuffer_remove( inbuf, &crypto_provide, sizeof(crypto_provide) );
-    tr_cryptoDecrypt( handshake->crypto, sizeof(crypto_provide),
-                          &crypto_provide, &crypto_provide );
-    crypto_provide = ntohl( crypto_provide );
+    tr_cryptoReadUint32( handshake->crypto, inbuf, &crypto_provide );
     fprintf( stderr, "crypto_provide is %d\n", (int)crypto_provide );
 
-    evbuffer_remove( inbuf, &padc_len, sizeof(padc_len) );
-    tr_cryptoDecrypt( handshake->crypto, sizeof(padc_len), &padc_len, &padc_len );
-    padc_len = ntohs( padc_len );
+    tr_cryptoReadUint16( handshake->crypto, inbuf, &padc_len );
     fprintf( stderr, "padc is %d\n", (int)padc_len );
     handshake->PadC_len = padc_len;
     setState( handshake, AWAITING_PAD_C );
@@ -373,8 +364,7 @@ readPadC( tr_handshake * handshake, struct evbuffer * inbuf )
 
     evbuffer_drain( inbuf, needlen );
 
-    evbuffer_remove( inbuf, &ia_len, sizeof(ia_len) );
-    ia_len = ntohs( ia_len );
+    tr_cryptoReadUint16( handshake->crypto, inbuf, &ia_len );
     fprintf( stderr, "ia_len is %d\n", (int)ia_len );
     handshake->ia_len = ia_len;
     setState( handshake, AWAITING_IA );
@@ -391,8 +381,7 @@ readIA( tr_handshake * handshake, struct evbuffer * inbuf )
         return READ_MORE;
 
     ia = tr_new( uint8_t, handshake->ia_len );
-    evbuffer_remove( inbuf, ia, handshake->ia_len );
-    tr_cryptoDecrypt( handshake->crypto, handshake->ia_len, ia, ia );
+    tr_cryptoReadBytes( handshake->crypto, inbuf, ia, handshake->ia_len );
     fprintf( stderr, "got their payload ia: [%*.*s]\n", (int)needlen, (int)needlen, ia );
 
     handshake->state = -1;
@@ -559,17 +548,12 @@ readCryptoSelect( tr_handshake * handshake, struct evbuffer * inbuf )
 
  //   tr_cryptoDecryptInit( handshake->crypto );
 
-    evbuffer_remove( inbuf, &crypto_select, sizeof(uint32_t) );
-    tr_cryptoDecrypt( handshake->crypto, sizeof(uint32_t), &crypto_select, &crypto_select );
-    fprintf( stderr, "crypto select 1 is %d\n", crypto_select );
-    crypto_select = ntohl( crypto_select );
-    handshake->crypto_select = crypto_select;
+    tr_cryptoReadUint32( handshake->crypto, inbuf, &crypto_select );
     assert( crypto_select==1 || crypto_select==2 );
-    fprintf( stderr, "crypto select 2 is %d\n", crypto_select );
+    handshake->crypto_select = crypto_select;
+    fprintf( stderr, "crypto select is %d\n", crypto_select );
 
-    evbuffer_remove( inbuf, &pad_d_len, sizeof(uint16_t) );
-    tr_cryptoDecrypt( handshake->crypto, sizeof(uint16_t), &pad_d_len, &pad_d_len );
-    pad_d_len = ntohs( pad_d_len );
+    tr_cryptoReadUint16( handshake->crypto, inbuf, &pad_d_len );
     fprintf( stderr, "pad_d_len is %d\n", (int)pad_d_len );
     assert( pad_d_len <= 512 );
     handshake->pad_d_len = pad_d_len;
@@ -582,16 +566,15 @@ static int
 readPadD( tr_handshake * handshake, struct evbuffer * inbuf )
 {
     const size_t needlen = handshake->pad_d_len;
-    uint8_t * buf;
+    uint8_t * tmp;
 
 fprintf( stderr, "pad d: need %d, got %d\n", (int)needlen, (int)EVBUFFER_LENGTH(inbuf) );
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
 
-    buf = tr_new( uint8_t, needlen );
-    evbuffer_remove( inbuf, buf, needlen );
-    tr_cryptoDecrypt( handshake->crypto, needlen, buf, buf );
-    tr_free( buf );
+    tmp = tr_new( uint8_t, needlen );
+    tr_cryptoReadBytes( handshake->crypto, inbuf, tmp, needlen );
+    tr_free( tmp );
 
     setState( handshake, AWAITING_HANDSHAKE );
     return READ_AGAIN;

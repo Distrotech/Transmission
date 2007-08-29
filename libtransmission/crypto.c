@@ -14,6 +14,7 @@
 #include <inttypes.h> /* uint8_t */
 #include <string.h> /* memcpy */
 #include <stdarg.h>
+#include <arpa/inet.h>
 
 #include <openssl/bn.h>
 #include <openssl/dh.h>
@@ -201,6 +202,46 @@ tr_cryptoDecrypt( tr_crypto  * crypto,
          (const unsigned char*)buf_in,
          (unsigned char*)buf_out );
 }
+
+
+void
+tr_cryptoReadUint16( tr_crypto        * crypto,
+                     struct evbuffer  * inbuf,
+                     uint16_t         * setme )
+{
+    uint16_t tmp;
+    assert( EVBUFFER_LENGTH(inbuf) >= sizeof(uint16_t) );
+    evbuffer_remove( inbuf, &tmp, sizeof(uint16_t) );
+    tr_cryptoDecrypt( crypto, sizeof(uint16_t), &tmp, &tmp );
+    *setme = ntohs( tmp );
+}
+
+void
+tr_cryptoReadUint32( tr_crypto        * crypto,
+                     struct evbuffer  * inbuf,
+                     uint32_t         * setme )
+{
+    uint32_t tmp;
+    assert( EVBUFFER_LENGTH(inbuf) >= sizeof(uint32_t) );
+    evbuffer_remove( inbuf, &tmp, sizeof(uint32_t) );
+    tr_cryptoDecrypt( crypto, sizeof(uint32_t), &tmp, &tmp );
+    *setme = ntohl( tmp );
+}
+
+void
+tr_cryptoReadBytes( tr_crypto        * crypto,
+                    struct evbuffer  * inbuf,
+                    uint8_t          * bytes,
+                    int                byteCount )
+{
+    assert( (int)EVBUFFER_LENGTH(inbuf) >= byteCount );
+    evbuffer_remove( inbuf, bytes, byteCount );
+    tr_cryptoDecrypt( crypto, byteCount, bytes, bytes );
+}
+
+/**
+***
+**/
 
 void
 tr_cryptoEncryptInit( tr_crypto * crypto )
