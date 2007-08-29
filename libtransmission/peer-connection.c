@@ -73,9 +73,9 @@ canReadWrapper( struct bufferevent * e, void * userData )
     for( ;; ) {
         const int ret = (*c->canRead)( e, c->userData );
         switch( ret ) {
-            case READ_DONE: return;
-            case READ_AGAIN: continue;
-            case READ_MORE: tr_peerConnectionSetIOMode( c, EV_READ ); return;
+            case READ_DONE: return; fprintf( stderr, "READ_DONE\n"); break;
+            case READ_AGAIN: fprintf( stderr, "READ_AGAIN: going again w/o reading more data"); continue; break;
+            case READ_MORE: fprintf( stderr, "READ_MORE: waiting for more...\n" ); tr_peerConnectionSetIOMode( c, EV_READ ); return; break;
         }
     }
 }

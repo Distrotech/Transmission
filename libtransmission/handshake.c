@@ -473,7 +473,6 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
         assert( 1<=crypto_provide && crypto_provide<=3 );
         crypto_provide = htonl( crypto_provide );
         tr_cryptoEncrypt( handshake->crypto, sizeof(crypto_provide), &crypto_provide, &crypto_provide );
-fprintf( stderr, "crypto_provide is [%d]\n", crypto_provide );
         evbuffer_add( outbuf, &crypto_provide, sizeof(crypto_provide) );
 
         /* len(padc) */
@@ -484,6 +483,7 @@ fprintf( stderr, "crypto_provide is [%d]\n", crypto_provide );
 
         /* padc */
         for( i=0; i<len; ++i ) pad[i] = tr_rand( UCHAR_MAX );
+        tr_cryptoEncrypt( handshake->crypto, len, pad, pad );
         evbuffer_add( outbuf, pad, len );
     }
 
@@ -518,13 +518,17 @@ readVC( tr_handshake * handshake, struct evbuffer * inbuf )
     const int key_len = VC_LENGTH;
     uint8_t tmp[VC_LENGTH];
 
+static int drained = 0;
+
     /* note: this works w/o having to `unwind' the buffer if
      * we read too much, but it is pretty brute-force.
      * it would be nice to make this cleaner. */
     for( ;; )
     {
-        if( EVBUFFER_LENGTH(inbuf) < VC_LENGTH )
+        if( EVBUFFER_LENGTH(inbuf) < VC_LENGTH ) {
+            fprintf( stderr, "not enough bytes... returning read_more\n" );
             return READ_MORE;
+        }
 
         memcpy( tmp, EVBUFFER_DATA(inbuf), key_len );
         tr_cryptoDecryptInit( handshake->crypto );
@@ -533,8 +537,10 @@ readVC( tr_handshake * handshake, struct evbuffer * inbuf )
             break;
 
         evbuffer_drain( inbuf, 1 );
+        fprintf( stderr, "drained %d\n", ++drained );
     }
 
+    fprintf( stderr, "got it!\n" );
     evbuffer_drain( inbuf, key_len );
     setState( handshake, AWAITING_CRYPTO_SELECT );
     return READ_AGAIN;

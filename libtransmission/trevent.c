@@ -126,7 +126,6 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             read( fd, &bufev, sizeof(struct bufferevent*) );
             read( fd, &buf, sizeof(char*) );
             read( fd, &buflen, sizeof(size_t) );
-            fprintf( stderr, "bufev is %p, buflen is %d, buf is %p\n", bufev, (int)buflen, buf );
             bufferevent_enable( bufev, EV_WRITE );
             bufferevent_disable( bufev, EV_READ );
             bufferevent_write( bufev, buf, buflen );
@@ -273,7 +272,6 @@ tr_bufferevent_write( tr_handle_t           * handle,
     char * local = tr_strndup( buf, buflen );
 
     tr_lockLock( lock );
-fprintf( stderr, "writing to bufev %p: %d bytes starting at %p\n", bufev, (int)buflen, local );
     tr_dbg( "writing bufferevent_write pipe" );
     write( fd, &ch, 1 );
     write( fd, &bufev, sizeof(struct bufferevent*) );
