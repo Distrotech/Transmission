@@ -140,10 +140,10 @@ struct tr_torrent
     int                        blockCountInPiece;
     int                        blockCountInLastPiece;
     
-    struct tr_completion_s   * completion;
+    struct tr_completion     * completion;
 
     volatile char              dieFlag;
-    struct tr_bitfield_s     * uncheckedPieces;
+    struct tr_bitfield       * uncheckedPieces;
     run_status_t               runStatus;
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;
@@ -151,7 +151,7 @@ struct tr_torrent
     struct tr_thread_s       * thread;
     struct tr_rwlock_s       * lock;
 
-    struct tr_tracker_s      * tracker;
+    struct tr_tracker        * tracker;
     struct tr_publisher_tag  * trackerSubscription;
     struct tr_io_s           * io;
     uint64_t                   startDate;

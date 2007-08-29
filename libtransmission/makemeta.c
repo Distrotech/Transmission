@@ -24,7 +24,6 @@
 #include "crypto.h" /* tr_sha1 */
 #include "trcompat.h" /* strlcpy */
 #include "transmission.h"
-#include "internal.h" /* tr_torrent_t */
 #include "bencode.h"
 #include "makemeta.h"
 #include "platform.h" /* threads, locks */

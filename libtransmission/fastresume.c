@@ -114,7 +114,7 @@ enum
 #define FR_SPEED_LEN (2 * (sizeof(uint16_t) + sizeof(uint8_t) ) )
 
 static void
-fastResumeFileName( char * buf, size_t buflen, const tr_torrent_t * tor, int tag )
+fastResumeFileName( char * buf, size_t buflen, const tr_torrent * tor, int tag )
 {
     const char * cacheDir = tr_getCacheDirectory ();
     const char * hash = tor->info.hashString;
@@ -132,7 +132,7 @@ fastResumeFileName( char * buf, size_t buflen, const tr_torrent_t * tor, int tag
 }
 
 static tr_time_t*
-getMTimes( const tr_torrent_t * tor, int * setme_n )
+getMTimes( const tr_torrent * tor, int * setme_n )
 {
     int i;
     const int n = tor->info.fileCount;
@@ -171,7 +171,7 @@ fastResumeWriteData( uint8_t       id,
 }
 
 void
-tr_fastResumeSave( const tr_torrent_t * tor )
+tr_fastResumeSave( const tr_torrent * tor )
 {
     char      path[MAX_PATH_LENGTH];
     FILE    * file;
@@ -194,7 +194,7 @@ tr_fastResumeSave( const tr_torrent_t * tor )
         tr_time_t * mtimes;
         uint8_t * buf = malloc( FR_PROGRESS_LEN( tor ) );
         uint8_t * walk = buf;
-        const tr_bitfield_t * bitfield;
+        const tr_bitfield * bitfield;
 
         /* mtimes */
         mtimes = getMTimes( tor, &n );
@@ -308,7 +308,7 @@ tr_fastResumeSave( const tr_torrent_t * tor )
 }
 
 static int
-loadSpeeds( tr_torrent_t * tor, FILE * file )
+loadSpeeds( tr_torrent * tor, FILE * file )
 {
     const size_t len = FR_SPEED_LEN;
     char * buf = tr_new0( char, len );
@@ -337,8 +337,8 @@ loadSpeeds( tr_torrent_t * tor, FILE * file )
 
 
 static int
-loadPriorities( tr_torrent_t * tor,
-                FILE         * file )
+loadPriorities( tr_torrent * tor,
+                FILE       * file )
 {
     const size_t n = tor->info.fileCount;
     const size_t len = 2 * n;
@@ -387,9 +387,9 @@ loadPriorities( tr_torrent_t * tor,
 }
 
 static int
-fastResumeLoadProgress( const tr_torrent_t  * tor,
-                        tr_bitfield_t       * uncheckedPieces,
-                        FILE                * file )
+fastResumeLoadProgress( const tr_torrent  * tor,
+                        tr_bitfield       * uncheckedPieces,
+                        FILE              * file )
 {
     int i;
     const size_t len = FR_PROGRESS_LEN( tor );
@@ -422,7 +422,7 @@ fastResumeLoadProgress( const tr_torrent_t  * tor,
 
     /* get the completion bitfield */
     if (1) {
-        tr_bitfield_t bitfield;
+        tr_bitfield bitfield;
         memset( &bitfield, 0, sizeof bitfield );
         bitfield.len = FR_BLOCK_BITFIELD_LEN( tor );
         bitfield.bits = walk;
@@ -441,9 +441,9 @@ fastResumeLoadProgress( const tr_torrent_t  * tor,
 }
 
 static uint64_t
-fastResumeLoadOld( tr_torrent_t   * tor,
-                   tr_bitfield_t  * uncheckedPieces, 
-                   FILE           * file )
+fastResumeLoadOld( tr_torrent   * tor,
+                   tr_bitfield  * uncheckedPieces, 
+                   FILE         * file )
 {
     uint64_t ret = 0;
 
@@ -475,8 +475,8 @@ fastResumeLoadOld( tr_torrent_t   * tor,
 }
 
 static uint64_t
-fastResumeLoadImpl ( tr_torrent_t   * tor,
-                     tr_bitfield_t  * uncheckedPieces )
+fastResumeLoadImpl ( tr_torrent   * tor,
+                     tr_bitfield  * uncheckedPieces )
 {
     char      path[MAX_PATH_LENGTH];
     FILE    * file;
@@ -670,8 +670,8 @@ fastResumeLoadImpl ( tr_torrent_t   * tor,
 }
 
 uint64_t
-tr_fastResumeLoad( tr_torrent_t   * tor,
-                   tr_bitfield_t  * uncheckedPieces )
+tr_fastResumeLoad( tr_torrent   * tor,
+                   tr_bitfield  * uncheckedPieces )
 {
     const uint64_t ret = fastResumeLoadImpl( tor, uncheckedPieces );
 

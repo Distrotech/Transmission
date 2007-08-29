@@ -255,7 +255,7 @@ torrentRealInit( tr_handle_t * h,
     uint64_t loaded;
     uint64_t t;
     char name[512];
-    tr_bitfield_t * uncheckedPieces;
+    tr_bitfield * uncheckedPieces;
     tr_info_t * info = &tor->info;
     
     tor->info.flags |= flags;
@@ -698,7 +698,7 @@ const tr_stat_t *
 tr_torrentStat( tr_torrent * tor )
 {
     tr_stat_t * s;
-    struct tr_tracker_s * tc;
+    struct tr_tracker * tc;
     int i;
 
     tr_torrentReaderLock( tor );

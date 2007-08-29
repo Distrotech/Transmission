@@ -97,8 +97,8 @@ Tracker;
 
 /* this is the Torrent struct, but since it's the pointer
    passed around in the public API of this tracker module,
-   its *public* name is tr_tracker_s... wheee */
-typedef struct tr_tracker_s
+   its *public* name is tr_tracker... wheee */
+typedef struct tr_tracker
 {
     tr_publisher_t * publisher;
 
@@ -134,7 +134,7 @@ typedef struct tr_tracker_s
 
     struct evhttp_request * httpReq;
 
-    tr_torrent_t * torrent;
+    tr_torrent * torrent;
 }
 Torrent;
 
@@ -287,7 +287,7 @@ tr_trackerScrapeSoon( Tracker * t )
 }
 
 static Tracker*
-tr_trackerGet( const tr_torrent_t * tor )
+tr_trackerGet( const tr_torrent * tor )
 {
     const tr_info_t * info = &tor->info;
     tr_ptrArray_t * trackers = getTrackerLookupTable( );
@@ -423,7 +423,7 @@ tr_trackerFree( Torrent * tor )
 }
 
 Torrent*
-tr_trackerNew( tr_torrent_t * torrent )
+tr_trackerNew( tr_torrent * torrent )
 {
     Torrent * tor;
     Tracker * t = tr_trackerGet( torrent );
@@ -772,7 +772,7 @@ torrentIsRunning( const Torrent * tor )
 static char*
 buildTrackerRequestURI( const Torrent * tor, const char * eventName )
 {
-    const tr_torrent_t * torrent = tor->torrent;
+    const tr_torrent * torrent = tor->torrent;
     const int stopping = !strcmp( eventName, "stopped" );
     const int numwant = stopping ? 0 : NUMWANT;
     char buf[4096];

@@ -328,7 +328,7 @@ static void SharedLoop( void * _s )
 static void SetPublicPort( tr_shared_t * s, int port )
 {
     tr_handle_t * h = s->h;
-    tr_torrent_t * tor;
+    tr_torrent * tor;
 
     s->publicPort = port;
 
@@ -428,7 +428,7 @@ static void DispatchPeers( tr_shared_t * s )
         }
         if( hash )
         {
-            tr_torrent_t * tor;
+            tr_torrent * tor;
 
             for( tor = h->torrentList; tor; tor = tor->next )
             {

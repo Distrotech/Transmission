@@ -137,7 +137,7 @@ void tr_chokingPulse( tr_choking_t * c )
     int canChokeCount, canUnchokeCount;
     int canChokeZeroCount, canUnchokeZeroCount;
     int canChokeNonZeroCount, canUnchokeNonZeroCount;
-    tr_torrent_t * tor;
+    tr_torrent * tor;
     uint64_t now = tr_date();
 
     tr_lockLock( c->lock );

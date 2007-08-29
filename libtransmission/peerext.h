@@ -26,7 +26,7 @@
 #define EXTENDED_PEX_ID         1
 
 static int
-makeCommonPex( tr_torrent_t * tor, tr_peer_t * peer,
+makeCommonPex( tr_torrent * tor, tr_peer_t * peer,
                int ( *peerfunc )( tr_peertree_t *, benc_val_t * ),
                const char * extrakey, benc_val_t * extraval,
                char ** retbuf, int * retlen )
@@ -122,7 +122,7 @@ makeCommonPex( tr_torrent_t * tor, tr_peer_t * peer,
 }
 
 static char *
-makeExtendedHandshake( tr_torrent_t * tor, tr_peer_t * peer, int * len )
+makeExtendedHandshake( tr_torrent * tor, tr_peer_t * peer, int * len )
 {
     benc_val_t val, * msgsval;
     char * buf;
@@ -205,7 +205,7 @@ peertreeToBencUT( tr_peertree_t * tree, benc_val_t * val )
 }
 
 static int
-makeUTPex( tr_torrent_t * tor, tr_peer_t * peer, char ** buf, int * len )
+makeUTPex( tr_torrent * tor, tr_peer_t * peer, char ** buf, int * len )
 {
     benc_val_t val;
 
@@ -299,7 +299,7 @@ parseExtendedHandshake( tr_peer_t * peer, uint8_t * buf, int len )
 }
 
 static int
-parseUTPex( tr_torrent_t * tor, tr_peer_t * peer, uint8_t * buf, int len )
+parseUTPex( tr_torrent * tor, tr_peer_t * peer, uint8_t * buf, int len )
 {
     benc_val_t val, * sub;
     int used;

@@ -32,10 +32,10 @@
  *
  **********************************************************************/
 
-static int parseChoke( tr_torrent_t  * tor,
-                       tr_peer_t     * peer,
-                       int             len,
-                       int             choking )
+static int parseChoke( tr_torrent  * tor,
+                       tr_peer_t   * peer,
+                       int           len,
+                       int           choking )
 {
     tr_request_t * r;
     int i;
@@ -101,8 +101,8 @@ static int parseInterested( tr_peer_t * peer, int len,
  ***********************************************************************
  *
  **********************************************************************/
-static int parseHave( tr_torrent_t * tor, tr_peer_t * peer,
-                             uint8_t * p, int len )
+static int parseHave( tr_torrent * tor, tr_peer_t * peer,
+                      uint8_t * p, int len )
 {
     tr_info_t * inf = &tor->info;
     uint32_t piece;
@@ -139,8 +139,8 @@ static int parseHave( tr_torrent_t * tor, tr_peer_t * peer,
     return TR_OK;
 }
 
-static int parseBitfield( tr_torrent_t * tor, tr_peer_t * peer,
-                                 uint8_t * p, int len )
+static int parseBitfield( tr_torrent * tor, tr_peer_t * peer,
+                          uint8_t * p, int len )
 {
     tr_info_t * inf = &tor->info;
     int bitfieldSize;
@@ -194,8 +194,8 @@ static int parseBitfield( tr_torrent_t * tor, tr_peer_t * peer,
     return TR_OK;
 }
 
-static int parseRequest( tr_torrent_t * tor, tr_peer_t * peer,
-                                uint8_t * p, int len )
+static int parseRequest( tr_torrent * tor, tr_peer_t * peer,
+                         uint8_t * p, int len )
 {
     tr_info_t * inf = &tor->info;
     int index, begin, length;
@@ -281,8 +281,8 @@ static void updateRequests( tr_peer_t * peer, int index, int begin )
     }
 }
 
-static int parsePiece( tr_torrent_t * tor, tr_peer_t * peer,
-                              uint8_t * p, int len )
+static int parsePiece( tr_torrent * tor, tr_peer_t * peer,
+                       uint8_t * p, int len )
 {
     tr_info_t * inf = &tor->info;
     int index, begin, block, i, ret;
@@ -379,8 +379,8 @@ static int reqCompare( const void * va, const void * vb )
     return a->length - b->length;
 }
 
-static int parseCancel( tr_torrent_t * tor, tr_peer_t * peer,
-                               uint8_t * p, int len )
+static int parseCancel( tr_torrent * tor, tr_peer_t * peer,
+                        uint8_t * p, int len )
 {
     tr_info_t * inf = &tor->info;
     int index, begin, length;
@@ -474,8 +474,8 @@ parseMessageHeader( tr_peer_t * peer, uint8_t * buf, int buflen,
     }
 }
 
-static int parseMessage( tr_torrent_t * tor, tr_peer_t * peer,
-                                int id, uint8_t * p, int len )
+static int parseMessage( tr_torrent * tor, tr_peer_t * peer,
+                         int id, uint8_t * p, int len )
 {
     int extid;
 
@@ -597,7 +597,7 @@ static const uint8_t * parseBufHash( const tr_peer_t * peer )
     }
 }
 
-static int parseHandshake( tr_torrent_t * tor, tr_peer_t * peer )
+static int parseHandshake( tr_torrent * tor, tr_peer_t * peer )
 {
     tr_info_t * inf = &tor->info;
     int         ii, extmsgs, azproto;
@@ -694,7 +694,7 @@ static int parseHandshake( tr_torrent_t * tor, tr_peer_t * peer )
     return TR_OK;
 }
 
-static int sendInitial( tr_torrent_t * tor, tr_peer_t * peer )
+static int sendInitial( tr_torrent * tor, tr_peer_t * peer )
 {
     if( PEER_STATUS_CONNECTED != peer->status )
     {
@@ -715,7 +715,7 @@ static int sendInitial( tr_torrent_t * tor, tr_peer_t * peer )
     return TR_OK;
 }
 
-static int parseBuf( tr_torrent_t * tor, tr_peer_t * peer )
+static int parseBuf( tr_torrent * tor, tr_peer_t * peer )
 {
     int       len, ret, msgid;
     uint8_t * buf;

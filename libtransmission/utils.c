@@ -566,10 +566,10 @@ void tr_free( void * p )
 ****/
 
 /* note that the argument is how many bits are needed, not bytes */
-tr_bitfield_t*
+tr_bitfield*
 tr_bitfieldNew( size_t bitcount )
 {
-    tr_bitfield_t * ret = calloc( 1, sizeof(tr_bitfield_t) );
+    tr_bitfield * ret = calloc( 1, sizeof(tr_bitfield) );
     if( NULL == ret )
         return NULL;
 
@@ -583,17 +583,17 @@ tr_bitfieldNew( size_t bitcount )
     return ret;
 }
 
-tr_bitfield_t*
-tr_bitfieldDup( const tr_bitfield_t * in )
+tr_bitfield*
+tr_bitfieldDup( const tr_bitfield * in )
 {
-    tr_bitfield_t * ret = calloc( 1, sizeof(tr_bitfield_t) );
+    tr_bitfield * ret = calloc( 1, sizeof(tr_bitfield) );
     ret->len = in->len;
     ret->bits = malloc( ret->len );
     memcpy( ret->bits, in->bits, ret->len );
     return ret;
 }
 
-void tr_bitfieldFree( tr_bitfield_t * bitfield )
+void tr_bitfieldFree( tr_bitfield * bitfield )
 {
     if( bitfield )
     {
@@ -603,13 +603,13 @@ void tr_bitfieldFree( tr_bitfield_t * bitfield )
 }
 
 void
-tr_bitfieldClear( tr_bitfield_t * bitfield )
+tr_bitfieldClear( tr_bitfield * bitfield )
 {
     memset( bitfield->bits, 0, bitfield->len );
 }
 
 int
-tr_bitfieldIsEmpty( const tr_bitfield_t * bitfield )
+tr_bitfieldIsEmpty( const tr_bitfield * bitfield )
 {
     unsigned int i;
 
@@ -624,7 +624,7 @@ tr_bitfieldIsEmpty( const tr_bitfield_t * bitfield )
 #define BIT(nth) (1<<(7-(nth%8)))
 
 void
-tr_bitfieldAdd( tr_bitfield_t  * bitfield, size_t nth )
+tr_bitfieldAdd( tr_bitfield  * bitfield, size_t nth )
 {
     assert( bitfield != NULL );
     assert( BIN(nth) < bitfield->len );
@@ -632,9 +632,9 @@ tr_bitfieldAdd( tr_bitfield_t  * bitfield, size_t nth )
 }
 
 void
-tr_bitfieldAddRange( tr_bitfield_t  * bitfield,
-                     size_t           begin,
-                     size_t           end )
+tr_bitfieldAddRange( tr_bitfield  * bitfield,
+                     size_t         begin,
+                     size_t         end )
 {
     /* TODO: there are faster ways to do this */
     unsigned int i;
@@ -643,8 +643,8 @@ tr_bitfieldAddRange( tr_bitfield_t  * bitfield,
 }
 
 void
-tr_bitfieldRem( tr_bitfield_t   * bitfield,
-                size_t            nth )
+tr_bitfieldRem( tr_bitfield   * bitfield,
+                size_t          nth )
 {
     if( bitfield != NULL )
     {
@@ -655,9 +655,9 @@ tr_bitfieldRem( tr_bitfield_t   * bitfield,
 }
 
 void
-tr_bitfieldRemRange ( tr_bitfield_t  * b,
-                      size_t           begin,
-                      size_t           end )
+tr_bitfieldRemRange ( tr_bitfield  * b,
+                      size_t         begin,
+                      size_t         end )
 {
     /* TODO: there are faster ways to do this */
     unsigned int i;
@@ -665,8 +665,8 @@ tr_bitfieldRemRange ( tr_bitfield_t  * b,
         tr_bitfieldRem( b, i );
 }
 
-tr_bitfield_t*
-tr_bitfieldNegate( tr_bitfield_t * b )
+tr_bitfield*
+tr_bitfieldNegate( tr_bitfield * b )
 {
     uint8_t *it;
     const uint8_t *end;
@@ -677,8 +677,8 @@ tr_bitfieldNegate( tr_bitfield_t * b )
     return b;
 }
 
-tr_bitfield_t*
-tr_bitfieldAnd( tr_bitfield_t * a, const tr_bitfield_t * b )
+tr_bitfield*
+tr_bitfieldAnd( tr_bitfield * a, const tr_bitfield * b )
 {
     uint8_t *ait;
     const uint8_t *aend, *bit;
@@ -692,7 +692,7 @@ tr_bitfieldAnd( tr_bitfield_t * a, const tr_bitfield_t * b )
 }
 
 size_t
-tr_bitfieldCountTrueBits( const tr_bitfield_t* b )
+tr_bitfieldCountTrueBits( const tr_bitfield* b )
 {
     size_t ret = 0;
     const uint8_t *it, *end;

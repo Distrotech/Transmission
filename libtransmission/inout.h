@@ -27,9 +27,9 @@
 
 typedef struct tr_io_s tr_io_t;
 
-void tr_ioCheckFiles  ( tr_torrent_t * );
+void tr_ioCheckFiles  ( tr_torrent * );
 
-tr_io_t * tr_ioNew ( tr_torrent_t * );
+tr_io_t * tr_ioNew ( tr_torrent * );
 
 /***********************************************************************
  * tr_ioRead, tr_ioWrite

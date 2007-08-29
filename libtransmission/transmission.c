@@ -194,7 +194,7 @@ tr_getGlobalSpeedLimit( tr_handle_t  * h,
 
 void tr_torrentRates( tr_handle_t * h, float * dl, float * ul )
 {
-    tr_torrent_t * tor;
+    tr_torrent * tor;
 
     *dl = 0.0;
     *ul = 0.0;
@@ -217,7 +217,7 @@ int tr_torrentCount( tr_handle_t * h )
 
 void tr_torrentIterate( tr_handle_t * h, tr_callback_t func, void * d )
 {
-    tr_torrent_t * tor, * next;
+    tr_torrent * tor, * next;
 
     for( tor = h->torrentList; tor; tor = next )
     {
@@ -240,7 +240,7 @@ void tr_close( tr_handle_t * h )
     tr_netResolveThreadClose();
 }
 
-tr_torrent_t **
+tr_torrent **
 tr_loadTorrents ( tr_handle_t   * h,
                   const char    * destination,
                   int             flags,
@@ -250,7 +250,7 @@ tr_loadTorrents ( tr_handle_t   * h,
     struct stat sb;
     DIR * odir = NULL;
     const char * torrentDir = tr_getTorrentsDirectory( );
-    tr_torrent_t ** torrents;
+    tr_torrent ** torrents;
     tr_list_t *l=NULL, *list=NULL;
 
     if( !stat( torrentDir, &sb )
@@ -262,7 +262,7 @@ tr_loadTorrents ( tr_handle_t   * h,
         {
             if( d->d_name && d->d_name[0]!='.' ) /* skip dotfiles, ., and .. */
             {
-                tr_torrent_t * tor;
+                tr_torrent * tor;
                 char path[MAX_PATH_LENGTH];
                 tr_buildPath( path, sizeof(path), torrentDir, d->d_name, NULL );
                 tor = tr_torrentInit( h, path, destination, flags, NULL );
@@ -276,9 +276,9 @@ tr_loadTorrents ( tr_handle_t   * h,
         closedir( odir );
     }
 
-    torrents = tr_new( tr_torrent_t*, n );
+    torrents = tr_new( tr_torrent*, n );
     for( i=0, l=list; l!=NULL; l=l->next )
-        torrents[i++] = (tr_torrent_t*) l->data;
+        torrents[i++] = (tr_torrent*) l->data;
     assert( i==n );
 
     tr_list_free( &list );

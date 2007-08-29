@@ -29,7 +29,7 @@
 
 struct tr_io_s
 {
-    tr_torrent_t * tor;
+    tr_torrent * tor;
 };
 
 /****
@@ -39,7 +39,7 @@ struct tr_io_s
 enum { TR_IO_READ, TR_IO_WRITE };
 
 static int
-readOrWriteBytes ( const tr_torrent_t  * tor,
+readOrWriteBytes ( const tr_torrent    * tor,
                    int                   ioMode,
                    int                   fileIndex,
                    uint64_t              fileOffset,
@@ -81,7 +81,7 @@ readOrWriteBytes ( const tr_torrent_t  * tor,
 }
 
 static void
-findFileLocation ( const tr_torrent_t * tor,
+findFileLocation ( const tr_torrent * tor,
                    int                  pieceIndex,
                    int                  pieceOffset,
                    int                * fileIndex,
@@ -108,7 +108,7 @@ findFileLocation ( const tr_torrent_t * tor,
 }
 
 static int
-ensureMinimumFileSize ( const tr_torrent_t  * tor,
+ensureMinimumFileSize ( const tr_torrent  * tor,
                         int                   fileIndex,
                         uint64_t              minSize ) /* in bytes */
 {
@@ -139,7 +139,7 @@ ensureMinimumFileSize ( const tr_torrent_t  * tor,
 }
 
 static int
-readOrWritePiece ( tr_torrent_t       * tor,
+readOrWritePiece ( tr_torrent       * tor,
                    int                  ioMode,
                    int                  pieceIndex,
                    int                  pieceOffset,
@@ -193,7 +193,7 @@ tr_ioWrite( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
 ****/
 
 static int
-tr_ioRecalculateHash ( tr_torrent_t  * tor,
+tr_ioRecalculateHash ( tr_torrent  * tor,
                        int             pieceIndex,
                        uint8_t       * setme )
 {
@@ -219,7 +219,7 @@ tr_ioRecalculateHash ( tr_torrent_t  * tor,
 }
 
 static int
-checkPiece ( tr_torrent_t * tor, int pieceIndex )
+checkPiece ( tr_torrent * tor, int pieceIndex )
 {
     uint8_t hash[SHA_DIGEST_LENGTH];
     int ret = tr_ioRecalculateHash( tor, pieceIndex, hash )
@@ -230,7 +230,7 @@ checkPiece ( tr_torrent_t * tor, int pieceIndex )
 }
 
 void
-tr_ioCheckFiles( tr_torrent_t * tor )
+tr_ioCheckFiles( tr_torrent * tor )
 {
     assert( tor != NULL );
     assert( tor->completion != NULL );
@@ -267,7 +267,7 @@ tr_ioCheckFiles( tr_torrent_t * tor )
 ****/
 
 tr_io_t*
-tr_ioNew ( tr_torrent_t * tor )
+tr_ioNew ( tr_torrent * tor )
 {
     tr_io_t * io = tr_calloc( 1, sizeof( tr_io_t ) );
     io->tor = tor;
@@ -303,7 +303,7 @@ tr_ioHash( tr_io_t * io, int pieceIndex )
 {
     int i;
 
-    tr_torrent_t * tor = io->tor;
+    tr_torrent * tor = io->tor;
     const int success = !checkPiece( tor, pieceIndex );
     if( success )
     {
