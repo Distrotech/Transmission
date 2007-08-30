@@ -418,3 +418,13 @@ tr_peerConnectionReadUint32( tr_peerConnection * conn,
     tr_peerConnectionReadBytes( conn, inbuf, &tmp, sizeof(uint32_t) );
     *setme = ntohl( tmp );
 }
+
+void
+tr_peerConnectionDrain( tr_peerConnection   * conn,
+                        struct evbuffer     * inbuf,
+                        int                   byteCount )
+{
+    uint8_t * tmp = tr_new( uint8_t, byteCount );
+    tr_peerConnectionReadBytes( conn, inbuf, tmp, byteCount );
+    tr_free( tmp );
+}

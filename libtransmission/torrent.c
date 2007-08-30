@@ -893,16 +893,16 @@ tr_torrentFilesFree( tr_file_stat_t * files, int fileCount UNUSED )
 ****
 ***/
 
-tr_peer_stat_t *
+tr_peer_stat *
 tr_torrentPeers( const tr_torrent * tor, int * peerCount )
 {
-    tr_peer_stat_t * peers;
+    tr_peer_stat * peers;
 
     tr_torrentReaderLock( tor );
 
     *peerCount = tor->peerCount;
    
-    peers = tr_new0( tr_peer_stat_t, tor->peerCount ); 
+    peers = tr_new0( tr_peer_stat, tor->peerCount ); 
     if (peers != NULL)
     {
         tr_peer_t * peer;
@@ -938,7 +938,7 @@ tr_torrentPeers( const tr_torrent * tor, int * peerCount )
     return peers;
 }
 
-void tr_torrentPeersFree( tr_peer_stat_t * peers, int peerCount UNUSED )
+void tr_torrentPeersFree( tr_peer_stat * peers, int peerCount UNUSED )
 {
     tr_free( peers );
 }

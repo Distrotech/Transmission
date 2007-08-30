@@ -143,7 +143,7 @@ blockPending( tr_torrent  * tor,
         tr_htonl( r->begin, buf );
         buf += 4;
 
-        tr_ioRead( tor->io, r->index, r->begin, r->length, buf );
+        tr_ioRead( tor, r->index, r->begin, r->length, buf );
 
         peer_dbg( "SEND piece %d/%d (%d bytes)",
                   r->index, r->begin, r->length );

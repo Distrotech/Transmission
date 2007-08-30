@@ -25,6 +25,8 @@
 #ifndef TR_IO_H
 #define TR_IO_H 1
 
+struct tr_torrent;
+
 typedef struct tr_io_s tr_io_t;
 
 void tr_ioCheckFiles  ( tr_torrent * );
@@ -39,8 +41,8 @@ tr_io_t * tr_ioNew ( tr_torrent * );
  * TR_ERROR_ASSERT if the parameters are incorrect, one of the
  * TR_ERROR_IO_* otherwise.
  **********************************************************************/
-int tr_ioRead  ( tr_io_t *, int index, int begin, int len, uint8_t * );
-int tr_ioWrite ( tr_io_t *, int index, int begin, int len, uint8_t * );
+int tr_ioRead  ( struct tr_torrent*, int index, int begin, int len, uint8_t * );
+int tr_ioWrite ( struct tr_torrent *, int index, int begin, int len, uint8_t * );
 
 /***********************************************************************
  * tr_ioHash

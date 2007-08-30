@@ -140,11 +140,11 @@ ensureMinimumFileSize ( const tr_torrent  * tor,
 
 static int
 readOrWritePiece ( tr_torrent       * tor,
-                   int                  ioMode,
-                   int                  pieceIndex,
-                   int                  pieceOffset,
-                   uint8_t            * buf,
-                   size_t               buflen )
+                   int                ioMode,
+                   int                pieceIndex,
+                   int                pieceOffset,
+                   uint8_t          * buf,
+                   size_t             buflen )
 {
     int ret = 0;
     int fileIndex;
@@ -177,15 +177,15 @@ readOrWritePiece ( tr_torrent       * tor,
 }
 
 int
-tr_ioRead( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
+tr_ioRead( tr_torrent * tor, int pieceIndex, int begin, int len, uint8_t * buf )
 {
-    return readOrWritePiece ( io->tor, TR_IO_READ, pieceIndex, begin, buf, len );
+    return readOrWritePiece ( tor, TR_IO_READ, pieceIndex, begin, buf, len );
 }
 
 int
-tr_ioWrite( tr_io_t * io, int pieceIndex, int begin, int len, uint8_t * buf )
+tr_ioWrite( tr_torrent * tor, int pieceIndex, int begin, int len, uint8_t * buf )
 {
-    return readOrWritePiece ( io->tor, TR_IO_WRITE, pieceIndex, begin, buf, len );
+    return readOrWritePiece ( tor, TR_IO_WRITE, pieceIndex, begin, buf, len );
 }
 
 /****

@@ -151,5 +151,9 @@ void tr_peerConnectionReadUint32  ( tr_peerConnection   * conn,
                                     struct evbuffer     * inbuf,
                                     uint32_t            * setme );
 
+void tr_peerConnectionDrain       ( tr_peerConnection   * conn,
+                                    struct evbuffer     * inbuf,
+                                    int                   byteCount );
+
 
 #endif

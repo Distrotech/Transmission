@@ -334,7 +334,7 @@ static int parsePiece( tr_torrent * tor, tr_peer_t * peer,
     tr_bitfieldAdd( peer->blamefield, index );
 
     /* Write to disk */
-    if( ( ret = tr_ioWrite( tor->io, index, begin, len - 8, &p[8] ) ) )
+    if( ( ret = tr_ioWrite( tor, index, begin, len - 8, &p[8] ) ) )
     {
         return ret;
     }

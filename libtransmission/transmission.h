@@ -470,9 +470,10 @@ const tr_stat_t * tr_torrentStat( tr_torrent * );
 /***********************************************************************
  * tr_torrentPeers
  ***********************************************************************/
-typedef struct tr_peer_stat_s tr_peer_stat_t;
-tr_peer_stat_t * tr_torrentPeers( const tr_torrent *, int * peerCount );
-void tr_torrentPeersFree( tr_peer_stat_t *, int peerCount );
+typedef struct tr_peer_stat tr_peer_stat;
+typedef struct tr_peer_stat tr_peer_stat_t;
+tr_peer_stat * tr_torrentPeers( const tr_torrent *, int * peerCount );
+void tr_torrentPeersFree( tr_peer_stat *, int peerCount );
 
 typedef struct tr_file_stat_s tr_file_stat_t;
 tr_file_stat_t * tr_torrentFiles( const tr_torrent *, int * fileCount );
@@ -651,7 +652,7 @@ struct tr_file_stat_s
     cp_status_t completionStatus;
 };
 
-struct tr_peer_stat_s
+struct tr_peer_stat
 {
     char    addr[INET_ADDRSTRLEN];
     const char * client;
