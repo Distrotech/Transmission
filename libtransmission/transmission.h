@@ -150,6 +150,8 @@ const char * tr_getPrefsDirectory( void );
  **********************************************************************/
 void tr_setBindPort( tr_handle_t *, int );
 
+int tr_getPublicPort( const tr_handle_t * );
+
 /***********************************************************************
  * tr_natTraversalEnable
  * tr_natTraversalDisable

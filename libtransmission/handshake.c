@@ -23,11 +23,12 @@
 
 #include <event.h>
 
-#include <libtransmission/transmission.h>
-#include <libtransmission/crypto.h>
-#include <libtransmission/handshake.h>
-#include <libtransmission/peer-connection.h>
-#include <libtransmission/utils.h>
+#include "transmission.h"
+#include "bencode.h"
+#include "crypto.h"
+#include "handshake.h"
+#include "peer-connection.h"
+#include "utils.h"
 
 /***
 ****
@@ -126,7 +127,8 @@ enum /*ccc*/
     AWAITING_PAD_D,
     //AWAITING_PLAINTEXT_RESPONSE,
     
-    SENDING_PLAINTEXT_HANDSHAKE
+    SENDING_PLAINTEXT_HANDSHAKE,
+    SENDING_LTEP_HANDHAKE
 };
 
 /**
@@ -240,6 +242,67 @@ sendHandshake( tr_handshake * handshake )
         sendPlaintextHandshake( handshake );
     }
 }
+
+static void
+sendLtepHandshake( tr_handshake * handshake )
+{
+    benc_val_t val, *m;
+    char * buf;
+    int len;
+    int i;
+    const char * v = TR_NAME " " USERAGENT_PREFIX;
+    const int port = tr_getPublicPort( handshake->handle );
+    struct evbuffer * outbuf = evbuffer_new( );
+    uint32_t msglen;
+    uint32_t msgextid;
+    uint8_t msgid;
+
+    
+void tr_peerConnectionWriteUint32 ( tr_peerConnection   * conn,
+                                    struct evbuffer     * outbuf,
+                                    uint32_t              writeme );
+void tr_peerConnectionWriteBytes   ( tr_peerConnection  * conn,
+                                     struct evbuffer    * outbuf,
+                                     const void         * bytes,
+                                     int                  byteCount );
+
+void tr_peerConnectionWriteUint16 ( tr_peerConnection   * conn,
+                                    struct evbuffer     * outbuf,
+                                    uint16_t              writeme );
+
+
+    tr_bencInit( &val, TYPE_DICT );
+    tr_bencDictReserve( &val, 3 );
+    m  = tr_bencDictAdd( &val, "m" );
+    tr_bencInit( m, TYPE_DICT );
+    tr_bencDictReserve( m, 1 );
+    tr_bencInitInt( tr_bencDictAdd( m, "ut_pex" ), 1 );
+    if( port > 0 )
+        tr_bencInitInt( tr_bencDictAdd( &val, "p" ), port );
+    tr_bencInitStr( tr_bencDictAdd( &val, "v" ), v, 0, 1 );
+
+    fprintf( stderr, "sending ltep handshake...\n" );
+    buf = tr_bencSaveMalloc( &val,  &len );
+for( i=0; i<len; ++i) fprintf( stderr, "%c", buf[i] );
+fprintf( stderr, "\n" );
+
+    msglen = 1 + sizeof(uint32_t) + len;
+    msgid = 20; /* LTEP extension command number */
+    msgextid = 0; /* LTEP handshake number */
+    tr_peerConnectionWriteUint32( handshake->connection, outbuf, msglen );
+    tr_peerConnectionWriteBytes( handshake->connection, outbuf, &msgid, 1 );
+    tr_peerConnectionWriteUint32( handshake->connection, outbuf, msgextid );
+    tr_peerConnectionWriteBytes( handshake->connection, outbuf, buf, len );
+    
+    handshake->state = SENDING_LTEP_HANDHAKE;
+    tr_peerConnectionWriteBuf( handshake->connection, outbuf );
+  
+    /* cleanup */ 
+    tr_bencFree( &val );
+    tr_free( buf ); 
+    evbuffer_free( outbuf );
+}
+
 
 /**
 ***
@@ -596,6 +659,7 @@ readHandshake( tr_handshake * handshake, struct evbuffer * inbuf )
     uint8_t reserved[8];
     uint8_t hash[SHA_DIGEST_LENGTH];
     uint8_t peer_id[20];
+    int bytesRead = 0;
 
 fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (int)EVBUFFER_LENGTH(inbuf) );
 
@@ -604,6 +668,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
 
     /* pstrlen */
     evbuffer_remove( inbuf, &pstrlen, 1 );
+    bytesRead++;
     fprintf( stderr, "pstrlen 1 is %d [%c]\n", (int)pstrlen, pstrlen );
     isEncrypted = pstrlen != 19;
     tr_peerConnectionSetEncryption( handshake->connection, isEncrypted
@@ -621,15 +686,17 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     tr_peerConnectionReadBytes( handshake->connection, inbuf, pstr, pstrlen );
     pstr[pstrlen] = '\0';
     fprintf( stderr, "pstrlen is [%s]\n", pstr );
+    bytesRead += pstrlen;
     assert( !strcmp( (char*)pstr, "BitTorrent protocol" ) );
 
     /* reserved bytes */
     tr_peerConnectionReadBytes( handshake->connection, inbuf, reserved, sizeof(reserved) );
+    bytesRead += sizeof(reserved);
 
     /* torrent hash */
     tr_peerConnectionReadBytes( handshake->connection, inbuf, hash, sizeof(hash) );
     assert( !memcmp( hash, tr_peerConnectionGetTorrent(handshake->connection)->info.hash, SHA_DIGEST_LENGTH ) );
-
+    bytesRead += sizeof(hash);
 
     /* peer id */
     tr_peerConnectionReadBytes( handshake->connection, inbuf, peer_id, sizeof(peer_id) );
@@ -637,6 +704,9 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
     fprintf( stderr, "\n" );
     tr_peerConnectionSetPeersId( handshake->connection, peer_id );
+    bytesRead += sizeof(peer_id);
+
+    assert( bytesRead == HANDSHAKE_SIZE );
 
     /**
     ***
@@ -663,13 +733,19 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     tr_peerConnectionSetExtension( handshake->connection, i );
 
 
-    if( !tr_peerConnectionIsIncoming( handshake->connection ) && ( i != LT_EXTENSIONS_AZMP ) ) {
+    if( i == LT_EXTENSIONS_LTEP )
+    {
+        sendLtepHandshake( handshake );
+        return READ_DONE;
+    }
+    else if( !tr_peerConnectionIsIncoming( handshake->connection ) && ( i != LT_EXTENSIONS_AZMP ) )
+    {
         fireDoneCB( handshake, TRUE );
         return READ_DONE;
     }
 
-    
-    assert( 0 && "FIXME" );
+
+    fprintf( stderr, " UNHANDLED -- azmp " );
     return 0;
 }
 
@@ -709,20 +785,25 @@ static void
 didWrite( struct bufferevent * evin UNUSED, void * arg )
 {
     tr_handshake * handshake = (tr_handshake *) arg;
-    int state = -1;
+    fprintf( stderr, "handshake %p, with a state of %s, got a didWrite event\n", handshake, getStateName(handshake->state) );
 
-fprintf( stderr, "handshake %p got a didWrite event\n", handshake );
-
-    switch( handshake->state )
+    if( handshake->state == SENDING_LTEP_HANDHAKE )
     {
-        case SENDING_YA:                   state = AWAITING_YB; break;
-        case SENDING_YB:                   state = AWAITING_PAD_A; break;
-        case SENDING_CRYPTO_PROVIDE:       state = AWAITING_VC; break;
+        fireDoneCB( handshake, TRUE );
     }
-
-    assert( state != -1 );
-    setState( handshake, state );
-    tr_peerConnectionReadOrWait( handshake->connection );
+    else
+    {
+        int state = -1;
+        switch( handshake->state )
+        {
+            case SENDING_YA:                   state = AWAITING_YB; break;
+            case SENDING_YB:                   state = AWAITING_PAD_A; break;
+            case SENDING_CRYPTO_PROVIDE:       state = AWAITING_VC; break;
+        }
+        assert( state != -1 );
+        setState( handshake, state );
+        tr_peerConnectionReadOrWait( handshake->connection );
+    }
 }
 
 static void
@@ -770,8 +851,8 @@ tr_handshakeNew( tr_peerConnection  * connection,
 {
     tr_handshake * handshake;
 
-static int count = 0;
-if( count++ ) return NULL;
+//static int count = 0;
+//if( count++ ) return NULL;
 
     handshake = tr_new0( tr_handshake, 1 );
     handshake->connection = connection;
@@ -779,6 +860,7 @@ if( count++ ) return NULL;
     handshake->encryptionPreference = encryptionPreference;
     handshake->doneCB = doneCB;
     handshake->doneUserData = doneUserData;
+    handshake->handle = tr_peerConnectionGetHandle( connection );
 
     tr_peerConnectionSetIOFuncs( connection, canRead, didWrite, gotError, handshake );
 
@@ -788,6 +870,7 @@ if( count++ ) return NULL;
     }
     else
     {
+        //handshake->encryptionPreference = HANDSHAKE_PLAINTEXT_PREFERRED; /* this line is just for testing */
         sendHandshake( handshake );
     }
 

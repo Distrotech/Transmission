@@ -126,6 +126,13 @@ void tr_setBindPort( tr_handle_t * h, int port )
     tr_sharedSetPort( h->shared, port );
 }
 
+int
+tr_getPublicPort( const tr_handle_t * h )
+{
+    assert( h != NULL );
+    return tr_sharedGetPublicPort( h->shared );
+}
+
 void tr_natTraversalEnable( tr_handle_t * h, int enable )
 {
     tr_sharedLock( h->shared );

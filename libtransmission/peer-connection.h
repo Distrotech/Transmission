@@ -49,6 +49,8 @@ tr_peerConnection*
 
 void  tr_peerConnectionFree      ( tr_peerConnection  * connection );
 
+tr_handle* tr_peerConnectionGetHandle( tr_peerConnection * connection );
+
 /**
 ***
 **/
@@ -102,8 +104,8 @@ void tr_peerConnectionWrite( tr_peerConnection   * connection,
                              const void          * writeme,
                              int                   writeme_len );
 
-void tr_peerConnectionWriteBuf( tr_peerConnection   * connection,
-                                struct evbuffer     * buf );
+void tr_peerConnectionWriteBuf( tr_peerConnection     * connection,
+                                const struct evbuffer * buf );
 
 /**
 ***
