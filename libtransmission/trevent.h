@@ -50,6 +50,7 @@ void tr_bufferevent_write( struct tr_handle    * tr_handle,
 
 void tr_setBufferEventMode( struct tr_handle   * tr_handle,
                             struct bufferevent * bufferEvent,
-                            short                mode );
+                            short                mode_enable,
+                            short                mode_disable );
 
 #endif

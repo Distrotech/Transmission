@@ -168,7 +168,7 @@ static void
 setReadState( tr_handshake * handshake, int state )
 {
     setState( handshake, state );
-    tr_peerConnectionSetIOMode( handshake->connection, EV_READ );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_READ, EV_WRITE );
 }
 
 static void
@@ -195,6 +195,7 @@ sendPublicKey( tr_handshake * handshake )
     /* send it */
     setState( handshake, SENDING_YA );
     tr_peerConnectionWriteBuf( handshake->connection, outbuf );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_WRITE, EV_READ );
 
     /* cleanup */
     evbuffer_free( outbuf );
@@ -227,6 +228,7 @@ sendPlaintextHandshake( tr_handshake * handshake )
     buildHandshakeMessage( handshake, buf );
     setState( handshake, SENDING_PLAINTEXT_HANDSHAKE );
     tr_peerConnectionWrite( handshake->connection, buf, HANDSHAKE_SIZE );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_WRITE, EV_READ );
 }
 
 static void
@@ -249,27 +251,12 @@ sendLtepHandshake( tr_handshake * handshake )
     benc_val_t val, *m;
     char * buf;
     int len;
-    int i;
     const char * v = TR_NAME " " USERAGENT_PREFIX;
     const int port = tr_getPublicPort( handshake->handle );
     struct evbuffer * outbuf = evbuffer_new( );
     uint32_t msglen;
-    uint32_t msgextid;
-    uint8_t msgid;
-
-    
-void tr_peerConnectionWriteUint32 ( tr_peerConnection   * conn,
-                                    struct evbuffer     * outbuf,
-                                    uint32_t              writeme );
-void tr_peerConnectionWriteBytes   ( tr_peerConnection  * conn,
-                                     struct evbuffer    * outbuf,
-                                     const void         * bytes,
-                                     int                  byteCount );
-
-void tr_peerConnectionWriteUint16 ( tr_peerConnection   * conn,
-                                    struct evbuffer     * outbuf,
-                                    uint16_t              writeme );
-
+    const uint8_t tr_msgid = 20; /* ltep extension id */
+    const uint8_t ltep_msgid = 0; /* handshake id */
 
     tr_bencInit( &val, TYPE_DICT );
     tr_bencDictReserve( &val, 3 );
@@ -283,19 +270,17 @@ void tr_peerConnectionWriteUint16 ( tr_peerConnection   * conn,
 
     fprintf( stderr, "sending ltep handshake...\n" );
     buf = tr_bencSaveMalloc( &val,  &len );
-for( i=0; i<len; ++i) fprintf( stderr, "%c", buf[i] );
-fprintf( stderr, "\n" );
+    tr_bencPrint( &val );
 
-    msglen = 1 + sizeof(uint32_t) + len;
-    msgid = 20; /* LTEP extension command number */
-    msgextid = 0; /* LTEP handshake number */
+    msglen = sizeof(tr_msgid) + sizeof(ltep_msgid) + len;
     tr_peerConnectionWriteUint32( handshake->connection, outbuf, msglen );
-    tr_peerConnectionWriteBytes( handshake->connection, outbuf, &msgid, 1 );
-    tr_peerConnectionWriteUint32( handshake->connection, outbuf, msgextid );
-    tr_peerConnectionWriteBytes( handshake->connection, outbuf, buf, len );
+    tr_peerConnectionWriteBytes ( handshake->connection, outbuf, &tr_msgid, 1 );
+    tr_peerConnectionWriteBytes ( handshake->connection, outbuf, &ltep_msgid, 1 );
+    tr_peerConnectionWriteBytes ( handshake->connection, outbuf, buf, len );
     
     handshake->state = SENDING_LTEP_HANDHAKE;
     tr_peerConnectionWriteBuf( handshake->connection, outbuf );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_WRITE, EV_READ );
   
     /* cleanup */ 
     tr_bencFree( &val );
@@ -334,6 +319,7 @@ readYa( tr_handshake * handshake, struct evbuffer  * inbuf )
         *walk++ = tr_rand( UCHAR_MAX );
     setState( handshake, SENDING_YB );
     tr_peerConnectionWrite( handshake->connection, outbuf, walk-outbuf );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_WRITE, EV_READ );
 
     return READ_DONE;
 }
@@ -560,6 +546,7 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
     tr_cryptoDecryptInit( handshake->crypto );
     setState( handshake, SENDING_CRYPTO_PROVIDE );
     tr_peerConnectionWriteBuf( handshake->connection, outbuf );
+    tr_peerConnectionSetIOMode( handshake->connection, EV_WRITE, EV_READ );
 
     /* cleanup */
     evbuffer_free( outbuf );
@@ -572,8 +559,6 @@ readVC( tr_handshake * handshake, struct evbuffer * inbuf )
     const uint8_t key[VC_LENGTH] = { 0, 0, 0, 0, 0, 0, 0, 0 };
     const int key_len = VC_LENGTH;
     uint8_t tmp[VC_LENGTH];
-
-static int drained = 0;
 
     /* note: this works w/o having to `unwind' the buffer if
      * we read too much, but it is pretty brute-force.
@@ -592,7 +577,6 @@ static int drained = 0;
             break;
 
         evbuffer_drain( inbuf, 1 );
-        fprintf( stderr, "drained %d\n", ++drained );
     }
 
     fprintf( stderr, "got it!\n" );

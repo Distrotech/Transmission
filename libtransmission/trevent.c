@@ -93,7 +93,6 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
     {
         case 'd': /* event_del */
             read( fd, &event, sizeof(struct event*) );
-            tr_dbg( "read del event from pipe: event is %p", event );
             event_del( event );
             tr_free( event );
             break;
@@ -101,7 +100,6 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
         case 'e': /* event_add */
             read( fd, &event, sizeof(struct event*) );
             read( fd, &interval, sizeof(struct timeval) );
-            tr_dbg( "read event from pipe: event.ev_arg is %p", event->ev_arg );
             event_add( event, &interval );
             break;
 
@@ -110,24 +108,24 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             read( fd, &req, sizeof(struct evhttp_request*) );
             read( fd, &type, sizeof(enum evhttp_cmd_type) );
             read( fd, &uri, sizeof(char*) );
-            tr_dbg( "read http req from pipe: req.cb_arg is %p", req->cb_arg );
             evhttp_make_request( evcon, req, type, uri );
             tr_free( uri );
             break;
 
         case 'm': /* set bufferevent mode */
             read( fd, &bufev, sizeof(struct evhttp_request*) );
+            mode = 0;
             read( fd, &mode, sizeof(short) );
             bufferevent_enable( bufev, mode );
-            bufferevent_disable( bufev, mode==EV_READ ? EV_WRITE : EV_READ );
+            mode = 0;
+            read( fd, &mode, sizeof(short) );
+            bufferevent_disable( bufev, mode );
             break;
 
         case 'w': /* bufferevent_write */
             read( fd, &bufev, sizeof(struct bufferevent*) );
             read( fd, &buf, sizeof(char*) );
             read( fd, &buflen, sizeof(size_t) );
-            bufferevent_enable( bufev, EV_WRITE );
-            bufferevent_disable( bufev, EV_READ );
             bufferevent_write( bufev, buf, buflen );
             tr_free( buf );
             break;
@@ -283,7 +281,8 @@ tr_bufferevent_write( tr_handle_t           * handle,
 void
 tr_setBufferEventMode( struct tr_handle   * handle,
                        struct bufferevent * bufev,
-                       short                mode )
+                       short                mode_enable,
+                       short                mode_disable )
 {
     const char ch = 'm';
     int fd = handle->events->fds[1];
@@ -292,7 +291,7 @@ tr_setBufferEventMode( struct tr_handle   * handle,
     tr_lockLock( lock );
     write( fd, &ch, 1 );
     write( fd, &bufev, sizeof(struct bufferevent*) );
-    write( fd, &mode, sizeof(short) );
+    write( fd, &mode_enable, sizeof(short) );
+    write( fd, &mode_disable, sizeof(short) );
     tr_lockUnlock( lock );
 }
-

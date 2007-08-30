@@ -74,9 +74,10 @@ canReadWrapper( struct bufferevent * e, void * userData )
     for( ;; ) {
         const int ret = (*c->canRead)( e, c->userData );
         switch( ret ) {
+            case READ_AGAIN: if( EVBUFFER_LENGTH( e->input ) ) continue; /* note fall-through */
+            case READ_MORE: fprintf( stderr, "waiting for bytes from peer...\n" );
+                            tr_peerConnectionSetIOMode( c, EV_READ, 0 ); return; break;
             case READ_DONE: return; fprintf( stderr, "READ_DONE\n"); break;
-            case READ_AGAIN: fprintf( stderr, "READ_AGAIN: going again w/o reading more data\n"); continue; break;
-            case READ_MORE: fprintf( stderr, "READ_MORE: waiting for more...\n" ); tr_peerConnectionSetIOMode( c, EV_READ ); return; break;
         }
     }
 }
@@ -180,9 +181,9 @@ tr_peerConnectionSetIOFuncs( tr_peerConnection  * connection,
 }
 
 void
-tr_peerConnectionSetIOMode( tr_peerConnection * c, short mode )
+tr_peerConnectionSetIOMode( tr_peerConnection * c, short enable, short disable )
 {
-    tr_setBufferEventMode( c->handle, c->bufev, mode );
+    tr_setBufferEventMode( c->handle, c->bufev, enable, disable );
 }
 
 void
@@ -191,7 +192,7 @@ tr_peerConnectionReadOrWait( tr_peerConnection * c )
     if( EVBUFFER_LENGTH( c->bufev->input ) )
         canReadWrapper( c->bufev, c );
     else
-        tr_peerConnectionSetIOMode( c, EV_READ );
+        tr_peerConnectionSetIOMode( c, EV_READ, EV_WRITE );
 }
 
 int
@@ -337,10 +338,12 @@ tr_peerConnectionWriteBytes( tr_peerConnection   * conn,
     switch( conn->encryptionMode )
     {
         case PEER_ENCRYPTION_PLAINTEXT:
+            fprintf( stderr, "writing %d plaintext bytes to outbuf...\n", byteCount );
             evbuffer_add( outbuf, bytes, byteCount );
             break;
 
         case PEER_ENCRYPTION_RC4:
+            fprintf( stderr, "encrypting and writing %d bytes to outbuf...\n", byteCount );
             tmp = tr_new( uint8_t, byteCount );
             tr_cryptoEncrypt( conn->crypto, byteCount, bytes, tmp );
             tr_bufferevent_write( conn->handle, conn->bufev, tmp, byteCount );
@@ -381,12 +384,12 @@ tr_peerConnectionReadBytes( tr_peerConnection   * conn,
     switch( conn->encryptionMode )
     {
         case PEER_ENCRYPTION_PLAINTEXT:
-            fprintf( stderr, "reading %d plaintext bytes from peer...\n", byteCount );
+            fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );
             evbuffer_remove(  inbuf, bytes, byteCount );
             break;
 
         case PEER_ENCRYPTION_RC4:
-            fprintf( stderr, "reading and decrypting %d bytes from peer...\n", byteCount );
+            fprintf( stderr, "reading and decrypting %d bytes from inbuf...\n", byteCount );
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_cryptoDecrypt( conn->crypto, byteCount, bytes, bytes );
             break;

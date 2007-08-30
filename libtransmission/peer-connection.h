@@ -96,7 +96,8 @@ void  tr_peerConnectionSetIOFuncs( tr_peerConnection  * connection,
                                    void               * user_data );
 
 void  tr_peerConnectionSetIOMode ( tr_peerConnection   * connection,
-                                   short                 mode );
+                                   short                 enable_mode,
+                                   short                 disable_mode );
 
 void  tr_peerConnectionReadOrWait( tr_peerConnection * connection );
 
