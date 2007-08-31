@@ -1,0 +1,425 @@
+/*
+ * This file Copyright (C) 2007 Charles Kerr <charles@rebelbase.com>
+ *
+ * This file is licensed by the GPL version 2.  Works owned by the
+ * Transmission project are granted a special exemption to clause 2(b)
+ * so that the bulk of its code can remain under the MIT license. 
+ * This exemption does not extend to derived works not owned by
+ * the Transmission project.
+ *
+ * $Id:$
+ */
+
+#include <assert.h>
+#include <string.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+#include <event.h>
+#include "transmission.h"
+#include "crypto.h"
+#include "net.h"
+#include "peer-io.h"
+#include "trevent.h"
+#include "utils.h"
+
+/**
+***
+**/
+
+struct tr_peerIo
+{
+    struct tr_handle * handle;
+    struct tr_torrent * torrent;
+
+    struct in_addr in_addr;
+    int port;
+    int socket;
+    int extensions;
+    int encryptionMode;
+    struct bufferevent * bufev;
+    uint8_t peerId[20];
+
+    unsigned int isEncrypted : 1;
+    unsigned int isIncoming : 1;
+    unsigned int peerIdIsSet : 1;
+
+    tr_can_read_cb     canRead;
+    tr_did_write_cb    didWrite;
+    tr_net_error_cb    gotError;
+    void             * userData;
+
+    tr_crypto * crypto;
+};
+
+/**
+***
+**/
+
+static void
+didWriteWrapper( struct bufferevent * e, void * userData )
+{
+    tr_peerIo * c = (tr_peerIo *) userData;
+    assert( c->didWrite != NULL );
+    (*c->didWrite)( e, c->userData );
+}
+
+static void
+canReadWrapper( struct bufferevent * e, void * userData )
+{
+    tr_peerIo * c = (tr_peerIo *) userData;
+
+    assert( c->canRead != NULL );
+
+    for( ;; ) {
+        const int ret = (*c->canRead)( e, c->userData );
+        switch( ret ) {
+            case READ_AGAIN: if( EVBUFFER_LENGTH( e->input ) ) continue; /* note fall-through */
+            case READ_MORE: fprintf( stderr, "waiting for bytes from peer...\n" );
+                            tr_peerIoSetIOMode( c, EV_READ, 0 ); return; break;
+            case READ_DONE: return; fprintf( stderr, "READ_DONE\n"); break;
+        }
+    }
+}
+
+static void
+gotErrorWrapper( struct bufferevent * e, short what, void * userData )
+{
+    tr_peerIo * c = (tr_peerIo *) userData;
+    assert( c->gotError != NULL );
+    (*c->gotError)( e, what, c->userData );
+}
+
+/**
+***
+**/
+
+static tr_peerIo*
+tr_peerIoNew( struct tr_handle  * handle,
+              struct in_addr    * in_addr,
+              struct tr_torrent * torrent,
+              int                 isIncoming,
+              int                 socket )
+{
+    tr_peerIo * c;
+    c = tr_new0( tr_peerIo, 1 );
+    c->torrent = torrent;
+    c->crypto = tr_cryptoNew( torrent ? torrent->info.hash : NULL, isIncoming );
+    c->handle = handle;
+    c->in_addr = *in_addr;
+    c->socket = socket;
+    c->bufev = bufferevent_new( c->socket,
+                                canReadWrapper,
+                                didWriteWrapper,
+                                gotErrorWrapper,
+                                c );
+    return c;
+}
+
+tr_peerIo*
+tr_peerIoNewIncoming( struct tr_handle  * handle,
+                      struct in_addr    * in_addr,
+                      int                 socket )
+{
+    tr_peerIo * c =
+        tr_peerIoNew( handle, in_addr, NULL, 1, socket );
+    c->port = -1;
+    return c;
+}
+
+tr_peerIo*
+tr_peerIoNewOutgoing( struct tr_handle  * handle,
+                      struct in_addr    * in_addr,
+                      int                 port,
+                      struct tr_torrent * torrent )
+{
+    tr_peerIo * c;
+
+    assert( handle != NULL );
+    assert( in_addr != NULL );
+    assert( port >= 0 );
+    assert( torrent != NULL );
+
+    c = tr_peerIoNew( handle, in_addr, torrent, 0,
+                              tr_netOpenTCP( in_addr, port, 0 ) );
+    c->port = port;
+    return c;
+}
+
+void
+tr_peerIoFree( tr_peerIo * c )
+{
+    bufferevent_free( c->bufev );
+    tr_netClose( c->socket );
+    tr_cryptoFree( c->crypto );
+    tr_free( c );
+}
+
+tr_handle*
+tr_peerIoGetHandle( tr_peerIo * io )
+{
+    assert( io != NULL );
+    assert( io->handle != NULL );
+
+    return io->handle;
+}
+
+void 
+tr_peerIoSetIOFuncs( tr_peerIo          * io,
+                     tr_can_read_cb       readcb,
+                     tr_did_write_cb      writecb,
+                     tr_net_error_cb      errcb,
+                     void               * userData )
+{
+    io->canRead = readcb;
+    io->didWrite = writecb;
+    io->gotError = errcb;
+    io->userData = userData;
+
+    if( EVBUFFER_LENGTH( io->bufev->input ) )
+        canReadWrapper( io->bufev, io );
+}
+
+void
+tr_peerIoSetIOMode( tr_peerIo * c, short enable, short disable )
+{
+    tr_setBufferEventMode( c->handle, c->bufev, enable, disable );
+}
+
+void
+tr_peerIoReadOrWait( tr_peerIo * c )
+{
+    if( EVBUFFER_LENGTH( c->bufev->input ) )
+        canReadWrapper( c->bufev, c );
+    else
+        tr_peerIoSetIOMode( c, EV_READ, EV_WRITE );
+}
+
+int
+tr_peerIoIsIncoming( const tr_peerIo * c )
+{
+    return c->isIncoming;
+}
+
+int
+tr_peerIoReconnect( tr_peerIo * io )
+{
+    assert( !tr_peerIoIsIncoming( io ) );
+
+    if( io->socket >= 0 )
+        tr_netClose( io->socket );
+
+    io->socket = tr_netOpenTCP( &io->in_addr,
+                                        io->port, 0 );
+
+    return io->socket >= 0 ? 0 : -1;
+}
+
+/**
+***
+**/
+
+void
+tr_peerIoSetTorrent( tr_peerIo  * io,
+                             struct tr_torrent  * torrent )
+{
+    io->torrent = torrent;
+
+    tr_cryptoSetTorrentHash( io->crypto, torrent->info.hash );
+}
+
+struct tr_torrent*
+tr_peerIoGetTorrent( tr_peerIo * io )
+{
+    return io->torrent;
+}
+
+/**
+***
+**/
+
+void
+tr_peerIoSetPeersId( tr_peerIo * io,
+                             const uint8_t     * peer_id )
+{
+    assert( io != NULL );
+
+    if(( io->peerIdIsSet = peer_id != NULL ))
+        memcpy( io->peerId, peer_id, 20 );
+    else
+        memset( io->peerId, 0, 20 );
+}
+
+const uint8_t* 
+tr_peerIoGetPeersId( const tr_peerIo * io )
+{
+    assert( io != NULL );
+    assert( io->peerIdIsSet );
+
+    return io->peerId;
+}
+
+/**
+***
+**/
+
+void
+tr_peerIoSetExtension( tr_peerIo * io,
+                               int                 extensions )
+{
+    assert( io != NULL );
+    assert( ( extensions == LT_EXTENSIONS_NONE )
+         || ( extensions == LT_EXTENSIONS_LTEP )
+         || ( extensions == LT_EXTENSIONS_AZMP ) );
+
+    io->extensions = extensions;
+}
+
+int
+tr_peerIoGetExtension( const tr_peerIo * io )
+{
+    assert( io != NULL );
+
+    return io->extensions;
+}
+
+/**
+***
+**/
+ 
+void
+tr_peerIoWrite( tr_peerIo   * io,
+                const void  * writeme,
+                int           writeme_len )
+{
+    tr_bufferevent_write( io->handle, io->bufev, writeme, writeme_len );
+}
+
+void
+tr_peerIoWriteBuf( tr_peerIo             * io,
+                   const struct evbuffer * buf )
+{
+    tr_peerIoWrite( io, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf) );
+}
+
+/**
+***
+**/
+
+tr_crypto* 
+tr_peerIoGetCrypto( tr_peerIo * c )
+{
+    return c->crypto;
+}
+
+void 
+tr_peerIoSetEncryption( tr_peerIo * io,
+                        int         encryptionMode )
+{
+    assert( io != NULL );
+    assert( encryptionMode==PEER_ENCRYPTION_PLAINTEXT || encryptionMode==PEER_ENCRYPTION_RC4 );
+
+    io->encryptionMode = encryptionMode;
+}
+
+void
+tr_peerIoWriteBytes( tr_peerIo        * io,
+                     struct evbuffer  * outbuf,
+                     const void       * bytes,
+                     int                byteCount )
+{
+    uint8_t * tmp;
+
+    switch( io->encryptionMode )
+    {
+        case PEER_ENCRYPTION_PLAINTEXT:
+            fprintf( stderr, "writing %d plaintext bytes to outbuf...\n", byteCount );
+            evbuffer_add( outbuf, bytes, byteCount );
+            break;
+
+        case PEER_ENCRYPTION_RC4:
+            fprintf( stderr, "encrypting and writing %d bytes to outbuf...\n", byteCount );
+            tmp = tr_new( uint8_t, byteCount );
+            tr_cryptoEncrypt( io->crypto, byteCount, bytes, tmp );
+            tr_bufferevent_write( io->handle, io->bufev, tmp, byteCount );
+            tr_free( tmp );
+            break;
+
+        default:
+            assert( 0 );
+    }
+}
+
+void
+tr_peerIoWriteUint16( tr_peerIo        * io,
+                      struct evbuffer  * outbuf,
+                      uint16_t           writeme )
+{
+    uint16_t tmp = htons( writeme );
+    tr_peerIoWriteBytes( io, outbuf, &tmp, sizeof(uint16_t) );
+}
+
+void
+tr_peerIoWriteUint32( tr_peerIo        * io,
+                      struct evbuffer  * outbuf,
+                      uint32_t           writeme )
+{
+    uint32_t tmp = htonl( writeme );
+    tr_peerIoWriteBytes( io, outbuf, &tmp, sizeof(uint32_t) );
+}
+
+void
+tr_peerIoReadBytes( tr_peerIo        * io,
+                    struct evbuffer  * inbuf,
+                    void             * bytes,
+                    int                byteCount )
+{
+    assert( (int)EVBUFFER_LENGTH( inbuf ) >= byteCount );
+
+    switch( io->encryptionMode )
+    {
+        case PEER_ENCRYPTION_PLAINTEXT:
+            fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );
+            evbuffer_remove(  inbuf, bytes, byteCount );
+            break;
+
+        case PEER_ENCRYPTION_RC4:
+            fprintf( stderr, "reading and decrypting %d bytes from inbuf...\n", byteCount );
+            evbuffer_remove(  inbuf, bytes, byteCount );
+            tr_cryptoDecrypt( io->crypto, byteCount, bytes, bytes );
+            break;
+
+        default:
+            assert( 0 );
+    }
+}
+
+void
+tr_peerIoReadUint16( tr_peerIo         * io,
+                     struct evbuffer   * inbuf,
+                     uint16_t          * setme )
+{
+    uint16_t tmp;
+    tr_peerIoReadBytes( io, inbuf, &tmp, sizeof(uint16_t) );
+    *setme = ntohs( tmp );
+}
+
+void
+tr_peerIoReadUint32( tr_peerIo         * io,
+                     struct evbuffer   * inbuf,
+                     uint32_t          * setme )
+{
+    uint32_t tmp;
+    tr_peerIoReadBytes( io, inbuf, &tmp, sizeof(uint32_t) );
+    *setme = ntohl( tmp );
+}
+
+void
+tr_peerIoDrain( tr_peerIo        * io,
+                struct evbuffer  * inbuf,
+                int                byteCount )
+{
+    uint8_t * tmp = tr_new( uint8_t, byteCount );
+    tr_peerIoReadBytes( io, inbuf, tmp, byteCount );
+    tr_free( tmp );
+}

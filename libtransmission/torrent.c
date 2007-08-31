@@ -39,7 +39,7 @@
 #include "net.h" /* tr_netNtop */
 #include "p.h"
 #include "peer.h"
-#include "peer-connection.h"
+#include "peer-io.h"
 #include "platform.h"
 #include "ratecontrol.h"
 #include "shared.h"
@@ -1066,19 +1066,19 @@ int tr_torrentAttachPeer( tr_torrent * tor, tr_peer_t * peer )
 }
 
 static void
-tr_torrentAddPeerConnection( tr_torrent        * torrent,
-                             tr_peerConnection * connection )
+tr_torrentAddPeerIo( tr_torrent  * torrent,
+                     tr_peerIo   * io )
 {
-    tr_peerManagerAdd( torrent, connection );
+    tr_peerManagerAdd( torrent, io );
 }
 
 static void
-myHandshakeDoneCB( tr_peerConnection * c, int isConnected, void * userData UNUSED )
+myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * userData UNUSED )
 {
     if( isConnected )
-        tr_torrentAddPeerConnection( tr_peerConnectionGetTorrent(c), c );
+        tr_torrentAddPeerIo( tr_peerIoGetTorrent(io), io );
     else
-        tr_peerConnectionFree( c );
+        tr_peerIoFree( io );
 }
 
 int tr_torrentAddCompact( tr_torrent * tor, int from UNUSED,
@@ -1095,7 +1095,7 @@ int tr_torrentAddCompact( tr_torrent * tor, int from UNUSED,
         memcpy( &port, buf, 2 ); buf += 2;
 
         tr_handshakeAdd (
-            tr_peerConnectionNewOutgoing( tor->handle, &addr, port, tor ),
+            tr_peerIoNewOutgoing( tor->handle, &addr, port, tor ),
             HANDSHAKE_ENCRYPTION_PREFERRED,
             myHandshakeDoneCB,
             NULL );

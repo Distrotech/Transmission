@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #ifndef TR_HANDSHAKE_H
@@ -21,12 +21,12 @@ enum EncryptionPreference
     HANDSHAKE_PLAINTEXT_REQUIRED
 };
 
-struct tr_peerConnection;
-typedef void (*handshakeDoneCB)(struct tr_peerConnection*, int isConnected, void*);
+struct tr_peerIo;
+typedef void (*handshakeDoneCB)(struct tr_peerIo*, int isConnected, void*);
 
-void tr_handshakeAdd( struct tr_peerConnection * connection,
-                      int                        encryptionPreference,
-                      handshakeDoneCB            doneCB,
-                      void                     * doneUserData );
+void tr_handshakeAdd( struct tr_peerIo * io,
+                      int                encryptionPreference,
+                      handshakeDoneCB    doneCB,
+                      void             * doneUserData );
 
 #endif

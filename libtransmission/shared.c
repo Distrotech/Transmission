@@ -35,7 +35,7 @@
 #include "natpmp.h"
 #include "net.h"
 #include "peer.h"
-#include "peer-connection.h"
+#include "peer-io.h"
 #include "platform.h"
 #include "shared.h"
 #include "upnp.h"
@@ -338,12 +338,12 @@ static void SetPublicPort( tr_shared_t * s, int port )
 
 
 static void
-myHandshakeDoneCB( struct tr_peerConnection * c, int isConnected, void * unused UNUSED )
+myHandshakeDoneCB( struct tr_peerIo * c, int isConnected, void * unused UNUSED )
 {
     if( isConnected )
         fprintf( stderr, "FIXME: add some way to push this connection to the tor\n" );
     else
-        tr_peerConnectionFree( c );
+        tr_peerIoFree( c );
 }
 
 /***********************************************************************
@@ -358,8 +358,6 @@ static void AcceptPeers( tr_shared_t * s )
 
     for( ;; )
     {
-        tr_peerConnection * connection;
-
         if( s->bindSocket < 0 || s->peerCount >= MAX_PEER_COUNT )
         {
             break;
@@ -371,11 +369,7 @@ static void AcceptPeers( tr_shared_t * s )
             break;
         }
 
-        connection = tr_peerConnectionNewIncoming( s->h,
-                                                   &addr,
-                                                   socket );
-
-        tr_handshakeAdd( connection,
+        tr_handshakeAdd( tr_peerIoNewIncoming( s->h, &addr, socket ),
                          HANDSHAKE_ENCRYPTION_PREFERRED,
                          myHandshakeDoneCB,
                          NULL );

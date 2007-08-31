@@ -27,7 +27,7 @@ libtransmission_a_SOURCES = \
     net.c \
     p.c \
     peer.c \
-    peer-connection.c \
+    peer-io.c \
     platform.c \
     ptrarray.c \
     publish.c \
@@ -72,7 +72,7 @@ noinst_HEADERS = \
     peerparse.h \
     peertree.h \
     peerutils.h \
-    peer-connection.h \
+    peer-io.h \
     platform.h \
     ptrarray.h \
     publish.h \

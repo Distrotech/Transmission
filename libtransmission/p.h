@@ -7,16 +7,16 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #ifndef TR_P_H
 #define TR_P_H
 
 struct tr_torrent;
-struct tr_peerConnection;
+struct tr_peerIo;
 
-void tr_peerManagerAdd( struct tr_torrent        * torrent,
-                        struct tr_peerConnection * connection );
+void tr_peerManagerAdd( struct tr_torrent  * torrent,
+                        struct tr_peerIo   * io );
 
 #endif

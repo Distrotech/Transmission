@@ -26,7 +26,7 @@
 #include "completion.h"
 #include "inout.h"
 #include "list.h"
-#include "peer-connection.h"
+#include "peer-io.h"
 #include "ratecontrol.h"
 #include "timer.h"
 #include "utils.h"
@@ -101,7 +101,7 @@ typedef struct
 {
     tr_handle * handle;
     tr_torrent * torrent;
-    tr_peerConnection * connection;
+    tr_peerIo * io;
     tr_bitfield * bitfield;   /* the peer's bitfield */
     tr_bitfield * banfield;   /* bad pieces from the peer */
     tr_bitfield * blamefield; /* lists pieces that this peer helped us with */
@@ -188,8 +188,8 @@ sendInterest( tr_peer * peer, int weAreInterested )
     const uint8_t bt_msgid = weAreInterested ? BT_INTERESTED : BT_NOT_INTERESTED;
 
     fprintf( stderr, "peer %p: enqueueing an %s message\n", peer, (weAreInterested ? "interested" : "not interested") );
-    tr_peerConnectionWriteUint32( peer->connection, peer->outMessages, len );
-    tr_peerConnectionWriteBytes( peer->connection, peer->outMessages, &bt_msgid, 1 );
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
+    tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
 }
 
 static void
@@ -216,8 +216,8 @@ setChoke( tr_peer * peer, int choke )
         }
 
         fprintf( stderr, "peer %p: enqueuing a %s message\n", peer, (choke ? "choke" : "unchoke") );
-        tr_peerConnectionWriteUint32( peer->connection, peer->outMessages, len );
-        tr_peerConnectionWriteBytes( peer->connection, peer->outMessages, &bt_msgid, 1 );
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
+        tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
     }
 }
 
@@ -306,7 +306,7 @@ parseLtep( tr_peer * peer, int msglen, struct evbuffer * inbuf )
 {
     uint8_t ltep_msgid;
 
-    tr_peerConnectionReadBytes( peer->connection, inbuf, &ltep_msgid, 1 );
+    tr_peerIoReadBytes( peer->io, inbuf, &ltep_msgid, 1 );
     msglen--;
 
     if( ltep_msgid == LTEP_HANDSHAKE )
@@ -335,7 +335,7 @@ readBtLength( tr_peer * peer, struct evbuffer * inbuf )
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
 
-    tr_peerConnectionReadUint32( peer->connection, inbuf, &len );
+    tr_peerIoReadUint32( peer->io, inbuf, &len );
 
     if( len == 0 ) { /* peer sent us a keepalive message */
         fprintf( stderr, "peer sent us a keepalive message...\n" );
@@ -357,7 +357,7 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
     if( EVBUFFER_LENGTH(inbuf) < msglen )
         return READ_MORE;
 
-    tr_peerConnectionReadBytes( peer->connection, inbuf, &id, 1 );
+    tr_peerIoReadBytes( peer->io, inbuf, &id, 1 );
     msglen--;
     fprintf( stderr, "got a message from the peer... "
                      "bt id number is %d, and remaining len is %d\n", (int)id, (int)msglen );
@@ -399,7 +399,7 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
         case BT_HAVE:
             assert( msglen == 4 );
             fprintf( stderr, "got a BT_HAVE\n" );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &ui32 );
+            tr_peerIoReadUint32( peer->io, inbuf, &ui32 );
             tr_bitfieldAdd( peer->bitfield, ui32 );
             peer->progress = tr_bitfieldCountTrueBits( peer->bitfield ) / (float)peer->torrent->info.pieceCount;
             updateInterest( peer );
@@ -408,7 +408,7 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
         case BT_BITFIELD:
             assert( msglen == peer->bitfield->len );
             fprintf( stderr, "got a BT_BITFIELD\n" );
-            tr_peerConnectionReadBytes( peer->connection, inbuf, peer->bitfield->bits, msglen );
+            tr_peerIoReadBytes( peer->io, inbuf, peer->bitfield->bits, msglen );
             peer->progress = tr_bitfieldCountTrueBits( peer->bitfield ) / (float)peer->torrent->info.pieceCount;
             fprintf( stderr, "peer progress is %f\n", peer->progress );
             updateInterest( peer );
@@ -420,9 +420,9 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
             assert( msglen == 12 );
             fprintf( stderr, "got a BT_REQUEST\n" );
             req = tr_new( struct peer_request, 1 );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req->pieceIndex );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req->offsetInPiece );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req->length );
+            tr_peerIoReadUint32( peer->io, inbuf, &req->pieceIndex );
+            tr_peerIoReadUint32( peer->io, inbuf, &req->offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &req->length );
             if( !peer->peerIsChoked )
                 tr_list_append( &peer->peerAskedFor, req );
             break;
@@ -433,9 +433,9 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
             tr_list * node;
             assert( msglen == 12 );
             fprintf( stderr, "got a BT_CANCEL\n" );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req.pieceIndex );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req.offsetInPiece );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &req.length );
+            tr_peerIoReadUint32( peer->io, inbuf, &req.pieceIndex );
+            tr_peerIoReadUint32( peer->io, inbuf, &req.offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &req.length );
             node = tr_list_find( peer->peerAskedFor, &req, peer_request_compare_func );
             if( node != NULL ) {
                 fprintf( stderr, "found the req that peer is cancelling... cancelled.\n" );
@@ -448,8 +448,8 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
             fprintf( stderr, "got a BT_PIECE\n" );
             assert( peer->blockToUs.length == 0 );
             peer->state = READING_BT_PIECE;
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &peer->blockToUs.pieceIndex );
-            tr_peerConnectionReadUint32( peer->connection, inbuf, &peer->blockToUs.offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.pieceIndex );
+            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.offsetInPiece );
             peer->blockToUs.length = msglen - 8;
             assert( peer->blockToUs.length > 0 );
             evbuffer_drain( peer->inBlock, ~0 );
@@ -459,7 +459,7 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
         case BT_PORT: {
             assert( msglen == 2 );
             fprintf( stderr, "got a BT_PORT\n" );
-            tr_peerConnectionReadUint16( peer->connection, inbuf, &peer->listeningPort );
+            tr_peerIoReadUint16( peer->io, inbuf, &peer->listeningPort );
             break;
         }
 
@@ -470,7 +470,7 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
 
         default:
             fprintf( stderr, "got an unknown BT message type: %d\n", (int)id );
-            tr_peerConnectionDrain( peer->connection, inbuf, msglen );
+            tr_peerIoDrain( peer->io, inbuf, msglen );
             assert( 0 );
     }
 
@@ -544,7 +544,7 @@ readBtPiece( tr_peer * peer, struct evbuffer * inbuf )
     if( !canDownload( peer ) )
     {
         peer->notListening = 1;
-        tr_peerConnectionSetIOMode ( peer->connection, 0, EV_READ );
+        tr_peerIoSetIOMode ( peer->io, 0, EV_READ );
         return READ_DONE;
     }
     else
@@ -552,7 +552,7 @@ readBtPiece( tr_peer * peer, struct evbuffer * inbuf )
         /* inbuf ->  inBlock */
         const uint32_t len = MIN( EVBUFFER_LENGTH(inbuf), peer->blockToUs.length );
         uint8_t * tmp = tr_new( uint8_t, len );
-        tr_peerConnectionReadBytes( peer->connection, inbuf, tmp, len );
+        tr_peerIoReadBytes( peer->io, inbuf, tmp, len );
         evbuffer_add( peer->inBlock, tmp, len );
         tr_free( tmp );
         peer->blockToUs.length -= len;
@@ -618,7 +618,7 @@ pulse( void * vpeer )
     {
         fprintf( stderr, "peer %p thawing out...\n", peer );
         peer->notListening = 0;
-        tr_peerConnectionSetIOMode ( peer->connection, EV_READ, 0 );
+        tr_peerIoSetIOMode ( peer->io, EV_READ, 0 );
     }
 
     if(( len = EVBUFFER_LENGTH( peer->outBlock ) ))
@@ -626,14 +626,14 @@ pulse( void * vpeer )
         if( canUpload( peer ) )
         {
             const size_t outlen = MIN( len, 2048 );
-            tr_peerConnectionWrite( peer->connection, EVBUFFER_DATA(peer->outBlock), outlen );
+            tr_peerIoWrite( peer->io, EVBUFFER_DATA(peer->outBlock), outlen );
             evbuffer_drain( peer->outBlock, outlen );
         }
     }
     else if(( len = EVBUFFER_LENGTH( peer->outMessages ) ))
     {
         fprintf( stderr, "peer %p pulse is writing %d bytes worth of messages...\n", peer, (int)len );
-        tr_peerConnectionWriteBuf( peer->connection, peer->outMessages );
+        tr_peerIoWriteBuf( peer->io, peer->outMessages );
         evbuffer_drain( peer->outMessages, ~0 );
     }
     else if(( peer->peerAskedFor ))
@@ -643,11 +643,11 @@ pulse( void * vpeer )
         const uint8_t msgid = BT_PIECE;
         const uint32_t msglen = sizeof(uint8_t) + sizeof(uint32_t)*2 + req->length;
         tr_ioRead( peer->torrent, req->pieceIndex, req->offsetInPiece, req->length, tmp );
-        tr_peerConnectionWriteUint32( peer->connection, peer->outBlock, msglen );
-        tr_peerConnectionWriteBytes ( peer->connection, peer->outBlock, &msgid, 1 );
-        tr_peerConnectionWriteUint32( peer->connection, peer->outBlock, req->pieceIndex );
-        tr_peerConnectionWriteUint32( peer->connection, peer->outBlock, req->offsetInPiece );
-        tr_peerConnectionWriteBytes ( peer->connection, peer->outBlock, tmp, req->length );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, msglen );
+        tr_peerIoWriteBytes ( peer->io, peer->outBlock, &msgid, 1 );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->pieceIndex );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->offsetInPiece );
+        tr_peerIoWriteBytes ( peer->io, peer->outBlock, tmp, req->length );
         tr_free( tmp );
     }
 
@@ -677,21 +677,21 @@ sendBitfield( tr_peer * peer )
     const uint8_t bt_msgid = BT_BITFIELD;
 
     fprintf( stderr, "peer %p: enqueueing a bitfield message\n", peer );
-    tr_peerConnectionWriteUint32( peer->connection, peer->outMessages, len );
-    tr_peerConnectionWriteBytes( peer->connection, peer->outMessages, &bt_msgid, 1 );
-    tr_peerConnectionWriteBytes( peer->connection, peer->outMessages, bitfield->bits, bitfield->len );
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
+    tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
+    tr_peerIoWriteBytes( peer->io, peer->outMessages, bitfield->bits, bitfield->len );
 }
 
 void
-tr_peerManagerAdd( struct tr_torrent        * torrent,
-                   struct tr_peerConnection * connection )
+tr_peerManagerAdd( struct tr_torrent * torrent,
+                   struct tr_peerIo  * io )
 {
     tr_peer * peer;
 
     peer = tr_new0( tr_peer, 1 );
     peer->handle = torrent->handle;
     peer->torrent = torrent;
-    peer->connection = connection;
+    peer->io = io;
     peer->weAreChoked = 1;
     peer->peerIsChoked = 1;
     peer->weAreInterested = 0;
@@ -702,8 +702,8 @@ tr_peerManagerAdd( struct tr_torrent        * torrent,
     peer->outBlock = evbuffer_new( );
     peer->inBlock = evbuffer_new( );
 
-    tr_peerConnectionSetIOFuncs( connection, canRead, didWrite, gotError, peer );
-    tr_peerConnectionSetIOMode( connection, EV_READ|EV_WRITE, 0 );
+    tr_peerIoSetIOFuncs( io, canRead, didWrite, gotError, peer );
+    tr_peerIoSetIOMode( io, EV_READ|EV_WRITE, 0 );
 
     sendBitfield( peer );
 }
