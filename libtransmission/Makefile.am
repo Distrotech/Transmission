@@ -24,9 +24,9 @@ libtransmission_a_SOURCES = \
     metainfo.c \
     natpmp.c \
     net.c \
-    p.c \
     peer-io.c \
     peer-mgr.c \
+    peer-work.c \
     platform.c \
     ptrarray.c \
     publish.c \
@@ -62,9 +62,9 @@ noinst_HEADERS = \
     metainfo.h \
     natpmp.h \
     net.h \
-    p.h \
-    peer-mgr.h \
     peer-io.h \
+    peer-mgr.h \
+    peer-work.h \
     platform.h \
     ptrarray.h \
     publish.h \

@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #include <assert.h>
@@ -18,9 +18,9 @@
 #include "transmission.h"
 #include "handshake.h"
 #include "net.h"
-#include "p.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
+#include "peer-work.h"
 #include "ptrarray.h"
 #include "utils.h"
 
