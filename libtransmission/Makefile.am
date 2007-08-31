@@ -9,7 +9,6 @@ EXTRA_DIST = version.h.in
 libtransmission_a_SOURCES = \
     basename.c \
     bencode.c \
-    choking.c \
     clients.c \
     completion.c \
     crypto.c \
@@ -26,8 +25,8 @@ libtransmission_a_SOURCES = \
     natpmp.c \
     net.c \
     p.c \
-    peer.c \
     peer-io.c \
+    peer-mgr.c \
     platform.c \
     ptrarray.c \
     publish.c \
@@ -48,7 +47,6 @@ noinst_HEADERS = \
     bencode.h \
     bsdqueue.h \
     bsdtree.h \
-    choking.h \
     clients.h \
     crypto.h \
     completion.h \
@@ -65,13 +63,7 @@ noinst_HEADERS = \
     natpmp.h \
     net.h \
     p.h \
-    peeraz.h \
-    peerext.h \
-    peer.h \
-    peermessages.h \
-    peerparse.h \
-    peertree.h \
-    peerutils.h \
+    peer-mgr.h \
     peer-io.h \
     platform.h \
     ptrarray.h \

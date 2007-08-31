@@ -27,6 +27,7 @@
 #include "inout.h"
 #include "list.h"
 #include "peer-io.h"
+#include "peer-mgr.h"
 #include "ratecontrol.h"
 #include "timer.h"
 #include "utils.h"
@@ -294,7 +295,10 @@ parseUtPex( tr_peer * peer, int msglen, struct evbuffer * inbuf )
     if( tr_bencIsStr(sub) && ((sub->val.s.i % 6) == 0)) {
         const int n = sub->val.s.i / 6 ;
         fprintf( stderr, "got %d peers from uT pex\n", n );
-        tr_torrentAddCompact( peer->torrent, TR_PEER_FROM_PEX, (uint8_t*)sub->val.s.s, n );
+        tr_peerMgrAddPeers( peer->handle->peerMgr,
+                            peer->torrent->info.hash,
+                            TR_PEER_FROM_PEX,
+                            (uint8_t*)sub->val.s.s, n );
     }
 
     tr_bencFree( &val );
@@ -683,8 +687,8 @@ sendBitfield( tr_peer * peer )
 }
 
 void
-tr_peerManagerAdd( struct tr_torrent * torrent,
-                   struct tr_peerIo  * io )
+tr_peerWorkAdd( struct tr_torrent * torrent,
+                struct tr_peerIo  * io )
 {
     tr_peer * peer;
 

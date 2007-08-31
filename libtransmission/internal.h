@@ -51,15 +51,9 @@ int tr_trackerInfoInit( struct tr_tracker_info_s  * info,
 
 void tr_trackerInfoClear( struct tr_tracker_info_s * info );
 
-struct tr_peer_s;
-
 void tr_peerIdNew ( char* buf, int buflen );
 
 void tr_torrentResetTransferStats( tr_torrent * );
-
-int tr_torrentAddCompact( tr_torrent * tor, int from,
-                           const uint8_t * buf, int count );
-int tr_torrentAttachPeer( tr_torrent * tor, struct tr_peer_s * );
 
 void tr_torrentSetHasPiece( tr_torrent * tor, int pieceIndex, int has );
 
@@ -70,6 +64,7 @@ void tr_torrentWriterUnlock  ( tr_torrent * );
 
 void tr_torrentChangeMyPort  ( tr_torrent *, int port );
 
+tr_torrent* tr_torrentFindFromHash( tr_handle *, const uint8_t * );
 tr_torrent* tr_torrentFindFromObfuscatedHash( tr_handle *, const uint8_t* );
 
 /* get the index of this piece's first block */
@@ -159,9 +154,6 @@ struct tr_torrent
     char                       ioLoaded;
     char                       fastResumeDirty;
 
-    int                        peerCount;
-    struct tr_peer_s *         peers[TR_MAX_PEER_COUNT];
-
     uint64_t                   downloadedCur;
     uint64_t                   downloadedPrev;
     uint64_t                   uploadedCur;
@@ -180,7 +172,7 @@ struct tr_torrent
 
 struct tr_handle
 {
-    struct tr_event_handle_s * events;
+    struct tr_event_handle   * events;
 
     int                        torrentCount;
     tr_torrent               * torrentList;
@@ -193,9 +185,10 @@ struct tr_handle
     struct tr_ratecontrol    * upload;
     struct tr_ratecontrol    * download;
 
-    struct tr_shared_s       * shared;
+    struct tr_peerMgr        * peerMgr;
+    struct tr_shared         * shared;
 
-    tr_handle_status_t         stats[2];
+    tr_handle_status           stats[2];
     int                        statCur;
 
 #define TR_AZ_ID_LEN 20

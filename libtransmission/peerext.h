@@ -326,11 +326,13 @@ parseUTPex( tr_torrent * tor, tr_peer_t * peer, uint8_t * buf, int len )
     sub = tr_bencDictFind( &val, "added" );
     if( NULL != sub && TYPE_STR == sub->type && 0 == sub->val.s.i % 6 )
     {
+#if 0
         used = tr_torrentAddCompact( tor, TR_PEER_FROM_PEX,
                                      ( uint8_t * )sub->val.s.s,
                                      sub->val.s.i / 6 );
         peer_dbg( "GET  extended-pex, got %i peers, used %i",
                   sub->val.s.i / 6, used );
+#endif
     }
     else
     {

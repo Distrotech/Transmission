@@ -37,6 +37,7 @@
 #include "fdlimit.h"
 #include "list.h"
 #include "net.h"
+#include "peer-mgr.h"
 #include "platform.h"
 #include "ratecontrol.h"
 #include "shared.h"
@@ -93,6 +94,7 @@ tr_handle_t * tr_init( const char * tag )
         return NULL;
     }
 
+    h->peerMgr = tr_peerMgrNew( h );
 
     /* Azureus identity */
     for( i=0; i < TR_AZ_ID_LEN; ++i )
@@ -140,9 +142,9 @@ void tr_natTraversalEnable( tr_handle_t * h, int enable )
     tr_sharedUnlock( h->shared );
 }
 
-tr_handle_status_t * tr_handleStatus( tr_handle_t * h )
+tr_handle_status * tr_handleStatus( tr_handle_t * h )
 {
-    tr_handle_status_t * s;
+    tr_handle_status * s;
 
     h->statCur = ( h->statCur + 1 ) % 2;
     s = &h->stats[h->statCur];
@@ -237,10 +239,11 @@ void tr_close( tr_handle_t * h )
 {
     tr_rcClose( h->upload );
     tr_rcClose( h->download );
-    
-    tr_eventClose( h );
+
+    tr_peerMgrFree( h->peerMgr );
     tr_sharedClose( h->shared );
     tr_fdClose();
+    tr_eventClose( h );
     free( h->tag );
     free( h );
 

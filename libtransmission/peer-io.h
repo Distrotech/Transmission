@@ -22,7 +22,6 @@ struct evbuffer;
 struct bufferevent;
 struct tr_handle;
 struct tr_crypto;
-struct tr_torrent;
 typedef struct tr_peerIo tr_peerIo;
 
 
@@ -34,7 +33,7 @@ tr_peerIo*
       tr_peerIoNewOutgoing( struct tr_handle   * handle,
                             struct in_addr     * addr,
                             int                  port,
-                            struct tr_torrent  * torrent );
+                            const  uint8_t     * torrentHash );
 
 tr_peerIo*
       tr_peerIoNewIncoming( struct tr_handle   * handle,
@@ -65,11 +64,14 @@ int   tr_peerIoGetExtension( const tr_peerIo * io );
 ***
 **/
 
-struct tr_torrent*
-      tr_peerIoGetTorrent( tr_peerIo * io );
+const struct in_addr*
+      tr_peerIoGetAddress( const tr_peerIo * io, uint16_t * port );
 
-void  tr_peerIoSetTorrent( tr_peerIo         * io,
-                           struct tr_torrent * tor );
+const uint8_t*
+      tr_peerIoGetTorrentHash( tr_peerIo * io );
+
+void  tr_peerIoSetTorrentHash( tr_peerIo      * io,
+                               const uint8_t  * hash );
 
 int   tr_peerIoReconnect( tr_peerIo * io );
 

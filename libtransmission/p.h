@@ -16,7 +16,7 @@
 struct tr_torrent;
 struct tr_peerIo;
 
-void tr_peerManagerAdd( struct tr_torrent  * torrent,
-                        struct tr_peerIo   * io );
+void tr_peerWorkAdd( struct tr_torrent  * torrent,
+                     struct tr_peerIo   * io );
 
 #endif

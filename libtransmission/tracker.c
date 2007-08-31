@@ -65,9 +65,9 @@ typedef struct
 {
     tr_handle_t * handle;
 
-    tr_ptrArray_t * torrents;
-    tr_ptrArray_t * scraping;
-    tr_ptrArray_t * scrapeQueue;
+    tr_ptrArray * torrents;
+    tr_ptrArray * scraping;
+    tr_ptrArray * scrapeQueue;
 
     /* these are set from the latest scrape or tracker response */
     int announceIntervalMsec;
@@ -181,7 +181,7 @@ getConnection( const char * address, int port )
 {
     connection_key_t *val, tmp;
 
-    static tr_ptrArray_t * connections = NULL;
+    static tr_ptrArray * connections = NULL;
     if( !connections )
          connections = tr_ptrArrayNew( );
 
@@ -252,10 +252,10 @@ publishStopped( Torrent * tor )
 ****  LIFE CYCLE
 ***/
 
-static tr_ptrArray_t *
+static tr_ptrArray *
 getTrackerLookupTable( void )
 {
-    static tr_ptrArray_t * myTrackers = NULL;
+    static tr_ptrArray * myTrackers = NULL;
     if( !myTrackers )
          myTrackers = tr_ptrArrayNew( );
     return myTrackers;
@@ -290,7 +290,7 @@ static Tracker*
 tr_trackerGet( const tr_torrent * tor )
 {
     const tr_info_t * info = &tor->info;
-    tr_ptrArray_t * trackers = getTrackerLookupTable( );
+    tr_ptrArray * trackers = getTrackerLookupTable( );
     Tracker *t, tmp;
     assert( info != NULL );
     assert( info->primaryAddress && *info->primaryAddress );

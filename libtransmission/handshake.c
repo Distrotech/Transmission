@@ -384,7 +384,7 @@ readCryptoProvide( tr_handshake * handshake, struct evbuffer * inbuf )
     tor = tr_torrentFindFromObfuscatedHash( handshake->handle, obfuscatedTorrentHash );
     assert( tor != NULL );
     fprintf( stderr, "found the torrent; it's [%s]\n", tor->info.name );
-    tr_peerIoSetTorrent( handshake->io, tor );
+    tr_peerIoSetTorrentHash( handshake->io, tor->info.hash );
 
     /* next part: ENCRYPT(VC, crypto_provide, len(PadC), */
 
@@ -679,7 +679,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
 
     /* torrent hash */
     tr_peerIoReadBytes( handshake->io, inbuf, hash, sizeof(hash) );
-    assert( !memcmp( hash, tr_peerIoGetTorrent(handshake->io)->info.hash, SHA_DIGEST_LENGTH ) );
+    assert( !memcmp( hash, tr_peerIoGetTorrentHash(handshake->io), SHA_DIGEST_LENGTH ) );
     bytesRead += sizeof(hash);
 
     /* peer id */

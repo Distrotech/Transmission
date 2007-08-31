@@ -24,7 +24,7 @@
 #include "fdlimit.h"
 #include "inout.h"
 #include "net.h"
-#include "peer.h"
+#include "peer-mgr.h"
 #include "utils.h"
 
 struct tr_io_s
@@ -301,8 +301,6 @@ tr_ioClose( tr_io_t * io )
 int
 tr_ioHash( tr_io_t * io, int pieceIndex )
 {
-    int i;
-
     tr_torrent * tor = io->tor;
     const int success = !checkPiece( tor, pieceIndex );
     if( success )
@@ -316,9 +314,7 @@ tr_ioHash( tr_io_t * io, int pieceIndex )
         tr_cpPieceRem( tor->completion, pieceIndex );
     }
 
-    /* Assign blame or credit to peers */
-    for( i = 0; i < tor->peerCount; ++i )
-        tr_peerBlame( tor->peers[i], pieceIndex, success );
+    tr_peerMgrSetBlame( tor->handle->peerMgr, tor->info.hash, pieceIndex, success );
 
     return 0;
 }

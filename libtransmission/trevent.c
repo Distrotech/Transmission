@@ -44,7 +44,7 @@
 ****
 ***/
 
-typedef struct tr_event_handle_s
+typedef struct tr_event_handle
 {
     int fds[2];
     tr_lock_t * lock;

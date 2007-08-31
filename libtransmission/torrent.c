@@ -37,9 +37,8 @@
 #include "inout.h"
 #include "metainfo.h"
 #include "net.h" /* tr_netNtop */
-#include "p.h"
 #include "peer.h"
-#include "peer-io.h"
+#include "peer-mgr.h"
 #include "platform.h"
 #include "ratecontrol.h"
 #include "shared.h"
@@ -50,6 +49,19 @@
 /***
 ****
 ***/
+
+tr_torrent*
+tr_torrentFindFromHash( tr_handle      * handle,
+                        const uint8_t  * torrentHash )
+{
+    tr_torrent * tor;
+
+    for( tor = handle->torrentList; tor; tor = tor->next )
+        if( !memcmp( tor->info.hash, torrentHash, SHA_DIGEST_LENGTH ) )
+            return tor;
+
+    return NULL;
+}
 
 tr_torrent*
 tr_torrentFindFromObfuscatedHash( tr_handle      * handle,
@@ -147,8 +159,11 @@ onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
     switch( event->messageType )
     {
         case TR_TRACKER_PEERS:
-            tr_torrentAddCompact( tor, TR_PEER_FROM_TRACKER,
-                                  event->peerCompact, event->peerCount );
+            tr_peerMgrAddPeers( tor->handle->peerMgr,
+                                tor->info.hash,
+                                TR_PEER_FROM_TRACKER,
+                                event->peerCompact,
+                                event->peerCount );
             break;
 
         case TR_TRACKER_WARNING:
@@ -646,10 +661,10 @@ void tr_torrentDisablePex( tr_torrent * tor, int disable )
     {
         if( tor->pexDisabled != disable )
         {
-            int i;
             tor->pexDisabled = disable;
-            for( i=0; i<tor->peerCount; ++i )
-                tr_peerSetPrivate( tor->peers[i], disable );
+            tr_peerMgrDisablePex( tor->handle->peerMgr,
+                                  tor->info.hash,
+                                  tor->pexDisabled );
         }
     }
 
@@ -700,7 +715,6 @@ tr_torrentStat( tr_torrent * tor )
 {
     tr_stat_t * s;
     struct tr_tracker * tc;
-    int i;
 
     tr_torrentReaderLock( tor );
 
@@ -714,29 +728,12 @@ tr_torrentStat( tr_torrent * tor )
     tc = tor->tracker;
     s->tracker = tr_trackerGetAddress( tor->tracker );
 
-    /* peers... */
-    memset( s->peersFrom, 0, sizeof( s->peersFrom ) );
-    s->peersTotal          = tor->peerCount;
-    s->peersConnected      = 0;
-    s->peersSendingToUs    = 0;
-    s->peersGettingFromUs  = 0;
-
-    for( i=0; i<tor->peerCount; ++i )
-    {
-        const tr_peer_t * peer = tor->peers[i];
-
-        if( tr_peerIsConnected( peer ) )
-        {
-            ++s->peersConnected;
-            ++s->peersFrom[tr_peerGetFrom(peer)];
-
-            if( tr_peerDownloadRate( peer ) > 0.01 )
-                ++s->peersSendingToUs;
-
-            if( tr_peerUploadRate( peer ) > 0.01 )
-                ++s->peersGettingFromUs;
-        }
-    }
+    tr_peerMgrTorrentStats( tor->handle->peerMgr,
+                            tor->info.hash,
+                            &s->peersTotal,
+                            &s->peersConnected,
+                            &s->peersSendingToUs,
+                            &s->peersGettingFromUs );
 
     s->percentComplete = tr_cpPercentComplete ( tor->completion );
 
@@ -896,46 +893,8 @@ tr_torrentFilesFree( tr_file_stat_t * files, int fileCount UNUSED )
 tr_peer_stat *
 tr_torrentPeers( const tr_torrent * tor, int * peerCount )
 {
-    tr_peer_stat * peers;
-
-    tr_torrentReaderLock( tor );
-
-    *peerCount = tor->peerCount;
-   
-    peers = tr_new0( tr_peer_stat, tor->peerCount ); 
-    if (peers != NULL)
-    {
-        tr_peer_t * peer;
-        struct in_addr * addr;
-        int i;
-        for( i=0; i<tor->peerCount; ++i )
-        {
-            peer = tor->peers[i];
-            
-            addr = tr_peerAddress( peer );
-            if( NULL != addr )
-            {
-                tr_netNtop( addr, peers[i].addr,
-                           sizeof( peers[i].addr ) );
-            }
-            
-            peers[i].client           =  tr_peerClient( peer );
-            peers[i].isConnected      =  tr_peerIsConnected( peer );
-            peers[i].from             =  tr_peerGetFrom( peer );
-            peers[i].progress         =  tr_peerProgress( peer );
-            peers[i].port             =  tr_peerPort( peer );
-
-            peers[i].uploadToRate     =  tr_peerUploadRate( peer );
-            peers[i].downloadFromRate =  tr_peerDownloadRate( peer );
-            
-            peers[i].isDownloading    =  peers[i].uploadToRate > 0.01;
-            peers[i].isUploading      =  peers[i].downloadFromRate > 0.01;
-        }
-    }
-    
-    tr_torrentReaderUnlock( tor );
-    
-    return peers;
+    return tr_peerMgrPeerStats( tor->handle->peerMgr,
+                                tor->info.hash, peerCount );
 }
 
 void tr_torrentPeersFree( tr_peer_stat * peers, int peerCount UNUSED )
@@ -945,33 +904,9 @@ void tr_torrentPeersFree( tr_peer_stat * peers, int peerCount UNUSED )
 
 void tr_torrentAvailability( const tr_torrent * tor, int8_t * tab, int size )
 {
-    int i, j, piece;
-    float interval;
-
-    tr_torrentReaderLock( tor );
-
-    interval = (float)tor->info.pieceCount / (float)size;
-    for( i = 0; i < size; i++ )
-    {
-        piece = i * interval;
-
-        if( tr_cpPieceIsComplete( tor->completion, piece ) )
-        {
-            tab[i] = -1;
-            continue;
-        }
-
-        tab[i] = 0;
-        for( j = 0; j < tor->peerCount; j++ )
-        {
-            if( tr_peerHasPiece( tor->peers[j], piece ) )
-            {
-                (tab[i])++;
-            }
-        }
-    }
-
-    tr_torrentReaderUnlock( tor );
+    return tr_peerMgrTorrentAvailability( tor->handle->peerMgr,
+                                          tor->info.hash,
+                                          tab, size );
 }
 
 void tr_torrentAmountFinished( const tr_torrent * tor, float * tab, int size )
@@ -1032,6 +967,7 @@ void tr_torrentRecheck( tr_torrent * tor )
 }
 
 
+#if 0
 int tr_torrentAttachPeer( tr_torrent * tor, tr_peer_t * peer )
 {
     int i;
@@ -1064,47 +1000,7 @@ int tr_torrentAttachPeer( tr_torrent * tor, tr_peer_t * peer )
 
     return 1;
 }
-
-static void
-tr_torrentAddPeerIo( tr_torrent  * torrent,
-                     tr_peerIo   * io )
-{
-    tr_peerManagerAdd( torrent, io );
-}
-
-static void
-myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * userData UNUSED )
-{
-    if( isConnected )
-        tr_torrentAddPeerIo( tr_peerIoGetTorrent(io), io );
-    else
-        tr_peerIoFree( io );
-}
-
-int tr_torrentAddCompact( tr_torrent * tor, int from UNUSED,
-                          const uint8_t * buf, int count )
-{
-    struct in_addr addr;
-    tr_port_t port;
-    int i, added;
-
-    added = 0;
-    for( i=0; i<count; ++i )
-    {
-        memcpy( &addr, buf, 4 ); buf += 4;
-        memcpy( &port, buf, 2 ); buf += 2;
-
-        tr_handshakeAdd (
-            tr_peerIoNewOutgoing( tor->handle, &addr, port, tor ),
-            HANDSHAKE_ENCRYPTION_PREFERRED,
-            myHandshakeDoneCB,
-            NULL );
-
-        //added += tr_torrentAttachPeer( tor, peer );
-    }
-
-    return added;
-}
+#endif
 
 /***
 ****
@@ -1227,7 +1123,6 @@ torrentThreadLoop ( void * _tor )
         /* if we're stopping... */
         if( tor->runStatus == TR_RUN_STOPPING )
         {
-            int i;
             tr_torrentWriterLock( tor );
 
             /* close the IO */
@@ -1236,9 +1131,7 @@ torrentThreadLoop ( void * _tor )
             fastResumeSave( tor );
 
             /* close the peers */
-            for( i=0; i<tor->peerCount; ++i )
-                tr_peerDestroy( tor->peers[i] );
-            tor->peerCount = 0;
+            tr_peerMgrStopTorrent( tor->handle->peerMgr, tor->info.hash );
 
             /* resest the transfer rates */
             tr_rcReset( tor->download );
@@ -1293,8 +1186,6 @@ torrentThreadLoop ( void * _tor )
         /* ping our peers if we're running... */
         if( tor->runStatus == TR_RUN_RUNNING )
         {
-            int i;
-
             /* starting to run... */
             if( tor->io == NULL )
             {
@@ -1306,39 +1197,6 @@ torrentThreadLoop ( void * _tor )
 
             /* refresh our completion state */
             recheckCpState( tor );
-
-            /* Shuffle peers */
-            if ( tor->peerCount > 1 ) {
-                tr_peer_t * tmp = tor->peers[0];
-                memmove( tor->peers, tor->peers+1,
-                        (tor->peerCount-1) * sizeof(void*) );
-                tor->peers[tor->peerCount - 1] = tmp;
-            }
-
-            /* receive/send messages */
-            tr_torrentWriterLock( tor );
-            for( i=0; i<tor->peerCount; ) {
-                tr_peer_t * peer = tor->peers[i];
-                int ret = tr_peerPulse( peer );
-                if( ret & TR_ERROR_IO_MASK ) {
-                    tr_err( "Fatal error, stopping download (%d)", ret );
-                    tor->runStatus = TR_RUN_STOPPING;
-                    tor->error = ret;
-                    strlcpy( tor->errorString,
-                             tr_errorString(ret),
-                             sizeof(tor->errorString) );
-                    break;
-                }
-                if( ret ) {
-                    tr_peerDestroy( peer );
-                    tor->peerCount--;
-                    memmove( &tor->peers[i], &tor->peers[i+1],
-                             (tor->peerCount-i)*sizeof(void*) );
-                    continue;
-                }
-                i++;
-            }
-            tr_torrentWriterUnlock( tor );
         }
     }
 

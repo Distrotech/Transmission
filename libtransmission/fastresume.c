@@ -55,7 +55,7 @@
 #include "transmission.h"
 #include "completion.h"
 #include "fastresume.h"
-#include "peer.h"
+#include "peer-mgr.h"
 #include "platform.h"
 #include "utils.h"
 
@@ -293,9 +293,10 @@ tr_fastResumeSave( const tr_torrent * tor )
     if( !( TR_FLAG_PRIVATE & tor->info.flags ) )
     {
         /* Write IPs and ports of connectable peers, if any */
-        int size;
         uint8_t * buf = NULL;
-        if( ( size = tr_peerGetConnectable( tor, &buf ) ) > 0 )
+        const int size = tr_peerMgrGetPeers( tor->handle->peerMgr,
+                                             tor->info.hash, &buf );
+        if( size > 0 )
         {
             fastResumeWriteData( FR_ID_PEERS, buf, size, 1, file );
             free( buf );
@@ -639,7 +640,6 @@ fastResumeLoadImpl ( tr_torrent   * tor,
             case FR_ID_PEERS:
                 if( !( TR_FLAG_PRIVATE & tor->info.flags ) )
                 {
-                    int used;
                     uint8_t * buf = malloc( len );
                     if( 1 != fread( buf, len, 1, file ) )
                     {
@@ -647,10 +647,13 @@ fastResumeLoadImpl ( tr_torrent   * tor,
                         fclose( file );
                         return ret;
                     }
-                    used = tr_torrentAddCompact( tor, TR_PEER_FROM_CACHE,
-                                                 buf, len / 6 );
-                    tr_dbg( "found %i peers in resume file, used %i",
-                            len / 6, used );
+
+                    tr_peerMgrAddPeers( tor->handle->peerMgr,
+                                        tor->info.hash,
+                                        TR_PEER_FROM_CACHE,
+                                        buf, len / 6 );
+
+                    tr_dbg( "found %i peers in resume file", len/6 );
                     free( buf );
                     ret |= TR_FR_PEERS;
                 }

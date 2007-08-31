@@ -36,6 +36,7 @@
 #include "net.h"
 #include "peer.h"
 #include "peer-io.h"
+#include "peer-mgr.h"
 #include "platform.h"
 #include "shared.h"
 #include "upnp.h"
@@ -45,9 +46,9 @@
 /* This is an arbitrary number, but it seems to work well */
 #define MAX_PEER_COUNT 128
 
-struct tr_shared_s
+struct tr_shared
 {
-    tr_handle_t  * h;
+    tr_handle  * h;
     volatile int   die;
     tr_thread_t  * thread;
     tr_lock_t    * lock;
@@ -56,8 +57,6 @@ struct tr_shared_s
     int          publicPort;
     int          bindPort;
     int          bindSocket;
-    int          peerCount;
-    tr_peer_t    * peers[MAX_PEER_COUNT];
 
     /* NAT-PMP/UPnP */
     tr_natpmp_t  * natpmp;
@@ -71,10 +70,8 @@ struct tr_shared_s
  * Local prototypes
  **********************************************************************/
 static void SharedLoop( void * );
-static void SetPublicPort( tr_shared_t *, int );
-static void AcceptPeers( tr_shared_t * );
-static void ReadPeers( tr_shared_t * );
-static void DispatchPeers( tr_shared_t * );
+static void SetPublicPort( tr_shared *, int );
+static void AcceptPeers( tr_shared * );
 
 
 /***********************************************************************
@@ -82,9 +79,9 @@ static void DispatchPeers( tr_shared_t * );
  ***********************************************************************
  *
  **********************************************************************/
-tr_shared_t * tr_sharedInit( tr_handle_t * h )
+tr_shared * tr_sharedInit( tr_handle * h )
 {
-    tr_shared_t * s = calloc( 1, sizeof( tr_shared_t ) );
+    tr_shared * s = calloc( 1, sizeof( tr_shared ) );
 
     s->h          = h;
     s->lock       = tr_lockNew( );
@@ -105,23 +102,14 @@ tr_shared_t * tr_sharedInit( tr_handle_t * h )
  ***********************************************************************
  *
  **********************************************************************/
-void tr_sharedClose( tr_shared_t * s )
+void tr_sharedClose( tr_shared * s )
 {
-    int ii;
-
     /* Stop the thread */
     s->die = 1;
     tr_threadJoin( s->thread );
 
-    /* Clean up */
-    for( ii = 0; ii < s->peerCount; ii++ )
-    {
-        tr_peerDestroy( s->peers[ii] );
-    }
     if( s->bindSocket > -1 )
-    {
         tr_netClose( s->bindSocket );
-    }
     tr_lockFree( s->lock );
     tr_natpmpClose( s->natpmp );
     tr_upnpClose( s->upnp );
@@ -134,11 +122,11 @@ void tr_sharedClose( tr_shared_t * s )
  ***********************************************************************
  *
  **********************************************************************/
-void tr_sharedLock( tr_shared_t * s )
+void tr_sharedLock( tr_shared * s )
 {
     tr_lockLock( s->lock );
 }
-void tr_sharedUnlock( tr_shared_t * s )
+void tr_sharedUnlock( tr_shared * s )
 {
     tr_lockUnlock( s->lock );
 }
@@ -148,7 +136,7 @@ void tr_sharedUnlock( tr_shared_t * s )
  ***********************************************************************
  *
  **********************************************************************/
-void tr_sharedSetPort( tr_shared_t * s, int port )
+void tr_sharedSetPort( tr_shared * s, int port )
 {
 #ifdef BEOS_NETSERVER
     /* BeOS net_server seems to be unable to set incoming connections
@@ -204,7 +192,7 @@ void tr_sharedSetPort( tr_shared_t * s, int port )
  ***********************************************************************
  *
  **********************************************************************/
-int tr_sharedGetPublicPort( tr_shared_t * s )
+int tr_sharedGetPublicPort( tr_shared * s )
 {
     return s->publicPort;
 }
@@ -214,7 +202,7 @@ int tr_sharedGetPublicPort( tr_shared_t * s )
  ***********************************************************************
  *
  **********************************************************************/
-void tr_sharedTraversalEnable( tr_shared_t * s, int enable )
+void tr_sharedTraversalEnable( tr_shared * s, int enable )
 {
     if( enable )
     {
@@ -228,7 +216,7 @@ void tr_sharedTraversalEnable( tr_shared_t * s, int enable )
     }
 }
 
-int tr_sharedTraversalStatus( tr_shared_t * s )
+int tr_sharedTraversalStatus( tr_shared * s )
 {
     int statuses[] = {
         TR_NAT_TRAVERSAL_MAPPED,
@@ -261,7 +249,7 @@ int tr_sharedTraversalStatus( tr_shared_t * s )
 /***********************************************************************
  * tr_sharedSetLimit
  **********************************************************************/
-void tr_sharedSetLimit( tr_shared_t * s, int limit )
+void tr_sharedSetLimit( tr_shared * s, int limit )
 {
     tr_chokingSetLimit( s->choking, limit );
 }
@@ -276,7 +264,7 @@ void tr_sharedSetLimit( tr_shared_t * s, int limit )
  **********************************************************************/
 static void SharedLoop( void * _s )
 {
-    tr_shared_t * s = _s;
+    tr_shared * s = _s;
     uint64_t      date1, date2, lastchoke = 0;
     int           newPort;
 
@@ -297,8 +285,6 @@ static void SharedLoop( void * _s )
 
         /* Handle incoming connections */
         AcceptPeers( s );
-        ReadPeers( s );
-        DispatchPeers( s );
 
         /* Update choking every second */
         if( date1 > lastchoke + 1000 )
@@ -325,9 +311,9 @@ static void SharedLoop( void * _s )
 /***********************************************************************
  * SetPublicPort
  **********************************************************************/
-static void SetPublicPort( tr_shared_t * s, int port )
+static void SetPublicPort( tr_shared * s, int port )
 {
-    tr_handle_t * h = s->h;
+    tr_handle * h = s->h;
     tr_torrent * tor;
 
     s->publicPort = port;
@@ -336,124 +322,27 @@ static void SetPublicPort( tr_shared_t * s, int port )
         tr_torrentChangeMyPort( tor, port );
 }
 
-
-static void
-myHandshakeDoneCB( struct tr_peerIo * c, int isConnected, void * unused UNUSED )
-{
-    if( isConnected )
-        fprintf( stderr, "FIXME: add some way to push this connection to the tor\n" );
-    else
-        tr_peerIoFree( c );
-}
-
 /***********************************************************************
  * AcceptPeers
  ***********************************************************************
  * Check incoming connections and add the peers to our local list
  **********************************************************************/
-static void AcceptPeers( tr_shared_t * s )
-{
-    int socket;
-    struct in_addr addr;
 
+static void
+AcceptPeers( tr_shared * s )
+{
     for( ;; )
     {
-        if( s->bindSocket < 0 || s->peerCount >= MAX_PEER_COUNT )
-        {
+        int socket;
+        struct in_addr addr;
+
+        if( s->bindSocket < 0 || !tr_peerMgrIsAcceptingConnections( s->h->peerMgr ) )
             break;
-        }
 
         socket = tr_netAccept( s->bindSocket, &addr, NULL );
         if( socket < 0 )
-        {
             break;
-        }
 
-        tr_handshakeAdd( tr_peerIoNewIncoming( s->h, &addr, socket ),
-                         HANDSHAKE_ENCRYPTION_PREFERRED,
-                         myHandshakeDoneCB,
-                         NULL );
+        tr_peerMgrAddIncoming( s->h->peerMgr, &addr, socket );
     }
 }
-
-/***********************************************************************
- * ReadPeers
- ***********************************************************************
- * Try to read handshakes
- **********************************************************************/
-static void ReadPeers( tr_shared_t * s )
-{
-    int ii;
-
-    for( ii = 0; ii < s->peerCount; )
-    {
-        if( tr_peerRead( s->peers[ii] ) )
-        {
-            tr_peerDestroy( s->peers[ii] );
-            s->peerCount--;
-            memmove( &s->peers[ii], &s->peers[ii+1],
-                     ( s->peerCount - ii ) * sizeof( tr_peer_t * ) );
-            continue;
-        }
-        ii++;
-    }
-}
-
-/***********************************************************************
- * DispatchPeers
- ***********************************************************************
- * If we got a handshake, try to find the torrent for this peer
- **********************************************************************/
-static void DispatchPeers( tr_shared_t * s )
-{
-    tr_handle_t * h = s->h;
-    int ii;
-    const uint64_t now = tr_date();
-
-    for( ii = 0; ii < s->peerCount; )
-    {
-        const uint8_t * hash = tr_peerHash( s->peers[ii] );
-
-        if( !hash && now > tr_peerDate( s->peers[ii] ) + 10000 )
-        {
-            /* 10 seconds and no handshake, drop it */
-            tr_peerDestroy( s->peers[ii] );
-            goto removePeer;
-        }
-        if( hash )
-        {
-            tr_torrent * tor;
-
-            for( tor = h->torrentList; tor; tor = tor->next )
-            {
-                tr_torrentWriterLock( tor );
-                if( tor->runStatus != TR_RUN_RUNNING )
-                {
-                    tr_torrentWriterUnlock( tor );
-                    continue;
-                }
-
-                if( !memcmp( tor->info.hash, hash, SHA_DIGEST_LENGTH ) )
-                {
-                    /* Found it! */
-                    tr_torrentAttachPeer( tor, s->peers[ii] );
-                    tr_torrentWriterUnlock( tor );
-                    goto removePeer;
-                }
-                tr_torrentWriterUnlock( tor );
-            }
-
-            /* Couldn't find a torrent, we probably removed it */
-            tr_peerDestroy( s->peers[ii] );
-            goto removePeer;
-        }
-        ii++;
-        continue;
-
-removePeer:
-        s->peerCount--;
-        memmove( &s->peers[ii], &s->peers[ii+1],
-                ( s->peerCount - ii ) * sizeof( tr_peer_t * ) );
-    }
-}
-

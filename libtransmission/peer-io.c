@@ -30,7 +30,6 @@
 struct tr_peerIo
 {
     struct tr_handle * handle;
-    struct tr_torrent * torrent;
 
     struct in_addr in_addr;
     int port;
@@ -97,14 +96,13 @@ gotErrorWrapper( struct bufferevent * e, short what, void * userData )
 static tr_peerIo*
 tr_peerIoNew( struct tr_handle  * handle,
               struct in_addr    * in_addr,
-              struct tr_torrent * torrent,
+              const uint8_t     * torrentHash,
               int                 isIncoming,
               int                 socket )
 {
     tr_peerIo * c;
     c = tr_new0( tr_peerIo, 1 );
-    c->torrent = torrent;
-    c->crypto = tr_cryptoNew( torrent ? torrent->info.hash : NULL, isIncoming );
+    c->crypto = tr_cryptoNew( torrentHash, isIncoming );
     c->handle = handle;
     c->in_addr = *in_addr;
     c->socket = socket;
@@ -131,16 +129,16 @@ tr_peerIo*
 tr_peerIoNewOutgoing( struct tr_handle  * handle,
                       struct in_addr    * in_addr,
                       int                 port,
-                      struct tr_torrent * torrent )
+                      const uint8_t     * torrentHash )
 {
     tr_peerIo * c;
 
     assert( handle != NULL );
     assert( in_addr != NULL );
     assert( port >= 0 );
-    assert( torrent != NULL );
+    assert( torrentHash != NULL );
 
-    c = tr_peerIoNew( handle, in_addr, torrent, 0,
+    c = tr_peerIoNew( handle, in_addr, torrentHash, 0,
                               tr_netOpenTCP( in_addr, port, 0 ) );
     c->port = port;
     return c;
@@ -162,6 +160,17 @@ tr_peerIoGetHandle( tr_peerIo * io )
     assert( io->handle != NULL );
 
     return io->handle;
+}
+
+const struct in_addr*
+tr_peerIoGetAddress( const tr_peerIo * io, uint16_t * port )
+{
+    assert( io != NULL );
+
+    if( port != NULL )
+       *port = io->port;
+
+    return &io->in_addr;
 }
 
 void 
@@ -220,18 +229,16 @@ tr_peerIoReconnect( tr_peerIo * io )
 **/
 
 void
-tr_peerIoSetTorrent( tr_peerIo  * io,
-                             struct tr_torrent  * torrent )
+tr_peerIoSetTorrentHash( tr_peerIo     * io,
+                         const uint8_t * hash )
 {
-    io->torrent = torrent;
-
-    tr_cryptoSetTorrentHash( io->crypto, torrent->info.hash );
+    tr_cryptoSetTorrentHash( io->crypto, hash );
 }
 
-struct tr_torrent*
+const uint8_t*
 tr_peerIoGetTorrent( tr_peerIo * io )
 {
-    return io->torrent;
+    return tr_cryptoGetTorrentHash( io->crypto );
 }
 
 /**
@@ -239,8 +246,8 @@ tr_peerIoGetTorrent( tr_peerIo * io )
 **/
 
 void
-tr_peerIoSetPeersId( tr_peerIo * io,
-                             const uint8_t     * peer_id )
+tr_peerIoSetPeersId( tr_peerIo     * io,
+                     const uint8_t * peer_id )
 {
     assert( io != NULL );
 
@@ -264,8 +271,8 @@ tr_peerIoGetPeersId( const tr_peerIo * io )
 **/
 
 void
-tr_peerIoSetExtension( tr_peerIo * io,
-                               int                 extensions )
+tr_peerIoSetExtension( tr_peerIo   * io,
+                       int           extensions )
 {
     assert( io != NULL );
     assert( ( extensions == LT_EXTENSIONS_NONE )

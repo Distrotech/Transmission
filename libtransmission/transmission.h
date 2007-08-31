@@ -103,7 +103,7 @@ extern "C" {
  **********************************************************************/
 typedef struct tr_handle tr_handle;
 typedef struct tr_handle tr_handle_t;
-tr_handle_t * tr_init( const char * tag );
+tr_handle * tr_init( const char * tag );
 
 typedef struct tr_tracker_info_s tr_tracker_info_t;
 
@@ -148,9 +148,9 @@ const char * tr_getPrefsDirectory( void );
  * Sets the port to listen for incoming peer connections.
  * This can be safely called even with active torrents.
  **********************************************************************/
-void tr_setBindPort( tr_handle_t *, int );
+void tr_setBindPort( tr_handle *, int );
 
-int tr_getPublicPort( const tr_handle_t * );
+int tr_getPublicPort( const tr_handle * );
 
 /***********************************************************************
  * tr_natTraversalEnable
@@ -158,15 +158,16 @@ int tr_getPublicPort( const tr_handle_t * );
  ***********************************************************************
  * Enable or disable NAT traversal using NAT-PMP or UPnP IGD.
  **********************************************************************/
-void tr_natTraversalEnable( tr_handle_t *, int enable );
+void tr_natTraversalEnable( tr_handle *, int enable );
 
 /***********************************************************************
  * tr_handleStatus
  ***********************************************************************
  * Returns some status info for the given handle.
  **********************************************************************/
-typedef struct tr_handle_status_s tr_handle_status_t;
-tr_handle_status_t * tr_handleStatus( tr_handle_t * );
+typedef struct tr_handle_status tr_handle_status;
+typedef struct tr_handle_status tr_handle_status_t;
+tr_handle_status * tr_handleStatus( tr_handle * );
 
 
 /***********************************************************************
@@ -174,7 +175,7 @@ tr_handle_status_t * tr_handleStatus( tr_handle_t * );
  ***********************************************************************
  * Returns the count of open torrents
  **********************************************************************/
-int tr_torrentCount( tr_handle_t * h );
+int tr_torrentCount( tr_handle * h );
 
 
 /***********************************************************************
@@ -185,7 +186,7 @@ int tr_torrentCount( tr_handle_t * h );
 typedef struct tr_torrent tr_torrent;
 typedef struct tr_torrent tr_torrent_t;
 typedef void (*tr_callback_t) ( tr_torrent *, void * );
-void tr_torrentIterate( tr_handle_t *, tr_callback_t, void * );
+void tr_torrentIterate( tr_handle *, tr_callback_t, void * );
 
 
 /***********************************************************************
@@ -216,15 +217,15 @@ void tr_torrentSetSpeedLimit( tr_torrent   * tor,
 int tr_torrentGetSpeedLimit( const tr_torrent  * tor,
                              int                 up_or_down );
 
-void tr_setUseGlobalSpeedLimit( tr_handle_t * handle,
+void tr_setUseGlobalSpeedLimit( tr_handle * handle,
                                 int           up_or_down,
                                 int           use_flag );
 
-void tr_setGlobalSpeedLimit( tr_handle_t * handle,
+void tr_setGlobalSpeedLimit( tr_handle * handle,
                              int           up_or_down,
                              int           global_KiB_sec );
 
-void tr_getGlobalSpeedLimit( tr_handle_t * handle,
+void tr_getGlobalSpeedLimit( tr_handle * handle,
                              int           up_or_down,
                              int         * setme_is_enabled,
                              int         * setme_KiBsec );
@@ -279,14 +280,14 @@ void tr_torrentSetFileDL( tr_torrent *, int file, int do_download );
  ***********************************************************************
  * Gets the total download and upload rates
  **********************************************************************/
-void tr_torrentRates( tr_handle_t *, float *, float * );
+void tr_torrentRates( tr_handle *, float *, float * );
 
 /***********************************************************************
  * tr_close
  ***********************************************************************
  * Frees memory allocated by tr_init.
  **********************************************************************/
-void tr_close( tr_handle_t * );
+void tr_close( tr_handle * );
 
 
 
@@ -295,7 +296,7 @@ void tr_close( tr_handle_t * );
  *  This can be used at startup to kickstart all the torrents
  *  from the previous session.
  */
-tr_torrent ** tr_loadTorrents ( tr_handle_t  * h,
+tr_torrent ** tr_loadTorrents ( tr_handle  * h,
                                 const char   * destination,
                                 int            flags,
                                 int          * setmeCount );
@@ -315,7 +316,7 @@ tr_torrent ** tr_loadTorrents ( tr_handle_t  * h,
 #define TR_EUNSUPPORTED 2
 #define TR_EDUPLICATE   3
 #define TR_EOTHER       666
-tr_torrent * tr_torrentInit( tr_handle_t  * handle,
+tr_torrent * tr_torrentInit( tr_handle  * handle,
                              const char   * metainfo_filename,
                              const char   * destination,
                              int            flags,
@@ -339,7 +340,7 @@ typedef struct tr_info tr_info_t;
  * it will be filled with the metadata's info.  You'll need to
  * call tr_metainfoFree( setme_info ) when done with it.
  */
-int tr_torrentParse( const tr_handle_t  * handle,
+int tr_torrentParse( const tr_handle  * handle,
                      const char         * metainfo_filename,
                      const char         * destination,
                      tr_info_t          * setme_info );
@@ -349,7 +350,7 @@ int tr_torrentParse( const tr_handle_t  * handle,
  * See tr_torrentParse() for a description of the arguments
  */
 int
-tr_torrentParseHash( const tr_handle_t  * h,
+tr_torrentParseHash( const tr_handle  * h,
                      const char         * hashStr,
                      const char         * destination,
                      tr_info_t          * setme_info );
@@ -361,7 +362,7 @@ tr_torrentParseHash( const tr_handle_t  * h,
  * Like tr_torrentInit, except the actual torrent data is passed in
  * instead of the filename.
  **********************************************************************/
-tr_torrent * tr_torrentInitData( tr_handle_t *,
+tr_torrent * tr_torrentInitData( tr_handle *,
                                  const uint8_t * data, size_t size,
                                  const char * destination,
                                  int flags, int * error );
@@ -373,7 +374,7 @@ tr_torrent * tr_torrentInitData( tr_handle_t *,
  * the hash string of a saved torrent file instead of a filename. There
  * are currently no valid flags for this function.
  **********************************************************************/
-tr_torrent * tr_torrentInitSaved( tr_handle_t *,
+tr_torrent * tr_torrentInitSaved( tr_handle *,
                                   const char * hashStr,
                                   const char * destination,
                                   int flags, int * error );
@@ -684,7 +685,7 @@ struct tr_tracker_info_s
     char * scrape;
 };
 
-struct tr_handle_status_s
+struct tr_handle_status
 {
 #define TR_NAT_TRAVERSAL_MAPPING        1
 #define TR_NAT_TRAVERSAL_MAPPED         2
