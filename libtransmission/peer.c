@@ -295,16 +295,6 @@ static void tr_htonl( uint32_t a, void * p )
     memcpy ( p, &u, sizeof( uint32_t ) );
 }
 
-const char* getPeerId( void )
-{
-    static char * peerId = NULL;
-    if( !peerId ) {
-        peerId = tr_new0( char, TR_ID_LEN + 1 );
-        tr_peerIdNew( peerId, TR_ID_LEN + 1 );
-    }
-    return peerId;
-}
-
 static void tr_peerPieceIsCorrupt  ( tr_peer_t *, int pieceIndex );
 
 #include "peerext.h"

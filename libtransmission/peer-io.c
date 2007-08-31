@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #include <assert.h>
@@ -236,7 +236,7 @@ tr_peerIoSetTorrentHash( tr_peerIo     * io,
 }
 
 const uint8_t*
-tr_peerIoGetTorrent( tr_peerIo * io )
+tr_peerIoGetTorrentHash( tr_peerIo * io )
 {
     return tr_cryptoGetTorrentHash( io->crypto );
 }

@@ -63,6 +63,17 @@ tr_peerIdNew ( char * buf, int buflen )
     buf[TR_ID_LEN] = '\0';
 }
 
+const char*
+getPeerId( void )
+{
+    static char * peerId = NULL;
+    if( !peerId ) {
+        peerId = tr_new0( char, TR_ID_LEN + 1 );
+        tr_peerIdNew( peerId, TR_ID_LEN + 1 );
+    }
+    return peerId;
+}
+
 /***
 ****
 ***/
@@ -180,10 +191,8 @@ tr_setGlobalSpeedLimit( tr_handle_t  * h,
 {
     if( up_or_down == TR_DOWN )
         tr_rcSetLimit( h->download, KiB_sec );
-    else {
+    else
         tr_rcSetLimit( h->upload, KiB_sec );
-        tr_sharedSetLimit( h->shared, KiB_sec );
-    }
 }
 
 void

@@ -65,12 +65,6 @@ int          tr_sharedGetPublicPort   ( tr_shared * s );
 void         tr_sharedTraversalEnable ( tr_shared *, int enable );
 int          tr_sharedTraversalStatus ( tr_shared * );
 
-/***********************************************************************
- * tr_sharedSetLimit
- ***********************************************************************
- *
- **********************************************************************/
-void         tr_sharedSetLimit        ( tr_shared *, int limit );
 
 #endif
 

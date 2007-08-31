@@ -30,11 +30,9 @@
 #include <sys/types.h>
 
 #include "transmission.h"
-#include "choking.h"
 #include "handshake.h"
 #include "natpmp.h"
 #include "net.h"
-#include "peer.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
 #include "platform.h"
@@ -61,9 +59,6 @@ struct tr_shared
     /* NAT-PMP/UPnP */
     tr_natpmp_t  * natpmp;
     tr_upnp_t    * upnp;
-
-    /* Choking */
-    tr_choking_t * choking;
 };
 
 /***********************************************************************
@@ -90,7 +85,6 @@ tr_shared * tr_sharedInit( tr_handle * h )
     s->bindSocket = -1;
     s->natpmp     = tr_natpmpInit();
     s->upnp       = tr_upnpInit();
-    s->choking    = tr_chokingInit( h );
     s->die        = 0;
     s->thread     = tr_threadNew( SharedLoop, s, "shared" );
 
@@ -113,7 +107,6 @@ void tr_sharedClose( tr_shared * s )
     tr_lockFree( s->lock );
     tr_natpmpClose( s->natpmp );
     tr_upnpClose( s->upnp );
-    tr_chokingClose( s->choking );
     free( s );
 }
 
@@ -246,14 +239,6 @@ int tr_sharedTraversalStatus( tr_shared * s )
 
 }
 
-/***********************************************************************
- * tr_sharedSetLimit
- **********************************************************************/
-void tr_sharedSetLimit( tr_shared * s, int limit )
-{
-    tr_chokingSetLimit( s->choking, limit );
-}
-
 
 /***********************************************************************
  * Local functions
@@ -265,7 +250,7 @@ void tr_sharedSetLimit( tr_shared * s, int limit )
 static void SharedLoop( void * _s )
 {
     tr_shared * s = _s;
-    uint64_t      date1, date2, lastchoke = 0;
+    uint64_t      date1, date2;
     int           newPort;
 
     tr_sharedLock( s );
@@ -285,15 +270,6 @@ static void SharedLoop( void * _s )
 
         /* Handle incoming connections */
         AcceptPeers( s );
-
-        /* Update choking every second */
-        if( date1 > lastchoke + 1000 )
-        {
-            tr_chokingPulse( s->choking );
-            lastchoke = date1;
-        }
-
-        tr_swiftPulse ( s->h );
 
         /* Wait up to 20 ms */
         date2 = tr_date();

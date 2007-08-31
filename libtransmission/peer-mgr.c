@@ -142,6 +142,23 @@ tr_peerMgrNew( tr_handle * handle )
     return m;
 }
 
+void
+tr_peerMgrFree( tr_peerMgr * manager )
+{
+    int it, sizet;
+    Torrent ** torrents = (Torrent**) tr_ptrArrayPeek( manager->torrents, &sizet );
+    for( it=0; it<sizet; ++it )
+    {
+        int ip, sizep;
+        Torrent * t = torrents[it];
+        Peer ** peers = (Peer **) tr_ptrArrayPeek( t->peers, &sizep );
+        for( ip=0; ip<sizep; ++ip )
+        {
+            /* FIXME */
+        }
+    }
+}
+
 /**
 ***
 **/
