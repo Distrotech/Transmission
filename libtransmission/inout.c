@@ -312,6 +312,7 @@ tr_ioHash( tr_io_t * io, int pieceIndex )
     {
         tr_err( "Piece %d hash FAILED", pieceIndex );
         tr_cpPieceRem( tor->completion, pieceIndex );
+        return TR_ERROR;
     }
 
     tr_peerMgrSetBlame( tor->handle->peerMgr, tor->info.hash, pieceIndex, success );
