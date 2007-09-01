@@ -153,12 +153,15 @@ tr_peerIoNewOutgoing( struct tr_handle  * handle,
 void
 tr_peerIoFree( tr_peerIo * c )
 {
-    bufferevent_free( c->bufev );
-    tr_rcClose( c->rateToClient );
-    tr_rcClose( c->rateToPeer );
-    tr_netClose( c->socket );
-    tr_cryptoFree( c->crypto );
-    tr_free( c );
+    if( c != NULL )
+    {
+        bufferevent_free( c->bufev );
+        tr_rcClose( c->rateToClient );
+        tr_rcClose( c->rateToPeer );
+        tr_netClose( c->socket );
+        tr_cryptoFree( c->crypto );
+        tr_free( c );
+    }
 }
 
 tr_handle*

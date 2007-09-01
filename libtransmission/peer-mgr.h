@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #ifndef TR_PEER_MGR_H
@@ -63,7 +63,8 @@ void tr_peerMgrTorrentStats( const tr_peerMgr * manager,
                              int              * setmePeersTotal,
                              int              * setmePeersConnected,
                              int              * setmePeersSendingToUs,
-                             int              * setmePeersGettingFromUs );
+                             int              * setmePeersGettingFromUs,
+                             int              * setmePeersFrom ); /* <-- array of TR_PEER_FROM__MAX */
 
 struct tr_peer_stat * tr_peerMgrPeerStats( const tr_peerMgr  * manager,
                                            const uint8_t     * torrentHash,

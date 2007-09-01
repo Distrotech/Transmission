@@ -733,7 +733,8 @@ tr_torrentStat( tr_torrent * tor )
                             &s->peersTotal,
                             &s->peersConnected,
                             &s->peersSendingToUs,
-                            &s->peersGettingFromUs );
+                            &s->peersGettingFromUs,
+                            &s->peersFrom );
 
     s->percentComplete = tr_cpPercentComplete ( tor->completion );
 

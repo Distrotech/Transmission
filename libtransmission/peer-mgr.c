@@ -17,6 +17,7 @@
 
 #include "transmission.h"
 #include "handshake.h"
+#include "completion.h"
 #include "net.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
@@ -129,6 +130,25 @@ getPeer( Torrent * torrent, const struct in_addr * in_addr )
     return peer;
 }
 
+static void
+freePeer( Peer * peer )
+{
+#warning free the peer-work state here
+    tr_peerIoFree( peer->io );
+    tr_free( peer );
+}
+
+static void
+freeTorrent( tr_peerMgr * manager, Torrent * t )
+{
+    int i, size;
+    Peer ** peers = (Peer **) tr_ptrArrayPeek( t->peers, &size );
+    for( i=0; i<size; ++i )
+        freePeer( peers[i] );
+    tr_ptrArrayFree( t->peers );
+    tr_ptrArrayRemoveSorted( manager->torrents, t, torrentCompare );
+    tr_free( t );
+}
 
 /**
 ***
@@ -139,24 +159,19 @@ tr_peerMgrNew( tr_handle * handle )
 {
     tr_peerMgr * m = tr_new0( tr_peerMgr, 1 );
     m->handle = handle;
+    m->torrents = tr_ptrArrayNew( );
     return m;
 }
 
 void
 tr_peerMgrFree( tr_peerMgr * manager )
 {
-    int it, sizet;
-    Torrent ** torrents = (Torrent**) tr_ptrArrayPeek( manager->torrents, &sizet );
-    for( it=0; it<sizet; ++it )
-    {
-        int ip, sizep;
-        Torrent * t = torrents[it];
-        Peer ** peers = (Peer **) tr_ptrArrayPeek( t->peers, &sizep );
-        for( ip=0; ip<sizep; ++ip )
-        {
-            /* FIXME */
-        }
-    }
+    int i, size;
+    Torrent ** torrents = (Torrent**) tr_ptrArrayPeek( manager->torrents, &size );
+    for( i=0; i<size; ++i )
+        freeTorrent( manager, torrents[i] );
+    tr_ptrArrayFree( manager->torrents );
+    tr_free( manager );
 }
 
 /**
@@ -251,12 +266,27 @@ tr_peerMgrSetBlame( tr_peerMgr     * manager UNUSED,
 }
 
 int
-tr_peerMgrGetPeers( tr_peerMgr      * manager UNUSED,
-                    const uint8_t   * torrentHash UNUSED,
-                    uint8_t        ** setme_compact  UNUSED)
+tr_peerMgrGetPeers( tr_peerMgr      * manager,
+                    const uint8_t   * torrentHash,
+                    uint8_t        ** setme_compact )
 {
-    assert( 0 );
-    return 0;
+    const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
+    int i, peerCount;
+    const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &peerCount );
+    uint8_t * ret = tr_new( uint8_t, peerCount * 6 );
+    uint8_t * walk = ret;
+
+    for( i=0; i<peerCount; ++i )
+    {
+        memcpy( walk, &peers[i]->in_addr, sizeof( struct in_addr ) );
+        walk += sizeof( struct in_addr );
+        memcpy( walk, &peers[i]->port, sizeof( uint16_t ) );
+        walk += sizeof( uint16_t );
+    }
+
+    assert( ( walk - ret ) == peerCount * 6 );
+    *setme_compact = ret;
+    return peerCount;
 }
 
 
@@ -275,51 +305,43 @@ tr_peerMgrStopTorrent( tr_peerMgr     * manager UNUSED,
 }
 
 void
-tr_peerMgrTorrentAvailability( const tr_peerMgr * manager UNUSED,
-                               const uint8_t    * torrentHash UNUSED,
-                               int8_t           * tab UNUSED,
-                               int                tabCount  UNUSED)
+tr_peerMgrTorrentAvailability( const tr_peerMgr * manager,
+                               const uint8_t    * torrentHash,
+                               int8_t           * tab,
+                               int                tabCount )
 {
-#if 0
-    int i, j, piece;
-    float interval;
+    int i;
+    const tr_torrent * tor = tr_torrentFindFromHash( manager->handle, torrentHash );
+    const float interval = tor->info.pieceCount / (float)tabCount;
+    const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
 
-    tr_torrentReaderLock( tor );
-
-    interval = (float)tor->info.pieceCount / (float)size;
-    for( i = 0; i < size; i++ )
+    for( i=0; i<tabCount; ++i )
     {
-        piece = i * interval;
+        const int piece = i * interval;
 
-        if( tr_cpPieceIsComplete( tor->completion, piece ) )
-        {
+        if( tor == NULL )
+            tab[i] = 0;
+        else if( tr_cpPieceIsComplete( tor->completion, piece ) )
             tab[i] = -1;
-            continue;
-        }
-
-        tab[i] = 0;
-        for( j = 0; j < tor->peerCount; j++ )
-        {
-            if( tr_peerHasPiece( tor->peers[j], piece ) )
-            {
-                (tab[i])++;
-            }
+        else {
+            int j, peerCount;
+            const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &peerCount );
+            for( j=0; j<peerCount; ++j )
+                if( peers[i].ccc )
+                    ++tab[i];
         }
     }
-
-    tr_torrentReaderUnlock( tor );
-#endif
-    assert( 0 && "FIXME" );
 }
 
 
 void
 tr_peerMgrTorrentStats( const tr_peerMgr * manager,
                         const uint8_t    * torrentHash,
-                        int              * setmePeersTotal UNUSED,
-                        int              * setmePeersConnected UNUSED,
-                        int              * setmePeersSendingToUs UNUSED,
-                        int              * setmePeersGettingFromUs  UNUSED)
+                        int              * setmePeersTotal,
+                        int              * setmePeersConnected,
+                        int              * setmePeersSendingToUs,
+                        int              * setmePeersGettingFromUs,
+                        int              * setmePeersFrom )
 {
     int i, size;
     const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
@@ -333,17 +355,19 @@ tr_peerMgrTorrentStats( const tr_peerMgr * manager,
     for( i=0; i<size; ++i )
     {
         const Peer * peer = peers[i];
-        if( peer->io == NULL )
+
+        if( peer->io == NULL ) /* not connected */
             continue;
+
         ++*setmePeersConnected;
-#warning FIXME
-#if 0
-        ++*setmePeersFrom[peer->from];
-        if( tr_peerDownloadRate( peer ) > 0.01 )
-            ++s->peersSendingToUs;
-        if( tr_peerUploadRate( peer ) > 0.01 )
-            ++s->peersGettingFromUs;
-#endif
+
+        ++setmePeersFrom[peer->from];
+
+        if( tr_peerIoGetRateToPeer( peer->io ) > 0.01 )
+            ++*setmePeersGettingFromUs;
+
+        if( tr_peerIoGetRateToClient( peer->io ) > 0.01 )
+            ++*setmePeersSendingToUs;
     }
 }
 
@@ -390,19 +414,11 @@ tr_peerMgrDisablePex( tr_peerMgr    * manager UNUSED,
 {
 #warning FIXME
 #if 0
-    tr_torrentWriterLock( tor );
-
-    if( ! ( TR_FLAG_PRIVATE & tor->info.flags ) )
-    {
-        if( tor->pexDisabled != disable )
-        {
-            int i;
-            tor->pexDisabled = disable;
-            for( i=0; i<tor->peerCount; ++i )
-                tr_peerSetPrivate( tor->peers[i], disable );
-        }
+    if( ( tor->pexDisabled != disable ) && ! ( TR_FLAG_PRIVATE & tor->info.flags ) ) {
+        int i;
+        tor->pexDisabled = disable;
+        for( i=0; i<tor->peerCount; ++i )
+            tr_peerSetPrivate( tor->peers[i], disable );
     }
 #endif
-    assert( 0 );
-
 }
