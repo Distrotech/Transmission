@@ -301,21 +301,24 @@ tr_ioClose( tr_io_t * io )
 int
 tr_ioHash( tr_io_t * io, int pieceIndex )
 {
+    int ret;
     tr_torrent * tor = io->tor;
     const int success = !checkPiece( tor, pieceIndex );
+
     if( success )
     {
         tr_dbg( "Piece %d hash OK", pieceIndex );
         tr_cpPieceAdd( tor->completion, pieceIndex );
+        ret = TR_OK;
     }
     else
     {
         tr_err( "Piece %d hash FAILED", pieceIndex );
         tr_cpPieceRem( tor->completion, pieceIndex );
-        return TR_ERROR;
+        ret = TR_ERROR;
     }
 
     tr_peerMgrSetBlame( tor->handle->peerMgr, tor->info.hash, pieceIndex, success );
 
-    return 0;
+    return ret;
 }
