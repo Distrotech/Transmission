@@ -102,7 +102,7 @@ peer_request_compare_func( const void * va, const void * vb )
 
 struct tr_peermsgs
 {
-    tr_peer * peer;
+    tr_peer * info;
 
     tr_handle * handle;
     tr_torrent * torrent;
@@ -116,11 +116,6 @@ struct tr_peermsgs
 
     tr_timer_tag pulseTag;
 
-    unsigned int  peerIsChoked        : 1;
-    unsigned int  weAreChoked         : 1;
-    unsigned int  peerIsInterested    : 1;
-    unsigned int  weAreInterested     : 1;
-    unsigned int  isPrivate           : 1;
     unsigned int  notListening        : 1;
 
     struct peer_request blockToUs;
@@ -148,9 +143,9 @@ isPieceInteresting( const tr_peermsgs   * peer,
         return FALSE;
     if( tr_cpPieceIsComplete( torrent->completion, piece ) ) /* we already have it */
         return FALSE;
-    if( !tr_bitfieldHas( peer->peer->have, piece ) ) /* peer doesn't have it */
+    if( !tr_bitfieldHas( peer->info->have, piece ) ) /* peer doesn't have it */
         return FALSE;
-    if( tr_bitfieldHas( peer->peer->banned, piece ) ) /* peer is banned for it */
+    if( tr_bitfieldHas( peer->info->banned, piece ) ) /* peer is banned for it */
         return FALSE;
     return TRUE;
 }
@@ -162,10 +157,10 @@ isInteresting( const tr_peermsgs * peer )
     const tr_torrent * torrent = peer->torrent;
     const tr_bitfield * bitfield = tr_cpPieceBitfield( torrent->completion );
 
-    if( !peer->peer->have ) /* We don't know what this peer has */
+    if( !peer->info->have ) /* We don't know what this peer has */
         return FALSE;
 
-    assert( bitfield->len == peer->peer->have->len );
+    assert( bitfield->len == peer->info->have->len );
 
     for( i=0; i<torrent->info.pieceCount; ++i )
         if( isPieceInteresting( peer, i ) )
@@ -189,20 +184,20 @@ static void
 updateInterest( tr_peermsgs * peer )
 {
     const int i = isInteresting( peer );
-    if( i != peer->weAreInterested )
+    if( i != peer->info->clientIsInterested )
         sendInterest( peer, i );
 }
 
 void
-setChoke( tr_peermsgs * peer, int choke )
+tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
 {
-    if( peer->peerIsChoked != !!choke )
+    if( peer->info->peerIsChoked != !!choke )
     {
         const uint32_t len = sizeof(uint8_t);
         const uint8_t bt_msgid = choke ? BT_CHOKE : BT_UNCHOKE;
 
-        peer->peerIsChoked = choke ? 1 : 0;
-        if( peer->peerIsChoked )
+        peer->info->peerIsChoked = choke ? 1 : 0;
+        if( peer->info )
         {
             tr_list_foreach( peer->peerAskedFor, tr_free );
             tr_list_free( &peer->peerAskedFor );
@@ -247,11 +242,11 @@ parseLtepHandshake( tr_peermsgs * peer, int len, struct evbuffer * inbuf )
     sub = tr_bencDictFind( &val, "v" );
     if( tr_bencIsStr( sub ) ) {
 int i;
-        tr_free( peer->peer->client );
+        tr_free( peer->info->client );
         fprintf( stderr, "dictionary says client is [%s]\n", sub->val.s.s );
 for( i=0; i<sub->val.s.i; ++i ) fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i], (int)sub->val.s.s[i] );
-        peer->peer->client = tr_strndup( sub->val.s.s, sub->val.s.i );
-        fprintf( stderr, "peer->client is now [%s]\n", peer->peer->client );
+        peer->info->client = tr_strndup( sub->val.s.s, sub->val.s.i );
+        fprintf( stderr, "peer->client is now [%s]\n", peer->info->client );
     }
 
     /* get peer's listening port */
@@ -271,7 +266,7 @@ parseUtPex( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
     benc_val_t val, * sub;
     uint8_t * tmp;
 
-    if( peer->isPrivate ) /* no sharing! */
+    if( !peer->info->pexEnabled ) /* no sharing! */
         return;
 
     tmp = tr_new( uint8_t, msglen );
@@ -363,7 +358,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
         case BT_CHOKE:
             assert( msglen == 0 );
             fprintf( stderr, "got a BT_CHOKE\n" );
-            peer->weAreChoked = 1;
+            peer->info->clientIsChoked = 1;
             tr_list_foreach( peer->peerAskedFor, tr_free );
             tr_list_free( &peer->peerAskedFor );
             /* FIXME: maybe choke them */
@@ -373,7 +368,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
         case BT_UNCHOKE:
             assert( msglen == 0 );
             fprintf( stderr, "got a BT_UNCHOKE\n" );
-            peer->weAreChoked = 0;
+            peer->info->clientIsChoked = 0;
             /* FIXME: maybe unchoke them */
             /* FIXME: maybe send them requests */
             break;
@@ -381,14 +376,14 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
         case BT_INTERESTED:
             assert( msglen == 0 );
             fprintf( stderr, "got a BT_INTERESTED\n" );
-            peer->peerIsInterested = 1;
+            peer->info->peerIsInterested = 1;
             /* FIXME: maybe unchoke them */
             break;
 
         case BT_NOT_INTERESTED:
             assert( msglen == 0 );
             fprintf( stderr, "got a BT_NOT_INTERESTED\n" );
-            peer->peerIsInterested = 0;
+            peer->info->peerIsInterested = 0;
             /* FIXME: maybe choke them */
             break;
 
@@ -396,17 +391,17 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             assert( msglen == 4 );
             fprintf( stderr, "got a BT_HAVE\n" );
             tr_peerIoReadUint32( peer->io, inbuf, &ui32 );
-            tr_bitfieldAdd( peer->peer->have, ui32 );
-            peer->peer->progress = tr_bitfieldCountTrueBits( peer->peer->have ) / (float)peer->torrent->info.pieceCount;
+            tr_bitfieldAdd( peer->info->have, ui32 );
+            peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
             updateInterest( peer );
             break;
 
         case BT_BITFIELD:
-            assert( msglen == peer->peer->have->len );
+            assert( msglen == peer->info->have->len );
             fprintf( stderr, "got a BT_BITFIELD\n" );
-            tr_peerIoReadBytes( peer->io, inbuf, peer->peer->have->bits, msglen );
-            peer->peer->progress = tr_bitfieldCountTrueBits( peer->peer->have ) / (float)peer->torrent->info.pieceCount;
-            fprintf( stderr, "peer progress is %f\n", peer->peer->progress );
+            tr_peerIoReadBytes( peer->io, inbuf, peer->info->have->bits, msglen );
+            peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
+            fprintf( stderr, "peer progress is %f\n", peer->info->progress );
             updateInterest( peer );
             /* FIXME: maybe unchoke */
             break;
@@ -419,7 +414,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &req->pieceIndex );
             tr_peerIoReadUint32( peer->io, inbuf, &req->offsetInPiece );
             tr_peerIoReadUint32( peer->io, inbuf, &req->length );
-            if( !peer->peerIsChoked )
+            if( !peer->info->peerIsChoked )
                 tr_list_append( &peer->peerAskedFor, req );
             break;
         }
@@ -517,9 +512,9 @@ gotBlock( tr_peermsgs * peer, int pieceIndex, int offset, struct evbuffer * inbu
         return;
 
     /* make a note that this peer helped us with this piece */
-    if( !peer->peer->blame )
-         peer->peer->blame = tr_bitfieldNew( tor->info.pieceCount );
-    tr_bitfieldAdd( peer->peer->blame, pieceIndex );
+    if( !peer->info->blame )
+         peer->info->blame = tr_bitfieldNew( tor->info.pieceCount );
+    tr_bitfieldAdd( peer->info->blame, pieceIndex );
 
     tr_cpBlockAdd( tor->completion, block );
 
@@ -678,24 +673,24 @@ sendBitfield( tr_peermsgs * peer )
 }
 
 tr_peermsgs*
-tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * peer_in )
+tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
 {
     tr_peermsgs * peer;
 
-    assert( peer_in != NULL );
-    assert( peer_in->io != NULL );
+    assert( info != NULL );
+    assert( info->io != NULL );
 
     peer = tr_new0( tr_peermsgs, 1 );
-    peer->peer = peer_in;
+    peer->info = info;
     peer->handle = torrent->handle;
     peer->torrent = torrent;
-    peer->io = peer_in->io;
-    peer->weAreChoked = 1;
-    peer->peerIsChoked = 1;
-    peer->weAreInterested = 0;
-    peer->peerIsInterested = 0;
+    peer->io = info->io;
+    peer->info->clientIsChoked = 1;
+    peer->info->peerIsChoked = 1;
+    peer->info->clientIsInterested = 0;
+    peer->info->peerIsInterested = 0;
+    peer->info->have = tr_bitfieldNew( torrent->info.pieceCount );
     peer->pulseTag = tr_timerNew( peer->handle, pulse, peer, NULL, 200 );
-    peer->peer->have = tr_bitfieldNew( torrent->info.pieceCount );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );
     peer->inBlock = evbuffer_new( );

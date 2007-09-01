@@ -37,6 +37,10 @@ typedef struct tr_peer
     uint64_t lastPexTime;
 
     unsigned int  pexEnabled : 1;
+    unsigned int  peerIsChoked : 1;
+    unsigned int  peerIsInterested : 1;
+    unsigned int  clientIsChoked : 1;
+    unsigned int  clientIsInterested : 1;
 
     struct tr_peermsgs * msgs;
 }

@@ -21,6 +21,8 @@ typedef struct tr_peermsgs tr_peermsgs;
 tr_peermsgs* tr_peerMsgsNew( struct tr_torrent  * torrent,
                              struct tr_peer     * peer );
 
+void         tr_peerMsgsSetChoke( tr_peermsgs *, int doChoke );
+
 void         tr_peerMsgsFree( tr_peermsgs* );
 
 #endif
