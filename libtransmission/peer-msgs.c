@@ -244,8 +244,9 @@ parseLtepHandshake( tr_peermsgs * peer, int len, struct evbuffer * inbuf )
 int i;
         tr_free( peer->info->client );
         fprintf( stderr, "dictionary says client is [%s]\n", sub->val.s.s );
-for( i=0; i<sub->val.s.i; ++i ) fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i], (int)sub->val.s.s[i] );
         peer->info->client = tr_strndup( sub->val.s.s, sub->val.s.i );
+for( i=0; i<sub->val.s.i; ++i ) { fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i], (int)sub->val.s.s[i] );
+                                  if( (int)peer->info->client[i]==-75 ) peer->info->client[i]='u'; }
         fprintf( stderr, "peer->client is now [%s]\n", peer->info->client );
     }
 

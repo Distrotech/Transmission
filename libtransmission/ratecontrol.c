@@ -100,11 +100,15 @@ int
 tr_rcCanTransfer( const tr_ratecontrol * r )
 {
     int ret;
-    tr_lockLock( (tr_lock_t*)r->lock );
 
-    ret = rateForInterval( r, SHORT_INTERVAL_MSEC ) < r->limit;
+    if( r == NULL )
+        ret = 0;
+    else {
+        tr_lockLock( (tr_lock_t*)r->lock );
+        ret = rateForInterval( r, SHORT_INTERVAL_MSEC ) < r->limit;
+        tr_lockUnlock( (tr_lock_t*)r->lock );
+    }
 
-    tr_lockUnlock( (tr_lock_t*)r->lock );
     return ret;
 }
 
@@ -112,11 +116,15 @@ float
 tr_rcRate( const tr_ratecontrol * r )
 {
     float ret;
-    tr_lockLock( (tr_lock_t*)r->lock );
 
-    ret = rateForInterval( r, LONG_INTERVAL_MSEC );
+    if( r == NULL )
+        ret = 0.0f;
+    else {
+        tr_lockLock( (tr_lock_t*)r->lock );
+        ret = rateForInterval( r, LONG_INTERVAL_MSEC );
+        tr_lockUnlock( (tr_lock_t*)r->lock );
+    }
 
-    tr_lockUnlock( (tr_lock_t*)r->lock );
     return ret;
 }
 

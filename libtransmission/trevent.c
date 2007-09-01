@@ -120,6 +120,7 @@ readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
             mode = 0;
             read( fd, &mode, sizeof(short) );
             bufferevent_disable( bufev, mode );
+fprintf( stderr, "after enable/disable, the mode is %hd\n", bufev->enabled );
             break;
 
         case 'w': /* bufferevent_write */

@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <string.h> /* memcpy, memcmp */
 #include <stdlib.h> /* qsort */
+#include <stdio.h> /* printf */
 
 #include "transmission.h"
 #include "handshake.h"
@@ -117,6 +118,7 @@ getPeer( Torrent * torrent, const struct in_addr * in_addr )
         peer = tr_new0( tr_peer, 1 );
         memcpy( &peer->in_addr, in_addr, sizeof(struct in_addr) );
         tr_ptrArrayInsertSorted( torrent->peers, peer, peerCompare );
+fprintf( stderr, "getPeer: torrent %p now has %d peers\n", torrent, tr_ptrArraySize(torrent->peers) );
     }
     return peer;
 }
@@ -185,24 +187,43 @@ myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
     const uint8_t * hash = tr_peerIoGetTorrentHash( io );
     tr_peerMgr * manager = (tr_peerMgr*) vmanager;
     Torrent * t = getExistingTorrent( manager, hash );
+    uint16_t port;
+    const struct in_addr * in_addr;
 
-    /* check for duplicates */
-    if( ok ) {
-        if ( getExistingPeer( t, tr_peerIoGetAddress(io,NULL) ) ) {
-            tr_dbg( "dropping a duplicate connection... dropping." );
-            ok = FALSE;
+    fprintf( stderr, "peer-mgr: torrent [%s] finished a handshake; isConnected is %d\n", t->tor->info.name, isConnected );
+
+    assert( io != NULL );
+
+    in_addr = tr_peerIoGetAddress( io, &port );
+
+    /* if we couldn't connect or were snubbed,
+     * the peer's probably not worth remembering. */
+    if( !ok ) {
+        tr_peer * peer = getExistingPeer( t, in_addr );
+        fprintf( stderr, "peer-mgr: torrent [%s] got a bad one, and you know what? fuck them.\n", t->tor->info.name );
+        if( peer ) {
+            tr_ptrArrayRemoveSorted( t->peers, peer, peerCompare );
+            freePeer( peer );
+        } else  {
+            tr_peerIoFree( io );
         }
+        --manager->connectionCount;
+        return;
     }
 
-    /* do something with this connection */
-    if( !ok ) {
+#if 0
+    /* ONLY DO THIS TEST FOR INCOMING CONNECTIONS */
+    /* check for duplicates */
+    if( getExistingPeer( t, in_addr ) ) {
+        tr_dbg( "dropping a duplicate connection... dropping." );
         tr_peerIoFree( io );
-        --manager->connectionCount;
-    } else {
-        uint16_t port;
-        tr_peer * peer = getPeer( t, tr_peerIoGetAddress(io,&port) );
+        return;
+    }
+#endif
+
+    if( 1 ) {
+        tr_peer * peer = getPeer( t, in_addr );
         peer->port = port;
-        peer->io = io;
         peer->msgs = tr_peerMsgsNew( t->tor, peer );
     }
 }
@@ -243,6 +264,16 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
         peer = getPeer( t, &addr );
         peer->port = port;
         peer->from = from;
+
+        if( tr_peerMgrIsAcceptingConnections( manager ) )
+        {
+            fprintf( stderr, "peer-mgr: torrent [%s] is handshaking with a new peer...\n", t->tor->info.name );
+
+            peer->io = tr_peerIoNewOutgoing( manager->handle, &addr, port, t->hash );
+
+            tr_handshakeAdd( peer->io, HANDSHAKE_ENCRYPTION_PREFERRED,
+                             myHandshakeDoneCB, manager );
+        }
     }
 }
 
@@ -356,7 +387,7 @@ tr_peerMgrTorrentAvailability( const tr_peerMgr * manager,
             int j, peerCount;
             const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &peerCount );
             for( j=0; j<peerCount; ++j )
-                if( tr_bitfieldHas( peers[i]->have, j ) )
+                if( tr_bitfieldHas( peers[j]->have, i ) )
                     ++tab[i];
         }
     }
@@ -500,6 +531,8 @@ chokePulse( void * vtorrent UNUSED )
     tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
     float bestDownloaderRate;
     ChokeData * data;
+
+fprintf( stderr, "rechoking torrent %p, with %d peers\n", t, size );
 
     if( size < 1 )
         return TRUE;

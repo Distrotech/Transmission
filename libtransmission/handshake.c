@@ -18,8 +18,6 @@
 
 #include <openssl/bn.h>
 #include <openssl/dh.h>
-//#include <openssl/rc4.h>
-//#include <openssl/sha.h>
 
 #include <event.h>
 
@@ -84,14 +82,9 @@ typedef struct tr_handshake
     uint8_t mySecret[96];
     uint8_t state;
     uint8_t encryptionPreference;
-    uint8_t * resync;
-    uint16_t PadC_len;
-    uint16_t PadD_len;
-    uint8_t pad_b_buf[512 + 8];
-    int     pad_b_len;
+    uint16_t pad_c_len;
+    uint16_t pad_d_len;
     int ia_len;
-    int resync_len;
-    int pad_d_len;
     int crypto_select;
     DH * dh;
     uint8_t myReq1[SHA_DIGEST_LENGTH];
@@ -112,23 +105,16 @@ enum /*ccc*/
     /* incoming */
     AWAITING_HANDSHAKE,
     AWAITING_YA,
-    SENDING_YB,
     AWAITING_PAD_A,
     AWAITING_CRYPTO_PROVIDE,
     AWAITING_PAD_C,
     AWAITING_IA,
 
     /* outgoing */
-    SENDING_YA,
     AWAITING_YB,
-    SENDING_CRYPTO_PROVIDE,
     AWAITING_VC,
     AWAITING_CRYPTO_SELECT,
     AWAITING_PAD_D,
-    //AWAITING_PLAINTEXT_RESPONSE,
-    
-    SENDING_PLAINTEXT_HANDSHAKE,
-    SENDING_LTEP_HANDHAKE
 };
 
 /**
@@ -141,18 +127,18 @@ static const char* getStateName( short state )
     switch( state ) {
         case AWAITING_HANDSHAKE:      str = "awaiting handshake"; break;
         case AWAITING_YA:             str = "awaiting ya"; break;
-        case SENDING_YB:              str = "sending yb"; break;
+        //case SENDING_YB:              str = "sending yb"; break;
         case AWAITING_PAD_A:          str = "awaiting pad a"; break;
         case AWAITING_CRYPTO_PROVIDE: str = "awaiting crypto_provide"; break;
         case AWAITING_PAD_C:          str = "awaiting pad c"; break;
         case AWAITING_IA:             str = "awaiting ia"; break;
-        case SENDING_YA:              str = "sending ya"; break;
+        //case SENDING_YA:              str = "sending ya"; break;
         case AWAITING_YB:             str = "awaiting yb"; break;
-        case SENDING_CRYPTO_PROVIDE:  str = "sending crypto provide"; break;
+        //case SENDING_CRYPTO_PROVIDE:  str = "sending crypto provide"; break;
         case AWAITING_VC:             str = "awaiting vc"; break;
         case AWAITING_CRYPTO_SELECT:  str = "awaiting crypto select"; break;
         case AWAITING_PAD_D:          str = "awaiting pad d"; break;
-        case SENDING_PLAINTEXT_HANDSHAKE: str = "sending plaintext handshake"; break;
+        //case SENDING_PLAINTEXT_HANDSHAKE: str = "sending plaintext handshake"; break;
     }
     return str;
 }
@@ -160,7 +146,7 @@ static const char* getStateName( short state )
 static void
 setState( tr_handshake * handshake, short state )
 {
-    fprintf( stderr, "setting handshake %p to state [%s]\n", handshake, getStateName(state) );
+    fprintf( stderr, "handshake %p: setting to state [%s]\n", handshake, getStateName(state) );
     handshake->state = state;
 }
 
@@ -168,7 +154,7 @@ static void
 setReadState( tr_handshake * handshake, int state )
 {
     setState( handshake, state );
-    tr_peerIoSetIOMode( handshake->io, EV_READ, EV_WRITE );
+    //tr_peerIoSetIOMode( handshake->io, EV_READ, EV_WRITE );
 }
 
 static void
@@ -193,9 +179,9 @@ sendPublicKey( tr_handshake * handshake )
     evbuffer_add( outbuf, pad, len );
 
     /* send it */
-    setState( handshake, SENDING_YA );
+    setReadState( handshake, AWAITING_YB );
+    //setState( handshake, SENDING_YA );
     tr_peerIoWriteBuf( handshake->io, outbuf );
-    tr_peerIoSetIOMode( handshake->io, EV_WRITE, EV_READ );
 
     /* cleanup */
     evbuffer_free( outbuf );
@@ -226,9 +212,9 @@ sendPlaintextHandshake( tr_handshake * handshake )
 {
     uint8_t buf[HANDSHAKE_SIZE];
     buildHandshakeMessage( handshake, buf );
-    setState( handshake, SENDING_PLAINTEXT_HANDSHAKE );
+
+    setReadState( handshake, AWAITING_HANDSHAKE );
     tr_peerIoWrite( handshake->io, buf, HANDSHAKE_SIZE );
-    tr_peerIoSetIOMode( handshake->io, EV_WRITE, EV_READ );
 }
 
 static void
@@ -268,7 +254,7 @@ sendLtepHandshake( tr_handshake * handshake )
         tr_bencInitInt( tr_bencDictAdd( &val, "p" ), port );
     tr_bencInitStr( tr_bencDictAdd( &val, "v" ), v, 0, 1 );
 
-    fprintf( stderr, "sending ltep handshake...\n" );
+    fprintf( stderr, "handshake %p: sending ltep handshake...\n", handshake );
     buf = tr_bencSaveMalloc( &val,  &len );
     tr_bencPrint( &val );
 
@@ -278,9 +264,8 @@ sendLtepHandshake( tr_handshake * handshake )
     tr_peerIoWriteBytes ( handshake->io, outbuf, &ltep_msgid, 1 );
     tr_peerIoWriteBytes ( handshake->io, outbuf, buf, len );
     
-    handshake->state = SENDING_LTEP_HANDHAKE;
     tr_peerIoWriteBuf( handshake->io, outbuf );
-    tr_peerIoSetIOMode( handshake->io, EV_WRITE, EV_READ );
+    fireDoneCB( handshake, TRUE );
   
     /* cleanup */ 
     tr_bencFree( &val );
@@ -317,9 +302,9 @@ readYa( tr_handshake * handshake, struct evbuffer  * inbuf )
     len = tr_rand( 512 );
     while( len-- )
         *walk++ = tr_rand( UCHAR_MAX );
-    setState( handshake, SENDING_YB );
+
+    setReadState( handshake, AWAITING_PAD_A );
     tr_peerIoWrite( handshake->io, outbuf, walk-outbuf );
-    tr_peerIoSetIOMode( handshake->io, EV_WRITE, EV_READ );
 
     return READ_DONE;
 }
@@ -397,7 +382,7 @@ readCryptoProvide( tr_handshake * handshake, struct evbuffer * inbuf )
 
     tr_peerIoReadUint16( handshake->io, inbuf, &padc_len );
     fprintf( stderr, "padc is %d\n", (int)padc_len );
-    handshake->PadC_len = padc_len;
+    handshake->pad_c_len = padc_len;
     setState( handshake, AWAITING_PAD_C );
     return READ_AGAIN;
 }
@@ -406,7 +391,7 @@ static int
 readPadC( tr_handshake * handshake, struct evbuffer * inbuf )
 {
     uint16_t ia_len;
-    const size_t needlen = handshake->PadC_len + sizeof(uint16_t);
+    const size_t needlen = handshake->pad_c_len + sizeof(uint16_t);
 
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
@@ -544,9 +529,8 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
 
     /* send it */
     tr_cryptoDecryptInit( handshake->crypto );
-    setState( handshake, SENDING_CRYPTO_PROVIDE );
+    setReadState( handshake, AWAITING_VC );
     tr_peerIoWriteBuf( handshake->io, outbuf );
-    tr_peerIoSetIOMode( handshake->io, EV_WRITE, EV_READ );
 
     /* cleanup */
     evbuffer_free( outbuf );
@@ -743,7 +727,7 @@ canRead( struct bufferevent * evin, void * arg )
     tr_handshake * handshake = (tr_handshake *) arg;
     struct evbuffer * inbuf = EVBUFFER_INPUT ( evin );
     ReadState ret;
-    fprintf( stderr, "handling canRead; state is [%s]\n", getStateName(handshake->state) );
+    fprintf( stderr, "handshake %p handling canRead; state is [%s]\n", handshake, getStateName(handshake->state) );
 
     switch( handshake->state )
     {
@@ -770,6 +754,8 @@ didWrite( struct bufferevent * evin UNUSED, void * arg )
 {
     tr_handshake * handshake = (tr_handshake *) arg;
     fprintf( stderr, "handshake %p, with a state of %s, got a didWrite event\n", handshake, getStateName(handshake->state) );
+#if 0
+    abort ( );
 
     if( handshake->state == SENDING_LTEP_HANDHAKE )
     {
@@ -777,17 +763,20 @@ didWrite( struct bufferevent * evin UNUSED, void * arg )
     }
     else
     {
+cccccccccccccccccccccccccccccccccc
         int state = -1;
         switch( handshake->state )
         {
-            case SENDING_YA:                   state = AWAITING_YB; break;
-            case SENDING_YB:                   state = AWAITING_PAD_A; break;
-            case SENDING_CRYPTO_PROVIDE:       state = AWAITING_VC; break;
+            //case SENDING_YA:                   state = AWAITING_YB; break;
+            //case SENDING_YB:                   state = AWAITING_PAD_A; break;
+            //case SENDING_CRYPTO_PROVIDE:       state = AWAITING_VC; break;
+            //case SENDING_PLAINTEXT_HANDSHAKE:  state = AWAITING_HANDSHAKE; break;
         }
         assert( state != -1 );
         setState( handshake, state );
         tr_peerIoReadOrWait( handshake->io );
     }
+#endif
 }
 
 static void
@@ -800,20 +789,22 @@ tr_handshakeFree( tr_handshake * handshake )
 static void
 fireDoneCB( tr_handshake * handshake, int isConnected )
 {
+fprintf( stderr, "handshake %p: firing done.  connected==%d\n", handshake, isConnected );
     (*handshake->doneCB)(handshake->io, isConnected, handshake->doneUserData);
     tr_handshakeFree( handshake );
 }
 
 static void
-gotError( struct bufferevent * evbuf UNUSED, short what UNUSED, void * arg )
+gotError( struct bufferevent * evbuf UNUSED, short what, void * arg )
 {
     tr_handshake * handshake = (tr_handshake *) arg;
+fprintf( stderr, "handshake %p: got error; what==%hd\n", handshake, what );
 
 
     /* if the error happened while we were sending a public key, we might
      * have encountered a peer that doesn't do encryption... reconnect and
      * try a plaintext handshake */
-    if(    ( handshake->state == SENDING_YA )
+    if(    ( handshake->state == AWAITING_YB )
         && ( handshake->encryptionPreference != HANDSHAKE_ENCRYPTION_REQUIRED )
         && ( !tr_peerIoReconnect( handshake->io ) ) )
     {
@@ -835,6 +826,7 @@ tr_handshakeNew( tr_peerIo        * io,
 {
     tr_handshake * handshake;
 
+//w00t
 //static int count = 0;
 //if( count++ ) return NULL;
 
@@ -846,7 +838,10 @@ tr_handshakeNew( tr_peerIo        * io,
     handshake->doneUserData = doneUserData;
     handshake->handle = tr_peerIoGetHandle( io );
 
+    tr_peerIoSetIOMode( io, EV_READ|EV_WRITE, 0 );
     tr_peerIoSetIOFuncs( io, canRead, didWrite, gotError, handshake );
+
+fprintf( stderr, "handshake %p: new handshake for io %p\n", handshake, io );
 
     if( tr_peerIoIsIncoming( io ) )
     {

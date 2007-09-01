@@ -112,11 +112,13 @@ tr_peerIoNew( struct tr_handle  * handle,
     c->socket = socket;
     c->rateToPeer = tr_rcInit( );
     c->rateToClient = tr_rcInit( );
+fprintf( stderr, "io %p rates: peer %p client %p\n", c, c->rateToPeer, c->rateToClient );
     c->bufev = bufferevent_new( c->socket,
                                 canReadWrapper,
                                 didWriteWrapper,
                                 gotErrorWrapper,
                                 c );
+    bufferevent_enable( c->bufev, EV_READ|EV_WRITE );
     return c;
 }
 
@@ -125,8 +127,13 @@ tr_peerIoNewIncoming( struct tr_handle  * handle,
                       struct in_addr    * in_addr,
                       int                 socket )
 {
-    tr_peerIo * c =
-        tr_peerIoNew( handle, in_addr, NULL, 1, socket );
+    tr_peerIo * c;
+
+    assert( handle != NULL );
+    assert( in_addr != NULL );
+    assert( socket >= 0 );
+
+    c = tr_peerIoNew( handle, in_addr, NULL, 1, socket );
     c->port = -1;
     return c;
 }
@@ -156,6 +163,7 @@ tr_peerIoFree( tr_peerIo * c )
     if( c != NULL )
     {
         bufferevent_free( c->bufev );
+fprintf( stderr, "io %p destroying rate to client %p to peer %p\n", c, c->rateToClient, c->rateToPeer );
         tr_rcClose( c->rateToClient );
         tr_rcClose( c->rateToPeer );
         tr_netClose( c->socket );
@@ -204,15 +212,6 @@ void
 tr_peerIoSetIOMode( tr_peerIo * c, short enable, short disable )
 {
     tr_setBufferEventMode( c->handle, c->bufev, enable, disable );
-}
-
-void
-tr_peerIoReadOrWait( tr_peerIo * c )
-{
-    if( EVBUFFER_LENGTH( c->bufev->input ) )
-        canReadWrapper( c->bufev, c );
-    else
-        tr_peerIoSetIOMode( c, EV_READ, EV_WRITE );
 }
 
 int
