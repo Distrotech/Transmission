@@ -20,6 +20,7 @@
 #include "crypto.h"
 #include "net.h"
 #include "peer-io.h"
+#include "ratecontrol.h"
 #include "trevent.h"
 #include "utils.h"
 
@@ -42,6 +43,9 @@ struct tr_peerIo
     unsigned int isEncrypted : 1;
     unsigned int isIncoming : 1;
     unsigned int peerIdIsSet : 1;
+
+    tr_ratecontrol   * rateToPeer;
+    tr_ratecontrol   * rateToClient;
 
     tr_can_read_cb     canRead;
     tr_did_write_cb    didWrite;
@@ -106,6 +110,8 @@ tr_peerIoNew( struct tr_handle  * handle,
     c->handle = handle;
     c->in_addr = *in_addr;
     c->socket = socket;
+    c->rateToPeer = tr_rcInit( );
+    c->rateToClient = tr_rcInit( );
     c->bufev = bufferevent_new( c->socket,
                                 canReadWrapper,
                                 didWriteWrapper,
@@ -148,6 +154,8 @@ void
 tr_peerIoFree( tr_peerIo * c )
 {
     bufferevent_free( c->bufev );
+    tr_rcClose( c->rateToClient );
+    tr_rcClose( c->rateToPeer );
     tr_netClose( c->socket );
     tr_cryptoFree( c->crypto );
     tr_free( c );
@@ -300,6 +308,7 @@ tr_peerIoWrite( tr_peerIo   * io,
                 int           writeme_len )
 {
     tr_bufferevent_write( io->handle, io->bufev, writeme, writeme_len );
+    tr_rcTransferred( io->rateToPeer, writeme_len );
 }
 
 void
@@ -388,12 +397,14 @@ tr_peerIoReadBytes( tr_peerIo        * io,
         case PEER_ENCRYPTION_PLAINTEXT:
             fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );
             evbuffer_remove(  inbuf, bytes, byteCount );
+            tr_rcTransferred( io->rateToClient, byteCount );
             break;
 
         case PEER_ENCRYPTION_RC4:
             fprintf( stderr, "reading and decrypting %d bytes from inbuf...\n", byteCount );
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_cryptoDecrypt( io->crypto, byteCount, bytes, bytes );
+            tr_rcTransferred( io->rateToClient, byteCount );
             break;
 
         default:
@@ -430,3 +441,21 @@ tr_peerIoDrain( tr_peerIo        * io,
     tr_peerIoReadBytes( io, inbuf, tmp, byteCount );
     tr_free( tmp );
 }
+
+/**
+***
+**/
+
+float
+tr_peerIoGetRateToClient( const tr_peerIo * io )
+{
+    return io==NULL ? 0.0f : tr_rcRate( io->rateToClient );
+
+}
+
+float
+tr_peerIoGetRateToPeer( const tr_peerIo * io )
+{
+    return io==NULL ? 0.0f : tr_rcRate( io->rateToPeer );
+}
+

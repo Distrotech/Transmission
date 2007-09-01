@@ -115,9 +115,6 @@ typedef struct
 
     tr_timer_tag pulseTag;
 
-    tr_ratecontrol * rcToUs;   /* rate of bytes from the peer to us */
-    tr_ratecontrol * rcToPeer; /* rate of bytes from us to the peer */
-
     unsigned int  peerIsChoked        : 1;
     unsigned int  weAreChoked         : 1;
     unsigned int  peerIsInterested    : 1;
@@ -532,7 +529,6 @@ gotBlock( tr_peer * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
     tr_cpBlockAdd( tor->completion, block );
 
     tor->downloadedCur += len;
-    tr_rcTransferred( peer->rcToUs, len );
     tr_rcTransferred( tor->download, len );
     tr_rcTransferred( tor->handle->download, len );
 
@@ -710,21 +706,4 @@ tr_peerWorkAdd( struct tr_torrent * torrent,
     tr_peerIoSetIOMode( io, EV_READ|EV_WRITE, 0 );
 
     sendBitfield( peer );
-}
-
-void
-tr_peerGetInfo( const tr_peer * peer, tr_peer_stat * setme )
-{
-    setme->client = peer->client;
-    setme->isConnected = TRUE;
-    setme->progress = peer->progress;
-    setme->downloadFromRate = tr_rcRate( peer->rcToUs );
-    setme->downloadFromRate = tr_rcRate( peer->rcToPeer );
-
-    //char    addr[INET_ADDRSTRLEN];
-    //int     from;
-    //int     port;
-    //int     isDownloading;
-    //int     isUploading;
-
 }

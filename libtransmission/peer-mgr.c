@@ -362,20 +362,21 @@ tr_peerMgrPeerStats( const tr_peerMgr  * manager,
     for( i=0; i<size; ++i )
     {
         const Peer * peer = peers[i];
+        const int live = peer->io != NULL;
         tr_peer_stat * stat = ret + i;
 
         tr_netNtop( &peer->in_addr, stat->addr, sizeof(stat->addr) );
         stat->port = peer->port;
         stat->from = peer->from;
-        stat->isConnected = peer->io != NULL;
+        stat->isConnected = live;
+        stat->uploadToRate     = tr_peerIoGetRateToPeer( peer->io );
+        stat->downloadFromRate = tr_peerIoGetRateToClient( peer->io );
+        stat->isDownloading    =  stat->uploadToRate > 0.01;
+        stat->isUploading      =  stat->downloadFromRate > 0.01;
 
 #warning FIXME
         //stat->progress = tr_peerProgress( peer );
         //stat->client = tr_peerClient( peer );
-        //stat->uploadToRate     =  tr_peerUploadRate( peer );
-        //stat->downloadFromRate =  tr_peerDownloadRate( peer );
-        //stat->isDownloading    =  peers[i].uploadToRate > 0.01;
-        //stat->isUploading      =  peers[i].downloadFromRate > 0.01;
     }
 
     *setmeCount = size;

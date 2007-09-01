@@ -7,7 +7,7 @@
  * This exemption does not extend to derived works not owned by
  * the Transmission project.
  *
- * $Id:$
+ * $Id$
  */
 
 #ifndef TR_PEER_IO_H
@@ -114,6 +114,11 @@ void tr_peerIoWrite( tr_peerIo   * io,
 
 void tr_peerIoWriteBuf( tr_peerIo             * io,
                         const struct evbuffer * buf );
+
+
+float tr_peerIoGetRateToClient( const tr_peerIo * io );
+
+float tr_peerIoGetRateToPeer( const tr_peerIo * io );
 
 /**
 ***
