@@ -64,6 +64,7 @@ noinst_HEADERS = \
     net.h \
     peer-io.h \
     peer-mgr.h \
+    peer-mgr-private.h \
     peer-msgs.h \
     platform.h \
     ptrarray.h \

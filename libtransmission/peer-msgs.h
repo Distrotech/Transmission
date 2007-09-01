@@ -14,9 +14,13 @@
 #define TR_P_H
 
 struct tr_torrent;
-struct tr_peerIo;
+struct tr_peer;
 
-void tr_peerWorkAdd( struct tr_torrent  * torrent,
-                     struct tr_peerIo   * io );
+typedef struct tr_peermsgs tr_peermsgs;
+
+tr_peermsgs* tr_peerMsgsNew( struct tr_torrent  * torrent,
+                             struct tr_peer     * peer );
+
+void         tr_peerMsgsFree( tr_peermsgs* );
 
 #endif

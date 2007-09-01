@@ -13,15 +13,14 @@
 #include <assert.h>
 #include <string.h> /* memcpy, memcmp */
 
-#include <arpa/inet.h>
-
 #include "transmission.h"
 #include "handshake.h"
 #include "completion.h"
 #include "net.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
-#include "peer-work.h"
+#include "peer-mgr-private.h"
+#include "peer-msgs.h"
 #include "ptrarray.h"
 #include "utils.h"
 
@@ -29,17 +28,8 @@
 
 typedef struct
 {
-    struct in_addr in_addr;
-    uint16_t port;
-    tr_peerIo * io;
-    int from;
-}
-Peer;
-
-typedef struct
-{
     uint8_t hash[SHA_DIGEST_LENGTH];
-    tr_ptrArray * peers; /* Peer */
+    tr_ptrArray * peers; /* tr_peer */
 }
 Torrent;
 
@@ -96,34 +86,34 @@ getTorrent( tr_peerMgr * manager, const uint8_t * hash )
 static int
 peerCompare( const void * va, const void * vb )
 {
-    const Peer * a = (const Peer *) va;
-    const Peer * b = (const Peer *) vb;
+    const tr_peer * a = (const tr_peer *) va;
+    const tr_peer * b = (const tr_peer *) vb;
     return memcmp( &a->in_addr, &b->in_addr, sizeof(struct in_addr) );
 }
 
 static int
 peerCompareToAddr( const void * va, const void * vb )
 {
-    const Peer * a = (const Peer *) va;
+    const tr_peer * a = (const tr_peer *) va;
     const struct in_addr * b = (const struct in_addr *) vb;
     return memcmp( &a->in_addr, b, sizeof(struct in_addr) );
 }
 
-static Peer*
+static tr_peer*
 getExistingPeer( Torrent * torrent, const struct in_addr * in_addr )
 {
-    return (Peer*) tr_ptrArrayFindSorted( torrent->peers,
-                                          in_addr,
-                                          peerCompareToAddr );
+    return (tr_peer*) tr_ptrArrayFindSorted( torrent->peers,
+                                             in_addr,
+                                             peerCompareToAddr );
 }
 
-static Peer*
+static tr_peer*
 getPeer( Torrent * torrent, const struct in_addr * in_addr )
 {
-    Peer * peer = getExistingPeer( torrent, in_addr );
+    tr_peer * peer = getExistingPeer( torrent, in_addr );
     if( peer == NULL )
     {
-        peer = tr_new0( Peer, 1 );
+        peer = tr_new0( tr_peer, 1 );
         memcpy( &peer->in_addr, in_addr, sizeof(struct in_addr) );
         tr_ptrArrayInsertSorted( torrent->peers, peer, peerCompare );
     }
@@ -131,10 +121,14 @@ getPeer( Torrent * torrent, const struct in_addr * in_addr )
 }
 
 static void
-freePeer( Peer * peer )
+freePeer( tr_peer * peer )
 {
-#warning free the peer-work state here
+    tr_peerMsgsFree( peer->msgs );
+    tr_bitfieldFree( peer->have );
+    tr_bitfieldFree( peer->blame );
+    tr_bitfieldFree( peer->banned );
     tr_peerIoFree( peer->io );
+    tr_free( peer->client );
     tr_free( peer );
 }
 
@@ -142,7 +136,7 @@ static void
 freeTorrent( tr_peerMgr * manager, Torrent * t )
 {
     int i, size;
-    Peer ** peers = (Peer **) tr_ptrArrayPeek( t->peers, &size );
+    tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
     for( i=0; i<size; ++i )
         freePeer( peers[i] );
     tr_ptrArrayFree( t->peers );
@@ -200,10 +194,10 @@ myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
         --manager->connectionCount;
     } else {
         uint16_t port;
-        Peer * peer = getPeer( t, tr_peerIoGetAddress(io,&port) );
+        tr_peer * peer = getPeer( t, tr_peerIoGetAddress(io,&port) );
         peer->port = port;
         peer->io = io;
-        tr_peerWorkAdd( tr_torrentFindFromHash(manager->handle,hash), io );
+        peer->msgs = tr_peerMsgsNew( tr_torrentFindFromHash(manager->handle,hash), peer );
     }
 }
 
@@ -233,7 +227,7 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
 
     for( i=0; i<peerCount; ++i )
     {
-        Peer * peer;
+        tr_peer * peer;
         struct in_addr addr;
         uint16_t port;
 
@@ -272,7 +266,7 @@ tr_peerMgrGetPeers( tr_peerMgr      * manager,
 {
     const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
     int i, peerCount;
-    const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &peerCount );
+    const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &peerCount );
     uint8_t * ret = tr_new( uint8_t, peerCount * 6 );
     uint8_t * walk = ret;
 
@@ -325,9 +319,9 @@ tr_peerMgrTorrentAvailability( const tr_peerMgr * manager,
             tab[i] = -1;
         else {
             int j, peerCount;
-            const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &peerCount );
+            const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &peerCount );
             for( j=0; j<peerCount; ++j )
-                if( peers[i].ccc )
+                if( tr_bitfieldHas( peers[i]->have, j ) )
                     ++tab[i];
         }
     }
@@ -345,7 +339,7 @@ tr_peerMgrTorrentStats( const tr_peerMgr * manager,
 {
     int i, size;
     const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
-    const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &size );
+    const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &size );
 
     *setmePeersTotal          = size;
     *setmePeersConnected      = 0;
@@ -354,7 +348,7 @@ tr_peerMgrTorrentStats( const tr_peerMgr * manager,
 
     for( i=0; i<size; ++i )
     {
-        const Peer * peer = peers[i];
+        const tr_peer * peer = peers[i];
 
         if( peer->io == NULL ) /* not connected */
             continue;
@@ -378,29 +372,27 @@ tr_peerMgrPeerStats( const tr_peerMgr  * manager,
 {
     int i, size;
     const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
-    const Peer ** peers = (const Peer **) tr_ptrArrayPeek( t->peers, &size );
+    const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &size );
     tr_peer_stat * ret;
 
     ret = tr_new0( tr_peer_stat, size );
 
     for( i=0; i<size; ++i )
     {
-        const Peer * peer = peers[i];
+        const tr_peer * peer = peers[i];
         const int live = peer->io != NULL;
         tr_peer_stat * stat = ret + i;
 
         tr_netNtop( &peer->in_addr, stat->addr, sizeof(stat->addr) );
-        stat->port = peer->port;
-        stat->from = peer->from;
-        stat->isConnected = live;
+        stat->port             = peer->port;
+        stat->from             = peer->from;
+        stat->client           = peer->client;
+        stat->progress         = peer->progress;
+        stat->isConnected      = live;
         stat->uploadToRate     = tr_peerIoGetRateToPeer( peer->io );
         stat->downloadFromRate = tr_peerIoGetRateToClient( peer->io );
-        stat->isDownloading    =  stat->uploadToRate > 0.01;
-        stat->isUploading      =  stat->downloadFromRate > 0.01;
-
-#warning FIXME
-        //stat->progress = tr_peerProgress( peer );
-        //stat->client = tr_peerClient( peer );
+        stat->isDownloading    = stat->uploadToRate > 0.01;
+        stat->isUploading      = stat->downloadFromRate > 0.01;
     }
 
     *setmeCount = size;
@@ -408,17 +400,22 @@ tr_peerMgrPeerStats( const tr_peerMgr  * manager,
 }
 
 void
-tr_peerMgrDisablePex( tr_peerMgr    * manager UNUSED,
-                      const uint8_t * torrentHash UNUSED,
-                      int             disable UNUSED)
+tr_peerMgrDisablePex( tr_peerMgr    * manager,
+                      const uint8_t * torrentHash,
+                      int             disable)
 {
-#warning FIXME
-#if 0
-    if( ( tor->pexDisabled != disable ) && ! ( TR_FLAG_PRIVATE & tor->info.flags ) ) {
-        int i;
+    tr_torrent * tor = tr_torrentFindFromHash( manager->handle, torrentHash );
+
+    if( ( tor->pexDisabled != disable ) && ! ( TR_FLAG_PRIVATE & tor->info.flags ) )
+    {
+        int i, size;
+        Torrent * t = getExistingTorrent( manager, torrentHash );
+        tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
+        for( i=0; i<size; ++i ) {
+            peers[i]->pexEnabled = disable ? 0 : 1;
+            peers[i]->lastPexTime = 0;
+        }
+
         tor->pexDisabled = disable;
-        for( i=0; i<tor->peerCount; ++i )
-            tr_peerSetPrivate( tor->peers[i], disable );
     }
-#endif
 }

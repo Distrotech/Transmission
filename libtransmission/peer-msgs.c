@@ -28,6 +28,8 @@
 #include "list.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
+#include "peer-mgr-private.h"
+#include "peer-msgs.h"
 #include "ratecontrol.h"
 #include "timer.h"
 #include "utils.h"
@@ -98,14 +100,13 @@ peer_request_compare_func( const void * va, const void * vb )
     return 0;
 }
 
-typedef struct
+struct tr_peermsgs
 {
+    tr_peer * peer;
+
     tr_handle * handle;
     tr_torrent * torrent;
     tr_peerIo * io;
-    tr_bitfield * bitfield;   /* the peer's bitfield */
-    tr_bitfield * banfield;   /* bad pieces from the peer */
-    tr_bitfield * blamefield; /* lists pieces that this peer helped us with */
 
     struct evbuffer * outMessages; /* buffer of all the non-piece messages */
     struct evbuffer * outBlock;    /* the block we're currently sending */
@@ -130,47 +131,41 @@ typedef struct
 
     uint64_t gotKeepAliveTime;
 
-    float progress;
-
     uint16_t ut_pex;
     uint16_t listeningPort;
-
-    /* the client name from the `v' string in LTEP's handshake dictionary */
-    char * client;
-}
-tr_peer;
+};
 
 /**
 ***  INTEREST
 **/
 
 static int
-isPieceInteresting( const tr_peer   * peer,
-                    int               piece )
+isPieceInteresting( const tr_peermsgs   * peer,
+                    int                   piece )
 {
     const tr_torrent * torrent = peer->torrent;
     if( torrent->info.pieces[piece].dnd ) /* we don't want it */
         return FALSE;
     if( tr_cpPieceIsComplete( torrent->completion, piece ) ) /* we already have it */
         return FALSE;
-    if( !tr_bitfieldHas( peer->bitfield, piece ) ) /* peer doesn't have it */
+    if( !tr_bitfieldHas( peer->peer->have, piece ) ) /* peer doesn't have it */
         return FALSE;
-    if( tr_bitfieldHas( peer->banfield, piece ) ) /* peer is banned for it */
+    if( tr_bitfieldHas( peer->peer->banned, piece ) ) /* peer is banned for it */
         return FALSE;
     return TRUE;
 }
 
 static int
-isInteresting( const tr_peer * peer )
+isInteresting( const tr_peermsgs * peer )
 {
     int i;
     const tr_torrent * torrent = peer->torrent;
     const tr_bitfield * bitfield = tr_cpPieceBitfield( torrent->completion );
 
-    if( !peer->bitfield ) /* We don't know what this peer has */
+    if( !peer->peer->have ) /* We don't know what this peer has */
         return FALSE;
 
-    assert( bitfield->len == peer->bitfield->len );
+    assert( bitfield->len == peer->peer->have->len );
 
     for( i=0; i<torrent->info.pieceCount; ++i )
         if( isPieceInteresting( peer, i ) )
@@ -180,7 +175,7 @@ isInteresting( const tr_peer * peer )
 }
 
 static void
-sendInterest( tr_peer * peer, int weAreInterested )
+sendInterest( tr_peermsgs * peer, int weAreInterested )
 {
     const uint32_t len = sizeof(uint8_t);
     const uint8_t bt_msgid = weAreInterested ? BT_INTERESTED : BT_NOT_INTERESTED;
@@ -191,7 +186,7 @@ sendInterest( tr_peer * peer, int weAreInterested )
 }
 
 static void
-updateInterest( tr_peer * peer )
+updateInterest( tr_peermsgs * peer )
 {
     const int i = isInteresting( peer );
     if( i != peer->weAreInterested )
@@ -199,7 +194,7 @@ updateInterest( tr_peer * peer )
 }
 
 void
-setChoke( tr_peer * peer, int choke )
+setChoke( tr_peermsgs * peer, int choke )
 {
     if( peer->peerIsChoked != !!choke )
     {
@@ -224,7 +219,7 @@ setChoke( tr_peer * peer, int choke )
 **/
 
 static void
-parseLtepHandshake( tr_peer * peer, int len, struct evbuffer * inbuf )
+parseLtepHandshake( tr_peermsgs * peer, int len, struct evbuffer * inbuf )
 {
     benc_val_t val, * sub;
     uint8_t * tmp = tr_new( uint8_t, len );
@@ -252,11 +247,11 @@ parseLtepHandshake( tr_peer * peer, int len, struct evbuffer * inbuf )
     sub = tr_bencDictFind( &val, "v" );
     if( tr_bencIsStr( sub ) ) {
 int i;
-        tr_free( peer->client );
+        tr_free( peer->peer->client );
         fprintf( stderr, "dictionary says client is [%s]\n", sub->val.s.s );
 for( i=0; i<sub->val.s.i; ++i ) fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i], (int)sub->val.s.s[i] );
-        peer->client = tr_strndup( sub->val.s.s, sub->val.s.i );
-        fprintf( stderr, "peer->client is now [%s]\n", peer->client );
+        peer->peer->client = tr_strndup( sub->val.s.s, sub->val.s.i );
+        fprintf( stderr, "peer->client is now [%s]\n", peer->peer->client );
     }
 
     /* get peer's listening port */
@@ -271,7 +266,7 @@ for( i=0; i<sub->val.s.i; ++i ) fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i],
 }
 
 static void
-parseUtPex( tr_peer * peer, int msglen, struct evbuffer * inbuf )
+parseUtPex( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
 {
     benc_val_t val, * sub;
     uint8_t * tmp;
@@ -303,7 +298,7 @@ parseUtPex( tr_peer * peer, int msglen, struct evbuffer * inbuf )
 }
 
 static void
-parseLtep( tr_peer * peer, int msglen, struct evbuffer * inbuf )
+parseLtep( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
 {
     uint8_t ltep_msgid;
 
@@ -328,7 +323,7 @@ parseLtep( tr_peer * peer, int msglen, struct evbuffer * inbuf )
 }
 
 static int
-readBtLength( tr_peer * peer, struct evbuffer * inbuf )
+readBtLength( tr_peermsgs * peer, struct evbuffer * inbuf )
 {
     uint32_t len;
     const size_t needlen = sizeof(uint32_t);
@@ -349,7 +344,7 @@ readBtLength( tr_peer * peer, struct evbuffer * inbuf )
 }
 
 static int
-readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
+readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
 {
     uint8_t id;
     uint32_t ui32;
@@ -401,17 +396,17 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
             assert( msglen == 4 );
             fprintf( stderr, "got a BT_HAVE\n" );
             tr_peerIoReadUint32( peer->io, inbuf, &ui32 );
-            tr_bitfieldAdd( peer->bitfield, ui32 );
-            peer->progress = tr_bitfieldCountTrueBits( peer->bitfield ) / (float)peer->torrent->info.pieceCount;
+            tr_bitfieldAdd( peer->peer->have, ui32 );
+            peer->peer->progress = tr_bitfieldCountTrueBits( peer->peer->have ) / (float)peer->torrent->info.pieceCount;
             updateInterest( peer );
             break;
 
         case BT_BITFIELD:
-            assert( msglen == peer->bitfield->len );
+            assert( msglen == peer->peer->have->len );
             fprintf( stderr, "got a BT_BITFIELD\n" );
-            tr_peerIoReadBytes( peer->io, inbuf, peer->bitfield->bits, msglen );
-            peer->progress = tr_bitfieldCountTrueBits( peer->bitfield ) / (float)peer->torrent->info.pieceCount;
-            fprintf( stderr, "peer progress is %f\n", peer->progress );
+            tr_peerIoReadBytes( peer->io, inbuf, peer->peer->have->bits, msglen );
+            peer->peer->progress = tr_bitfieldCountTrueBits( peer->peer->have ) / (float)peer->torrent->info.pieceCount;
+            fprintf( stderr, "peer progress is %f\n", peer->peer->progress );
             updateInterest( peer );
             /* FIXME: maybe unchoke */
             break;
@@ -481,12 +476,12 @@ readBtMessage( tr_peer * peer, struct evbuffer * inbuf )
 }
 
 static int
-canDownload( const tr_peer * peer )
+canDownload( const tr_peermsgs * peer )
 {
     tr_torrent * tor = peer->torrent;
 
 #if 0
-    /* FIXME: was swift worth it?  did anyone notice a difference? :) */
+    /* FIXME: was swift worth it?  did anyone notice a difference? */
     if( SWIFT_ENABLED && !isSeeding && (peer->credit<0) )
         return FALSE;
 #endif
@@ -501,7 +496,7 @@ canDownload( const tr_peer * peer )
 }
 
 static void
-gotBlock( tr_peer * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
+gotBlock( tr_peermsgs * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
 {
     tr_torrent * tor = peer->torrent;
     const size_t len = EVBUFFER_LENGTH( inbuf );
@@ -522,9 +517,9 @@ gotBlock( tr_peer * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
         return;
 
     /* make a note that this peer helped us with this piece */
-    if( !peer->blamefield )
-         peer->blamefield = tr_bitfieldNew( tor->info.pieceCount );
-    tr_bitfieldAdd( peer->blamefield, pieceIndex );
+    if( !peer->peer->blame )
+         peer->peer->blame = tr_bitfieldNew( tor->info.pieceCount );
+    tr_bitfieldAdd( peer->peer->blame, pieceIndex );
 
     tr_cpBlockAdd( tor->completion, block );
 
@@ -537,7 +532,7 @@ gotBlock( tr_peer * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
 
 
 static ReadState
-readBtPiece( tr_peer * peer, struct evbuffer * inbuf )
+readBtPiece( tr_peermsgs * peer, struct evbuffer * inbuf )
 {
     assert( peer->blockToUs.length > 0 );
 
@@ -574,7 +569,7 @@ static ReadState
 canRead( struct bufferevent * evin, void * vpeer )
 {
     ReadState ret;
-    tr_peer * peer = (tr_peer *) vpeer;
+    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     struct evbuffer * inbuf = EVBUFFER_INPUT ( evin );
     fprintf( stderr, "peer %p got a canRead; state is [%s]\n", peer, getStateName(peer->state) );
 
@@ -593,7 +588,7 @@ canRead( struct bufferevent * evin, void * vpeer )
 **/
 
 static int
-canUpload( const tr_peer * peer )
+canUpload( const tr_peermsgs * peer )
 {
     const tr_torrent * tor = peer->torrent;
 
@@ -609,7 +604,7 @@ canUpload( const tr_peer * peer )
 static int
 pulse( void * vpeer )
 {
-    tr_peer * peer = (tr_peer *) vpeer;
+    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     size_t len;
 
     /* if we froze out a downloaded block because of speed limits,
@@ -657,7 +652,7 @@ pulse( void * vpeer )
 static void
 didWrite( struct bufferevent * evin UNUSED, void * vpeer )
 {
-    tr_peer * peer = (tr_peer *) vpeer;
+    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     fprintf( stderr, "peer %p got a didWrite...\n", peer );
     pulse( vpeer );
 }
@@ -665,12 +660,12 @@ didWrite( struct bufferevent * evin UNUSED, void * vpeer )
 static void
 gotError( struct bufferevent * evbuf UNUSED, short what, void * vpeer )
 {
-    tr_peer * peer = (tr_peer *) vpeer;
+    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     fprintf( stderr, "peer %p got an error in %d\n", peer, (int)what );
 }
 
 static void
-sendBitfield( tr_peer * peer )
+sendBitfield( tr_peermsgs * peer )
 {
     const tr_bitfield * bitfield = tr_cpPieceBitfield( peer->torrent->completion );
     const uint32_t len = sizeof(uint8_t) + bitfield->len;
@@ -682,28 +677,43 @@ sendBitfield( tr_peer * peer )
     tr_peerIoWriteBytes( peer->io, peer->outMessages, bitfield->bits, bitfield->len );
 }
 
-void
-tr_peerWorkAdd( struct tr_torrent * torrent,
-                struct tr_peerIo  * io )
+tr_peermsgs*
+tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * peer_in )
 {
-    tr_peer * peer;
+    tr_peermsgs * peer;
 
-    peer = tr_new0( tr_peer, 1 );
+    assert( peer_in != NULL );
+    assert( peer_in->io != NULL );
+
+    peer = tr_new0( tr_peermsgs, 1 );
+    peer->peer = peer_in;
     peer->handle = torrent->handle;
     peer->torrent = torrent;
-    peer->io = io;
+    peer->io = peer_in->io;
     peer->weAreChoked = 1;
     peer->peerIsChoked = 1;
     peer->weAreInterested = 0;
     peer->peerIsInterested = 0;
     peer->pulseTag = tr_timerNew( peer->handle, pulse, peer, NULL, 200 );
-    peer->bitfield = tr_bitfieldNew( torrent->info.pieceCount );
+    peer->peer->have = tr_bitfieldNew( torrent->info.pieceCount );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );
     peer->inBlock = evbuffer_new( );
 
-    tr_peerIoSetIOFuncs( io, canRead, didWrite, gotError, peer );
-    tr_peerIoSetIOMode( io, EV_READ|EV_WRITE, 0 );
+    tr_peerIoSetIOFuncs( peer->io, canRead, didWrite, gotError, peer );
+    tr_peerIoSetIOMode( peer->io, EV_READ|EV_WRITE, 0 );
 
     sendBitfield( peer );
+
+    return peer;
+}
+
+void
+tr_peerMsgsFree( tr_peermsgs* p )
+{
+    tr_timerFree( &p->pulseTag );
+    evbuffer_free( p->outMessages );
+    evbuffer_free( p->outBlock );
+    evbuffer_free( p->inBlock );
+    tr_free( p );
 }
