@@ -706,9 +706,12 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
 void
 tr_peerMsgsFree( tr_peermsgs* p )
 {
-    tr_timerFree( &p->pulseTag );
-    evbuffer_free( p->outMessages );
-    evbuffer_free( p->outBlock );
-    evbuffer_free( p->inBlock );
-    tr_free( p );
+    if( p != NULL )
+    {
+        tr_timerFree( &p->pulseTag );
+        evbuffer_free( p->outMessages );
+        evbuffer_free( p->outBlock );
+        evbuffer_free( p->inBlock );
+        tr_free( p );
+    }
 }

@@ -13,9 +13,10 @@
 #ifndef TR_PEER_MGR_H
 #define TR_PEER_MGR_H
 
+struct in_addr;
 struct tr_handle;
 struct tr_peer_stat;
-struct in_addr;
+struct tr_torrent;
 typedef struct tr_peerMgr tr_peerMgr;
 
 tr_peerMgr* tr_peerMgrNew( struct tr_handle * );
@@ -48,6 +49,12 @@ void tr_peerMgrStartTorrent( tr_peerMgr     * manager,
 
 void tr_peerMgrStopTorrent( tr_peerMgr     * manager,
                             const uint8_t  * torrentHash );
+
+void tr_peerMgrAddTorrent( tr_peerMgr         * manager,
+                           struct tr_torrent  * tor );
+
+void tr_peerMgrRemoveTorrent( tr_peerMgr     * manager,
+                               const uint8_t  * torrentHash );
 
 void tr_peerMgrDisablePex( tr_peerMgr    * manager, 
                            const uint8_t * torrentHash,

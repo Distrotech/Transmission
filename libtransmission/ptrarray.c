@@ -56,6 +56,16 @@ tr_ptrArrayPeek( tr_ptrArray * t, int * size )
     return t->items;
 }
 
+void*
+tr_ptrArrayNth( tr_ptrArray* t, int i )
+{
+    assert( t != NULL  );
+    assert( i >= 0 );
+    assert( i < t->n_items );
+
+    return t->items[i];
+}
+
 int
 tr_ptrArraySize( const tr_ptrArray * t )
 {

@@ -349,6 +349,8 @@ torrentRealInit( tr_handle_t * h,
 
     tr_sharedUnlock( h->shared );
 
+    tr_peerMgrAddTorrent( h->peerMgr, tor );
+
     if( !h->isPortSet )
         tr_setBindPort( h, TR_DEFAULT_PORT );
 
@@ -1072,6 +1074,8 @@ tr_torrentFree( tr_torrent * tor )
 
     tr_inf( "closing torrent %s... %d torrents left",
             tor->info.name, h->torrentCount );
+
+    tr_peerMgrRemoveTorrent( h->peerMgr, tor->info.hash );
 
     tr_free( tor );
 
