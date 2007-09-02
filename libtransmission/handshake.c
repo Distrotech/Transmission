@@ -14,11 +14,10 @@
 #include <inttypes.h>
 #include <limits.h> /* UCHAR_MAX */
 #include <string.h>
+#include <stdio.h>
 #include <arpa/inet.h>
 
-#include <openssl/bn.h>
-#include <openssl/dh.h>
-
+#include <sys/types.h> /* event.h needs this */
 #include <event.h>
 
 #include "transmission.h"
@@ -27,6 +26,12 @@
 #include "handshake.h"
 #include "peer-io.h"
 #include "utils.h"
+
+/* enable LibTransmission extension protocol */
+#define ENABLE_LTEP
+
+/* enable Azureus messaging protocol */
+#define ENABLE_AZMP
 
 /***
 ****
@@ -37,22 +42,20 @@
 #define HANDSHAKE_FLAGS_LEN     8
 #define HANDSHAKE_SIZE          68
 
-/* these macros test and set the bit indicating extended messaging support */
-#ifdef DISABLE_EXTMSGS
-#define HANDSHAKE_HAS_EXTMSGS( bits ) ( 0 )
-#define HANDSHAKE_SET_EXTMSGS( bits ) ( (void)0 )
-#else
+#ifdef ENABLE_LTEP
 #define HANDSHAKE_HAS_EXTMSGS( bits ) ( (bits)[5] & 0x10 )
 #define HANDSHAKE_SET_EXTMSGS( bits ) ( (bits)[5] |= 0x10 )
+#else
+#define HANDSHAKE_HAS_EXTMSGS( bits ) ( 0 )
+#define HANDSHAKE_SET_EXTMSGS( bits ) ( (void)0 )
 #endif
 
-/* these macros test and set the bit indicating azureus protocol support */
-#ifdef DISABLE_AZPROTO
-#define HANDSHAKE_HAS_AZPROTO( bits ) ( 0 )
-#define HANDSHAKE_SET_AZPROTO( bits ) ( (void)0 )
-#else
+#ifdef ENABLE_AZMP
 #define HANDSHAKE_HAS_AZPROTO( bits ) ( (bits)[0] & 0x80 )
 #define HANDSHAKE_SET_AZPROTO( bits ) ( (bits)[0] |= 0x80 )
+#else
+#define HANDSHAKE_HAS_AZPROTO( bits ) ( 0 )
+#define HANDSHAKE_SET_AZPROTO( bits ) ( (void)0 )
 #endif
 
 /* http://www.azureuswiki.com/index.php/Extension_negotiation_protocol
@@ -66,7 +69,6 @@
 #define HANDSHAKE_EXTPREF_AZMP_FORCE   ( 0x3 )
 
 extern const char* getPeerId( void ) ;
-
 
 #define KEY_LEN 96
 #define PRIME_LEN 96
@@ -86,7 +88,6 @@ typedef struct tr_handshake
     uint16_t pad_d_len;
     int ia_len;
     int crypto_select;
-    DH * dh;
     uint8_t myReq1[SHA_DIGEST_LENGTH];
     handshakeDoneCB doneCB;
     void * doneUserData;
@@ -419,7 +420,7 @@ readIA( tr_handshake * handshake, struct evbuffer * inbuf )
     fprintf( stderr, "got their payload ia: [%*.*s]\n", (int)needlen, (int)needlen, ia );
 
     handshake->state = -1;
-    abort( );
+    assert( 0 && "asdf" );
 }
 
 /**
@@ -497,6 +498,7 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
         if( handshake->encryptionPreference != HANDSHAKE_ENCRYPTION_REQUIRED )
             crypto_provide |= (1<<1);
         assert( 1<=crypto_provide && crypto_provide<=3 );
+
         crypto_provide = htonl( crypto_provide );
         tr_cryptoEncrypt( handshake->crypto, sizeof(crypto_provide), &crypto_provide, &crypto_provide );
         evbuffer_add( outbuf, &crypto_provide, sizeof(crypto_provide) );

@@ -50,13 +50,9 @@ enum
     BT_PIECE           = 7,
     BT_CANCEL          = 8,
     BT_PORT            = 9,
-    BT_LTEP            = 20
-};
+    BT_LTEP            = 20,
 
-enum
-{
-    LTEP_HANDSHAKE     = 0,
-    LTEP_PEX           = 1
+    LTEP_HANDSHAKE     = 0
 };
 
 enum
@@ -73,6 +69,7 @@ getStateName( int state )
     {
         case AWAITING_BT_LENGTH: return "awaiting bt length";
         case AWAITING_BT_MESSAGE: return "awaiting bt message";
+        case READING_BT_PIECE: return "reading bt piece";
     }
 
     fprintf (stderr, "PeerManager::getStateName: unhandled state %d\n", state );
@@ -81,8 +78,8 @@ getStateName( int state )
 
 struct peer_request
 {
-    uint32_t pieceIndex;
-    uint32_t offsetInPiece;
+    uint32_t index;
+    uint32_t offset;
     uint32_t length;
 };
 
@@ -91,12 +88,9 @@ peer_request_compare_func( const void * va, const void * vb )
 {
     struct peer_request * a = (struct peer_request*) va;
     struct peer_request * b = (struct peer_request*) vb;
-    if( a->pieceIndex != b->pieceIndex )
-        return a->pieceIndex - b->pieceIndex;
-    if( a->offsetInPiece != b->offsetInPiece )
-        return a->offsetInPiece - b->offsetInPiece;
-    if( a->length != b->length )
-        return a->length - b->length;
+    if( a->index != b->index ) return a->index - b->index;
+    if( a->offset != b->offset ) return a->offset - b->offset;
+    if( a->length != b->length ) return a->length - b->length;
     return 0;
 }
 
@@ -412,8 +406,8 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             assert( msglen == 12 );
             fprintf( stderr, "got a BT_REQUEST\n" );
             req = tr_new( struct peer_request, 1 );
-            tr_peerIoReadUint32( peer->io, inbuf, &req->pieceIndex );
-            tr_peerIoReadUint32( peer->io, inbuf, &req->offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &req->index );
+            tr_peerIoReadUint32( peer->io, inbuf, &req->offset );
             tr_peerIoReadUint32( peer->io, inbuf, &req->length );
             if( !peer->info->peerIsChoked )
                 tr_list_append( &peer->peerAskedFor, req );
@@ -425,8 +419,8 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_list * node;
             assert( msglen == 12 );
             fprintf( stderr, "got a BT_CANCEL\n" );
-            tr_peerIoReadUint32( peer->io, inbuf, &req.pieceIndex );
-            tr_peerIoReadUint32( peer->io, inbuf, &req.offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &req.index );
+            tr_peerIoReadUint32( peer->io, inbuf, &req.offset );
             tr_peerIoReadUint32( peer->io, inbuf, &req.length );
             node = tr_list_find( peer->peerAskedFor, &req, peer_request_compare_func );
             if( node != NULL ) {
@@ -440,8 +434,8 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             fprintf( stderr, "got a BT_PIECE\n" );
             assert( peer->blockToUs.length == 0 );
             peer->state = READING_BT_PIECE;
-            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.pieceIndex );
-            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.offsetInPiece );
+            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.index );
+            tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.offset );
             peer->blockToUs.length = msglen - 8;
             assert( peer->blockToUs.length > 0 );
             evbuffer_drain( peer->inBlock, ~0 );
@@ -492,11 +486,11 @@ canDownload( const tr_peermsgs * peer )
 }
 
 static void
-gotBlock( tr_peermsgs * peer, int pieceIndex, int offset, struct evbuffer * inbuf )
+gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
 {
     tr_torrent * tor = peer->torrent;
     const size_t len = EVBUFFER_LENGTH( inbuf );
-    const int block = _tr_block( tor, pieceIndex, offset );
+    const int block = _tr_block( tor, index, offset );
 
     /* sanity clause */
     if( tr_cpBlockIsComplete( tor->completion, block ) ) {
@@ -509,13 +503,13 @@ gotBlock( tr_peermsgs * peer, int pieceIndex, int offset, struct evbuffer * inbu
     }
 
     /* write to disk */
-    if( tr_ioWrite( tor, pieceIndex, offset, len, EVBUFFER_DATA( inbuf )))
+    if( tr_ioWrite( tor, index, offset, len, EVBUFFER_DATA( inbuf )))
         return;
 
     /* make a note that this peer helped us with this piece */
     if( !peer->info->blame )
          peer->info->blame = tr_bitfieldNew( tor->info.pieceCount );
-    tr_bitfieldAdd( peer->info->blame, pieceIndex );
+    tr_bitfieldAdd( peer->info->blame, index );
 
     tr_cpBlockAdd( tor->completion, block );
 
@@ -550,8 +544,8 @@ readBtPiece( tr_peermsgs * peer, struct evbuffer * inbuf )
 
         if( !peer->blockToUs.length )
         {
-            gotBlock( peer, peer->blockToUs.pieceIndex,
-                            peer->blockToUs.offsetInPiece,
+            gotBlock( peer, peer->blockToUs.index,
+                            peer->blockToUs.offset,
                             peer->inBlock );
             evbuffer_drain( peer->outBlock, ~0 );
             peer->state = AWAITING_BT_LENGTH;
@@ -633,11 +627,11 @@ pulse( void * vpeer )
         uint8_t * tmp = tr_new( uint8_t, req->length );
         const uint8_t msgid = BT_PIECE;
         const uint32_t msglen = sizeof(uint8_t) + sizeof(uint32_t)*2 + req->length;
-        tr_ioRead( peer->torrent, req->pieceIndex, req->offsetInPiece, req->length, tmp );
+        tr_ioRead( peer->torrent, req->index, req->offset, req->length, tmp );
         tr_peerIoWriteUint32( peer->io, peer->outBlock, msglen );
         tr_peerIoWriteBytes ( peer->io, peer->outBlock, &msgid, 1 );
-        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->pieceIndex );
-        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->offsetInPiece );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->index );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->offset );
         tr_peerIoWriteBytes ( peer->io, peer->outBlock, tmp, req->length );
         tr_free( tmp );
     }
