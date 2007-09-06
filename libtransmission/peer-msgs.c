@@ -38,6 +38,11 @@
 ***
 **/
 
+#define MINUTES_TO_MSEC(N) ((N) * 60 * 1000)
+
+/* pex attempts are made this frequently */
+#define PEX_INTERVAL (MINUTES_TO_MSEC(1))
+
 enum
 {
     BT_CHOKE           = 0,
@@ -109,6 +114,7 @@ struct tr_peermsgs
     tr_list * outPieces;
 
     tr_timer_tag pulseTag;
+    tr_timer_tag pexTag;
 
     unsigned int  notListening        : 1;
 
@@ -120,8 +126,11 @@ struct tr_peermsgs
 
     uint64_t gotKeepAliveTime;
 
-    uint16_t ut_pex;
+    uint8_t ut_pex;
     uint16_t listeningPort;
+
+    tr_pex * pex;
+    int pexCount;
 };
 
 /**
@@ -185,6 +194,8 @@ updateInterest( tr_peermsgs * peer )
 void
 tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
 {
+    assert( peer != NULL );
+
     if( peer->info->peerIsChoked != !!choke )
     {
         const uint32_t len = sizeof(uint8_t);
@@ -227,7 +238,7 @@ parseLtepHandshake( tr_peermsgs * peer, int len, struct evbuffer * inbuf )
     if( tr_bencIsDict( sub ) ) {
         sub = tr_bencDictFind( sub, "ut_pex" );
         if( tr_bencIsInt( sub ) ) {
-            peer->ut_pex = sub->val.i;
+            peer->ut_pex = (uint8_t) sub->val.i;
             fprintf( stderr, "peer->ut_pex is %d\n", peer->ut_pex );
         }
     }
@@ -597,6 +608,13 @@ pulse( void * vpeer )
     tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     size_t len;
 
+fprintf( stderr, "peer %p pulse... notlistening %d, outblock size: %d, outmessages size %d, peerAskedFor %p\n",
+         vpeer,
+         (int)peer->notListening,
+         (int)EVBUFFER_LENGTH( peer->outBlock ),
+         (int)EVBUFFER_LENGTH( peer->outMessages ),
+         peer->peerAskedFor );
+
     /* if we froze out a downloaded block because of speed limits,
        start listening to the peer again */
     if( peer->notListening )
@@ -608,11 +626,17 @@ pulse( void * vpeer )
 
     if(( len = EVBUFFER_LENGTH( peer->outBlock ) ))
     {
+fprintf( stderr, "peer %p needing to upload... canUpload %d\n", peer, canUpload(peer) );
         if( canUpload( peer ) )
         {
             const size_t outlen = MIN( len, 2048 );
+fprintf( stderr, "peer %p writing %d bytes...\n", peer, (int)outlen );
             tr_peerIoWrite( peer->io, EVBUFFER_DATA(peer->outBlock), outlen );
             evbuffer_drain( peer->outBlock, outlen );
+
+            peer->torrent->uploadedCur += outlen;
+            tr_rcTransferred( peer->torrent->upload, outlen );
+            tr_rcTransferred( peer->handle->upload, outlen );
         }
     }
     else if(( len = EVBUFFER_LENGTH( peer->outMessages ) ))
@@ -627,6 +651,7 @@ pulse( void * vpeer )
         uint8_t * tmp = tr_new( uint8_t, req->length );
         const uint8_t msgid = BT_PIECE;
         const uint32_t msglen = sizeof(uint8_t) + sizeof(uint32_t)*2 + req->length;
+fprintf( stderr, "peer %p starting to upload a block...\n", peer );
         tr_ioRead( peer->torrent, req->index, req->offset, req->length, tmp );
         tr_peerIoWriteUint32( peer->io, peer->outBlock, msglen );
         tr_peerIoWriteBytes ( peer->io, peer->outBlock, &msgid, 1 );
@@ -667,6 +692,150 @@ sendBitfield( tr_peermsgs * peer )
     tr_peerIoWriteBytes( peer->io, peer->outMessages, bitfield->bits, bitfield->len );
 }
 
+/**
+***
+**/
+
+#define MAX_DIFFS 50
+
+typedef struct
+{
+    tr_pex * added;
+    tr_pex * dropped;
+    tr_pex * elements;
+    int addedCount;
+    int droppedCount;
+    int elementCount;
+    int diffCount;
+}
+PexDiffs;
+
+static void pexAddedCb( void * vpex, void * userData )
+{
+    PexDiffs * diffs = (PexDiffs *) userData;
+    tr_pex * pex = (tr_pex *) vpex;
+    if( diffs->diffCount < MAX_DIFFS )
+    {
+        diffs->diffCount++;
+        diffs->added[diffs->addedCount++] = *pex;
+        diffs->elements[diffs->elementCount++] = *pex;
+    }
+}
+
+static void pexRemovedCb( void * vpex, void * userData )
+{
+    PexDiffs * diffs = (PexDiffs *) userData;
+    tr_pex * pex = (tr_pex *) vpex;
+    if( diffs->diffCount < MAX_DIFFS )
+    {
+        diffs->diffCount++;
+        diffs->dropped[diffs->droppedCount++] = *pex;
+    }
+}
+
+static void pexElementCb( void * vpex, void * userData )
+{
+    PexDiffs * diffs = (PexDiffs *) userData;
+    tr_pex * pex = (tr_pex *) vpex;
+    if( diffs->diffCount < MAX_DIFFS )
+    {
+        diffs->diffCount++;
+        diffs->elements[diffs->elementCount++] = *pex;
+    }
+}
+
+static int
+pexPulse( void * vpeer )
+{
+    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
+
+    if( peer->info->pexEnabled )
+    {
+        int i;
+        tr_pex * newPex = NULL;
+        const int newCount = tr_peerMgrGetPeers( peer->handle->peerMgr, peer->torrent->info.hash, &newPex );
+        PexDiffs diffs;
+        benc_val_t val, *added, *dropped, *flags;
+        uint8_t *tmp, *walk;
+        char * benc;
+        int bencLen;
+        const uint8_t bt_msgid = BT_LTEP;
+        const uint8_t ltep_msgid = peer->ut_pex;
+
+        /* build the diffs */
+        diffs.added = tr_new( tr_pex, newCount );
+        diffs.addedCount = 0;
+        diffs.dropped = tr_new( tr_pex, peer->pexCount );
+        diffs.droppedCount = 0;
+        diffs.elements = tr_new( tr_pex, newCount + peer->pexCount );
+        diffs.elementCount = 0;
+        diffs.diffCount = 0;
+        tr_set_compare( peer->pex, peer->pexCount,
+                        newPex, newCount,
+                        tr_pexCompare, sizeof(tr_pex),
+                        pexRemovedCb, pexAddedCb, pexElementCb, &diffs );
+        fprintf( stderr, "pex: old peer count %d, new peer count %d, added %d, removed %d\n", peer->pexCount, newCount, diffs.addedCount, diffs.droppedCount );
+
+        /* update peer */
+        tr_free( peer->pex );
+        peer->pex = diffs.elements;
+        peer->pexCount = diffs.elementCount;
+
+       
+        /* build the pex payload */
+        tr_bencInit( &val, TYPE_DICT );
+        tr_bencDictReserve( &val, 3 );
+
+        /* "added" */
+        added = tr_bencDictAdd( &val, "added" );
+        tmp = walk = tr_new( uint8_t, diffs.addedCount * 6 );
+        for( i=0; i<diffs.addedCount; ++i ) {
+            memcpy( walk, &diffs.added[i].in_addr, 4 ); walk += 4;
+            memcpy( walk, &diffs.added[i].port, 2 ); walk += 2;
+        }
+        assert( ( walk - tmp ) == diffs.addedCount * 6 );
+        tr_bencInitStr( added, tmp, walk-tmp, FALSE );
+
+        /* "added.f" */
+        flags = tr_bencDictAdd( &val, "added.f" );
+        tmp = walk = tr_new( uint8_t, diffs.addedCount );
+        for( i=0; i<diffs.addedCount; ++i )
+            *walk++ = diffs.added[i].flags;
+        assert( ( walk - tmp ) == diffs.addedCount );
+        tr_bencInitStr( flags, tmp, walk-tmp, FALSE );
+
+        /* "dropped" */
+        dropped = tr_bencDictAdd( &val, "dropped" );
+        tmp = walk = tr_new( uint8_t, diffs.droppedCount * 6 );
+        for( i=0; i<diffs.droppedCount; ++i ) {
+            memcpy( walk, &diffs.dropped[i].in_addr, 4 ); walk += 4;
+            memcpy( walk, &diffs.dropped[i].port, 2 ); walk += 2;
+        }
+        assert( ( walk - tmp ) == diffs.droppedCount * 6 );
+        tr_bencInitStr( dropped, tmp, walk-tmp, FALSE );
+
+        /* write the pex message */
+        benc = tr_bencSaveMalloc( &val, &bencLen );
+        tr_peerIoWriteUint32( peer->io, peer->outBlock, 1 + 1 + bencLen );
+        tr_peerIoWriteBytes ( peer->io, peer->outBlock, &bt_msgid, 1 );
+        tr_peerIoWriteBytes ( peer->io, peer->outBlock, &ltep_msgid, 1 );
+        tr_peerIoWriteBytes ( peer->io, peer->outBlock, benc, bencLen );
+
+        /* cleanup */
+        tr_free( benc );
+        tr_bencFree( &val );
+        tr_free( diffs.added );
+        tr_free( diffs.dropped );
+        tr_free( newPex );
+    }
+
+    return TRUE;
+}
+
+/**
+***
+**/
+
 tr_peermsgs*
 tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
 {
@@ -685,7 +854,9 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     peer->info->clientIsInterested = 0;
     peer->info->peerIsInterested = 0;
     peer->info->have = tr_bitfieldNew( torrent->info.pieceCount );
-    peer->pulseTag = tr_timerNew( peer->handle, pulse, peer, NULL, 200 );
+    peer->pulseTag = tr_timerNew( peer->handle, pulse, peer, NULL, 500 );
+fprintf( stderr, "peer %p pulseTag %p\n", peer, peer->pulseTag );
+    peer->pexTag = tr_timerNew( peer->handle, pexPulse, peer, NULL, PEX_INTERVAL );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );
     peer->inBlock = evbuffer_new( );
@@ -703,7 +874,9 @@ tr_peerMsgsFree( tr_peermsgs* p )
 {
     if( p != NULL )
     {
+fprintf( stderr, "peer %p destroying its pulse tag\n", p );
         tr_timerFree( &p->pulseTag );
+        tr_timerFree( &p->pexTag );
         evbuffer_free( p->outMessages );
         evbuffer_free( p->outBlock );
         evbuffer_free( p->inBlock );

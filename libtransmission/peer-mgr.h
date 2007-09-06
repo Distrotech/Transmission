@@ -13,11 +13,24 @@
 #ifndef TR_PEER_MGR_H
 #define TR_PEER_MGR_H
 
+#include <inttypes.h> /* uint16_t */
+#include <arpa/inet.h> /* struct in_addr */
+
 struct in_addr;
 struct tr_handle;
 struct tr_peer_stat;
 struct tr_torrent;
 typedef struct tr_peerMgr tr_peerMgr;
+
+typedef struct tr_pex
+{
+    struct in_addr in_addr;
+    uint16_t port;
+    uint8_t flags;
+}
+tr_pex;
+
+int tr_pexCompare( const void * a, const void * b );
 
 tr_peerMgr* tr_peerMgrNew( struct tr_handle * );
 
@@ -35,6 +48,12 @@ void tr_peerMgrAddPeers( tr_peerMgr     * manager,
                          const uint8_t  * peerCompact,
                          int              peerCount );
 
+void tr_peerMgrAddPex( tr_peerMgr     * manager,
+                       const uint8_t  * torrentHash,
+                       int              from,
+                       const tr_pex   * pex,
+                       int              pexCount );
+
 void tr_peerMgrSetBlame( tr_peerMgr     * manager,
                          const uint8_t  * torrentHash,
                          int              pieceIndex,
@@ -42,7 +61,7 @@ void tr_peerMgrSetBlame( tr_peerMgr     * manager,
 
 int tr_peerMgrGetPeers( tr_peerMgr      * manager,
                         const uint8_t   * torrentHash,
-                        uint8_t        ** setme_compact );
+                        tr_pex         ** setme_pex );
 
 void tr_peerMgrStartTorrent( tr_peerMgr     * manager,
                              const uint8_t  * torrentHash );

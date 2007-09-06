@@ -15,6 +15,7 @@
 
 #include <inttypes.h> /* uint16_t */
 #include <arpa/inet.h> /* struct in_addr */
+
 struct tr_bitfield;
 struct tr_peerIo;
 struct tr_peermsgs;
@@ -43,6 +44,9 @@ typedef struct tr_peer
     unsigned int  clientIsInterested : 1;
 
     struct tr_peermsgs * msgs;
+
+    struct tr_pex * lastPex;
+    int lastPexCount;
 }
 tr_peer;
 

@@ -225,6 +225,7 @@ myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
         tr_peer * peer = getPeer( t, in_addr );
         peer->port = port;
         peer->msgs = tr_peerMsgsNew( t->tor, peer );
+        chokePulse( t );
     }
 }
 
@@ -241,6 +242,41 @@ tr_peerMgrAddIncoming( tr_peerMgr      * manager,
                      manager );
 }
 
+static void
+maybeConnect( tr_peerMgr * manager, Torrent * t, tr_peer * peer )
+{
+    if( tr_peerMgrIsAcceptingConnections( manager ) )
+    {
+        fprintf( stderr, "peer-mgr: torrent [%s] is handshaking with a new peer %08x:%04x\n",
+                 t->tor->info.name,
+                 (uint32_t) peer->in_addr.s_addr, peer->port );
+
+        peer->io = tr_peerIoNewOutgoing( manager->handle, &peer->in_addr, peer->port, t->hash );
+
+        tr_handshakeAdd( peer->io, HANDSHAKE_ENCRYPTION_PREFERRED,
+                         myHandshakeDoneCB, manager );
+    }
+}
+
+void
+tr_peerMgrAddPex( tr_peerMgr     * manager,
+                  const uint8_t  * torrentHash,
+                  int              from,
+                  const tr_pex   * pex,
+                  int              pexCount )
+{
+    int i;
+    const tr_pex * walk = pex;
+    Torrent * t = getExistingTorrent( manager, torrentHash );
+    for( i=0; i<pexCount; ++i )
+    {
+        tr_peer * peer = getPeer( t, &walk->in_addr );
+        peer->port = walk->port;
+        peer->from = from;
+        maybeConnect( manager, t, peer );
+    }
+}
+
 void
 tr_peerMgrAddPeers( tr_peerMgr    * manager,
                     const uint8_t * torrentHash,
@@ -251,29 +287,17 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
     int i;
     const uint8_t * walk = peerCompact;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-
     for( i=0; i<peerCount; ++i )
     {
         tr_peer * peer;
         struct in_addr addr;
         uint16_t port;
-
         memcpy( &addr, walk, 4 ); walk += 4;
         memcpy( &port, walk, 2 ); walk += 2;
-
         peer = getPeer( t, &addr );
         peer->port = port;
         peer->from = from;
-
-        if( tr_peerMgrIsAcceptingConnections( manager ) )
-        {
-            fprintf( stderr, "peer-mgr: torrent [%s] is handshaking with a new peer...\n", t->tor->info.name );
-
-            peer->io = tr_peerIoNewOutgoing( manager->handle, &addr, port, t->hash );
-
-            tr_handshakeAdd( peer->io, HANDSHAKE_ENCRYPTION_PREFERRED,
-                             myHandshakeDoneCB, manager );
-        }
+        maybeConnect( manager, t, peer );
     }
 }
 
@@ -297,26 +321,41 @@ tr_peerMgrSetBlame( tr_peerMgr     * manager UNUSED,
 }
 
 int
+tr_pexCompare( const void * va, const void * vb )
+{
+    const tr_pex * a = (const tr_pex *) va;
+    const tr_pex * b = (const tr_pex *) vb;
+    int i = memcmp( &a->in_addr, &b->in_addr, sizeof(struct in_addr) );
+    if( i ) return i;
+    if( a->port < b->port ) return -1;
+    if( a->port > b->port ) return 1;
+    return 0;
+}
+
+int tr_pexCompare( const void * a, const void * b );
+
+
+int
 tr_peerMgrGetPeers( tr_peerMgr      * manager,
                     const uint8_t   * torrentHash,
-                    uint8_t        ** setme_compact )
+                    tr_pex         ** setme_pex )
 {
     const Torrent * t = getExistingTorrent( (tr_peerMgr*)manager, torrentHash );
     int i, peerCount;
     const tr_peer ** peers = (const tr_peer **) tr_ptrArrayPeek( t->peers, &peerCount );
-    uint8_t * ret = tr_new( uint8_t, peerCount * 6 );
-    uint8_t * walk = ret;
+    tr_pex * pex = tr_new( tr_pex, peerCount );
+    tr_pex * walk = pex;
 
-    for( i=0; i<peerCount; ++i )
+    for( i=0; i<peerCount; ++i, ++walk )
     {
-        memcpy( walk, &peers[i]->in_addr, sizeof( struct in_addr ) );
-        walk += sizeof( struct in_addr );
-        memcpy( walk, &peers[i]->port, sizeof( uint16_t ) );
-        walk += sizeof( uint16_t );
+        walk->in_addr = peers[i]->in_addr;
+        walk->port = peers[i]->port;
+        walk->flags = '\0'; /* FIXME */
     }
 
-    assert( ( walk - ret ) == peerCount * 6 );
-    *setme_compact = ret;
+    assert( ( walk - pex ) == peerCount );
+    qsort( pex, peerCount, sizeof(tr_pex), tr_pexCompare );
+    *setme_pex = pex;
     return peerCount;
 }
 
@@ -523,10 +562,10 @@ compareChokeByDownloader( const void * va, const void * vb )
 }
 
 static int
-chokePulse( void * vtorrent UNUSED )
+chokePulse( void * vtorrent )
 {
     Torrent * t = (Torrent *) vtorrent;
-    int i, size, optimistic;
+    int i, size, unchoked;
     const int done = tr_cpGetStatus( t->tor->completion ) != TR_CP_INCOMPLETE;
     tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
     float bestDownloaderRate;
@@ -548,8 +587,12 @@ fprintf( stderr, "rechoking torrent %p, with %d peers\n", t, size );
     /* find the best downloaders and unchoke them */
     qsort( data, size, sizeof(ChokeData), compareChokeByDownloader );
     bestDownloaderRate = data[0].rate;
-    for( i=0; i<size && i<NUM_DOWNLOADERS_TO_UNCHOKE; ++i )
-        tr_peerMsgsSetChoke( data[i].peer->msgs, FALSE );
+    for( i=unchoked=0; i<size && unchoked<NUM_DOWNLOADERS_TO_UNCHOKE; ++i ) {
+        if( data[i].peer->msgs != NULL ) {
+            tr_peerMsgsSetChoke( data[i].peer->msgs, FALSE );
+            ++unchoked;
+        }
+    }
     memmove( data, data+i, sizeof(ChokeData)*(size-i) );
     size -= i;
 
@@ -561,9 +604,11 @@ fprintf( stderr, "rechoking torrent %p, with %d peers\n", t, size );
     size -= i;
 
     /* of those remaining, optimistically unchoke one; choke the rest */
-    optimistic = tr_rand( size );
-    for( i=0; i<size; ++i )
-        tr_peerMsgsSetChoke( data[i].peer->msgs, i!=optimistic );
+    if( size > 0 ) {
+        const int optimistic = tr_rand( size );
+        for( i=0; i<size; ++i )
+            tr_peerMsgsSetChoke( data[i].peer->msgs, i!=optimistic );
+    }
 
     /* cleanup */
     tr_free( data );

@@ -138,6 +138,22 @@ char* tr_strndup( const char * str, int len );
 ****
 ***/
 
+typedef void (tr_set_func)(void * element, void * userData );
+
+void tr_set_compare( const void * a, size_t aCount,
+                     const void * b, size_t bCount,
+                     int compare( const void * a, const void * b ),
+                     size_t elementSize,
+                     tr_set_func in_a_cb,
+                     tr_set_func in_b_cb,
+                     tr_set_func in_both_cb,
+                     void * userData );
+                    
+
+/***
+****
+***/
+
 struct tr_bitfield
 {
     uint8_t * bits;

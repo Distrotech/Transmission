@@ -225,13 +225,30 @@ tr_peerIoReconnect( tr_peerIo * io )
 {
     assert( !tr_peerIoIsIncoming( io ) );
 
+fprintf( stderr, "tr_peerIoReconnect: io %p\n", io );
+
     if( io->socket >= 0 )
         tr_netClose( io->socket );
 
-    io->socket = tr_netOpenTCP( &io->in_addr,
-                                        io->port, 0 );
+    io->socket = tr_netOpenTCP( &io->in_addr, io->port, 0 );
 
-    return io->socket >= 0 ? 0 : -1;
+fprintf( stderr, "tr_peerIoReconnect: io->socket is %d\n", io->socket );
+  
+    if( io->socket >= 0 )
+    {
+        bufferevent_free( io->bufev );
+
+        io->bufev = bufferevent_new( io->socket,
+                                     canReadWrapper,
+                                     didWriteWrapper,
+                                     gotErrorWrapper,
+                                     io );
+        bufferevent_enable( io->bufev, EV_READ|EV_WRITE );
+
+        return 0;
+    }
+ 
+    return -1;
 }
 
 /**

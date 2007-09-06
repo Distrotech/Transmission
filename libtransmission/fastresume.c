@@ -74,7 +74,7 @@ enum
     FR_ID_UPLOADED = 3,
 
     /* IPs and ports of connectable peers */
-    FR_ID_PEERS = 4,
+    FR_ID_PEERS_OLD = 4,
 
     /* progress data:
      *  - 4 bytes * number of files: mtimes of files
@@ -100,7 +100,10 @@ enum
     FR_ID_RUN = 9,
 
     /* number of corrupt bytes downloaded */
-    FR_ID_CORRUPT = 10
+    FR_ID_CORRUPT = 10,
+
+    /* IPs and ports of connectable peers */
+    FR_ID_PEERS = 11
 };
 
 
@@ -283,24 +286,25 @@ tr_fastResumeSave( const tr_torrent * tor )
     }
 
     /* Write download and upload totals */
+
     total = tor->downloadedCur + tor->downloadedPrev;
     fastResumeWriteData( FR_ID_DOWNLOADED, &total, 8, 1, file );
+
     total = tor->uploadedCur + tor->uploadedPrev;
     fastResumeWriteData( FR_ID_UPLOADED, &total, 8, 1, file );
+
     total = tor->corruptCur + tor->corruptPrev;
     fastResumeWriteData( FR_ID_CORRUPT, &total, 8, 1, file );
 
     if( !( TR_FLAG_PRIVATE & tor->info.flags ) )
     {
-        /* Write IPs and ports of connectable peers, if any */
-        uint8_t * buf = NULL;
-        const int size = tr_peerMgrGetPeers( tor->handle->peerMgr,
-                                             tor->info.hash, &buf );
-        if( size > 0 )
-        {
-            fastResumeWriteData( FR_ID_PEERS, buf, size, 1, file );
-            free( buf );
-        }
+        tr_pex * pex;
+        const int count = tr_peerMgrGetPeers( tor->handle->peerMgr,
+                                              tor->info.hash,
+                                              &pex );
+        if( count > 0 )
+            fastResumeWriteData( FR_ID_PEERS, pex, sizeof(tr_pex), count, file );
+        tr_free( pex );
     }
 
     fclose( file );
@@ -637,7 +641,7 @@ fastResumeLoadImpl ( tr_torrent   * tor,
                 }
                 break;
 
-            case FR_ID_PEERS:
+            case FR_ID_PEERS_OLD:
                 if( !( TR_FLAG_PRIVATE & tor->info.flags ) )
                 {
                     uint8_t * buf = malloc( len );
@@ -655,6 +659,28 @@ fastResumeLoadImpl ( tr_torrent   * tor,
 
                     tr_dbg( "found %i peers in resume file", len/6 );
                     free( buf );
+                    ret |= TR_FR_PEERS;
+                }
+
+            case FR_ID_PEERS:
+                if( !( TR_FLAG_PRIVATE & tor->info.flags ) )
+                {
+                    const int count = len / sizeof(tr_pex);
+                    tr_pex * pex = tr_new0( tr_pex, count );
+                    if( 1 != fread( pex, sizeof(tr_pex), count, file ) )
+                    {
+                        free( pex );
+                        fclose( file );
+                        return ret;
+                    }
+
+                    tr_peerMgrAddPex( tor->handle->peerMgr,
+                                      tor->info.hash,
+                                      TR_PEER_FROM_CACHE,
+                                      pex, count );
+
+                    tr_dbg( "found %i peers in resume file", len/6 );
+                    free( pex );
                     ret |= TR_FR_PEERS;
                 }
                 continue;

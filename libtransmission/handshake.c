@@ -11,6 +11,7 @@
  */
 
 #include <assert.h>
+#include <errno.h>
 #include <inttypes.h>
 #include <limits.h> /* UCHAR_MAX */
 #include <string.h>
@@ -31,7 +32,7 @@
 #define ENABLE_LTEP
 
 /* enable Azureus messaging protocol */
-#define ENABLE_AZMP
+//#define ENABLE_AZMP
 
 /***
 ****
@@ -432,14 +433,21 @@ readYb( tr_handshake * handshake, struct evbuffer * inbuf )
 {
     int isEncrypted;
     const uint8_t * secret;
-    const size_t needlen = KEY_LEN;
     uint8_t yb[KEY_LEN];
     struct evbuffer * outbuf;
+    size_t needlen = HANDSHAKE_NAME_LEN;
 
     if( EVBUFFER_LENGTH(inbuf) < needlen )
         return READ_MORE;
+fprintf( stderr, "%*.*s\n", HANDSHAKE_NAME_LEN, HANDSHAKE_NAME_LEN, EVBUFFER_DATA(inbuf) );
 
     isEncrypted = memcmp( EVBUFFER_DATA(inbuf), HANDSHAKE_NAME, HANDSHAKE_NAME_LEN );
+    if( isEncrypted ) {
+        needlen = KEY_LEN;
+        if( EVBUFFER_LENGTH(inbuf) < needlen )
+            return READ_MORE;
+    }
+
     fprintf( stderr, "got a %s handshake\n", (isEncrypted ? "encrypted" : "plaintext") );
     tr_peerIoSetEncryption( handshake->io, isEncrypted
         ? PEER_ENCRYPTION_RC4
@@ -670,9 +678,9 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
 
     /* peer id */
     tr_peerIoReadBytes( handshake->io, inbuf, peer_id, sizeof(peer_id) );
-    fprintf( stderr, "peer_id: " );
-    for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
-    fprintf( stderr, "\n" );
+//    fprintf( stderr, "peer_id: " );
+//    for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
+//    fprintf( stderr, "\n" );
     tr_peerIoSetPeersId( handshake->io, peer_id );
     bytesRead += sizeof(peer_id);
 
@@ -800,16 +808,17 @@ static void
 gotError( struct bufferevent * evbuf UNUSED, short what, void * arg )
 {
     tr_handshake * handshake = (tr_handshake *) arg;
-fprintf( stderr, "handshake %p: got error; what==%hd\n", handshake, what );
+fprintf( stderr, "handshake %p: got error [%s]; what==%hd... state was [%s]\n", handshake, strerror(errno), what, getStateName(handshake->state) );
 
 
     /* if the error happened while we were sending a public key, we might
      * have encountered a peer that doesn't do encryption... reconnect and
      * try a plaintext handshake */
-    if(    ( handshake->state == AWAITING_YB )
+    if(    ( ( handshake->state == AWAITING_YB ) || ( handshake->state == AWAITING_VC ) )
         && ( handshake->encryptionPreference != HANDSHAKE_ENCRYPTION_REQUIRED )
         && ( !tr_peerIoReconnect( handshake->io ) ) )
     {
+fprintf( stderr, "handshake %p trying again in plaintext...\n", handshake );
         handshake->encryptionPreference = HANDSHAKE_PLAINTEXT_REQUIRED;
         sendPlaintextHandshake( handshake );
     }

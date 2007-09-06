@@ -185,6 +185,64 @@ int tr_rand( int sup )
     return rand() % sup;
 }
 
+/***
+****
+***/
+
+void
+tr_set_compare( const void * va, size_t aCount,
+                const void * vb, size_t bCount,
+                int compare( const void * a, const void * b ),
+                size_t elementSize,
+                tr_set_func in_a_cb,
+                tr_set_func in_b_cb,
+                tr_set_func in_both_cb,
+                void * userData )
+{
+    size_t ai, bi;
+    const uint8_t * a = (const uint8_t *) va;
+    const uint8_t * b = (const uint8_t *) vb;
+
+    for( ai=bi=0; ai<aCount && bi<bCount; )
+    {
+        if( ai==aCount )
+        {
+            (*in_b_cb)( (void*)b, userData );
+            b += elementSize;
+        }
+        else if ( bi==bCount )
+        {
+            (*in_a_cb)( (void*)a, userData );
+            a += elementSize;
+        }
+        else
+        {
+            const int val = (*compare)( a, b );
+
+            if( !val )
+            {
+                (*in_both_cb)( (void*)a, userData );
+                a += elementSize;
+                b += elementSize;
+            }
+            else if( val < 0 )
+            {
+                (*in_a_cb)( (void*)a, userData );
+                a += elementSize;
+            }
+            else if( val > 0 )
+            {
+                (*in_b_cb)( (void*)b, userData );
+                b += elementSize;
+            }
+        }
+    }
+}
+
+/***
+****
+***/
+
 
 #if 0
 void*
