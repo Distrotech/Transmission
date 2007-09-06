@@ -25,4 +25,10 @@ void         tr_peerMsgsSetChoke( tr_peermsgs *, int doChoke );
 
 void         tr_peerMsgsFree( tr_peermsgs* );
 
+int          tr_peerMsgsAddRequest( tr_peermsgs * peer,
+                                    uint32_t      index,
+                                    uint32_t      begin,
+                                    uint32_t      length );
+
+
 #endif

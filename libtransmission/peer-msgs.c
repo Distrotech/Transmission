@@ -43,6 +43,9 @@
 /* pex attempts are made this frequently */
 #define PEX_INTERVAL (MINUTES_TO_MSEC(1))
 
+/* the most requests we'll batch up for this peer */
+#define MAX_OUT_REQUESTS 10
+
 enum
 {
     BT_CHOKE           = 0,
@@ -111,7 +114,7 @@ struct tr_peermsgs
     struct evbuffer * outBlock;    /* the block we're currently sending */
     struct evbuffer * inBlock;     /* the block we're currently receiving */
     tr_list * peerAskedFor;
-    tr_list * outPieces;
+    tr_list * clientAskedFor;
 
     tr_timer_tag pulseTag;
     tr_timer_tag pexTag;
@@ -212,6 +215,43 @@ tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
         tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
         tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
     }
+}
+
+/**
+***
+**/
+
+int
+tr_peerMsgsAddRequest( tr_peermsgs * peer,
+                       uint32_t      index, 
+                       uint32_t      begin, 
+                       uint32_t      length )
+{
+    int ret =-1;
+
+    if( tr_list_size(peer->clientAskedFor) < MAX_OUT_REQUESTS )
+    {
+        const uint8_t bt_msgid = BT_REQUEST;
+        const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
+        struct peer_request * req = tr_new( peer_request, 1 );
+
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
+        tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, index );
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, begin );
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, length );
+        fprintf( stderr, "peer %p: requesting a block from piece %u, begin %u, length %u\n",
+                         peer, (unsigned int)index, (unsigned int)begin, (unsigned int)length );
+
+        req->index = index;
+        req->begin = begin;
+        req->length = length;
+        tr_list_append( &peer->clientAskedFor, req );
+
+        ret = 0;
+    }
+
+    return ret;
 }
 
 /**
@@ -496,6 +536,9 @@ canDownload( const tr_peermsgs * peer )
     return TRUE;
 }
 
+static int
+weAskedForThisBlock( const tr_peermsgs * peer, uint32_t index, uint32_t offset, uint32_t
+
 static void
 gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
 {
@@ -512,6 +555,20 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
         tr_dbg( "block is the wrong length..." );
         return;
     }
+
+cc
+struct peer_request
+{
+    uint32_t index;
+    uint32_t offset;
+    uint32_t length;
+};
+
+
+        tr_list_append( &peer->clientAskedFor, req );
+
+ccc
+    --peer->outReqCount;
 
     /* write to disk */
     if( tr_ioWrite( tor, index, offset, len, EVBUFFER_DATA( inbuf )))

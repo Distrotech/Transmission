@@ -136,3 +136,17 @@ tr_list_foreach( tr_list * list, TrListForeachFunc func )
         list = list->next;
     }
 }
+
+int
+tr_list_size( const tr_list * list )
+{
+    int ret = 0;
+
+    while( list )
+    {
+        ++list;
+        list = list->next;
+    }
+
+    return ret;
+}

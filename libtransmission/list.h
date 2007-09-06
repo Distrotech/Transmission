@@ -24,6 +24,8 @@ tr_list;
 typedef int (*TrListCompareFunc)(const void * a, const void * b);
 typedef void (*TrListForeachFunc)(void *);
 
+int         tr_list_size           ( const tr_list    * list );
+
 void        tr_list_free           ( tr_list         ** list );
 
 void        tr_list_append         ( tr_list         ** list,
