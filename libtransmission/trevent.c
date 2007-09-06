@@ -49,6 +49,7 @@ typedef struct tr_event_handle
     int fds[2];
     tr_lock_t * lock;
     tr_handle_t * h;
+    tr_thread_t * thread;
     struct event_base * base;
     struct event pipeEvent;
 }
@@ -186,7 +187,7 @@ tr_eventInit( tr_handle_t * handle )
     pipe( eh->fds );
     eh->h = handle;
     handle->events = eh;
-    tr_threadNew( libeventThreadFunc, eh, "libeventThreadFunc" );
+    eh->thread = tr_threadNew( libeventThreadFunc, eh, "libeventThreadFunc" );
 }
 
 void
@@ -202,37 +203,46 @@ tr_event_add( tr_handle_t    * handle,
               struct event   * event,
               struct timeval * interval )
 {
-    const char ch = 'e';
-    int fd = handle->events->fds[1];
-    tr_lock_t * lock = handle->events->lock;
+    if( tr_amInThread( handle->events->thread ) )
+    {
+        event_add( event, interval );
+    }
+    else
+    {
+        const char ch = 'e';
+        int fd = handle->events->fds[1];
+        tr_lock_t * lock = handle->events->lock;
 
-    tr_lockLock( lock );
-    tr_dbg( "writing event to pipe: event.ev_arg is %p", event->ev_arg );
-#ifdef DEBUG
-    fprintf( stderr, "reads: [%d] writes: [%d]\n", reads, ++writes );
-#endif
-    write( fd, &ch, 1 );
-    write( fd, &event, sizeof(struct event*) );
-    write( fd, interval, sizeof(struct timeval) );
-    tr_lockUnlock( lock );
+        tr_lockLock( lock );
+        tr_dbg( "writing event to pipe: event.ev_arg is %p", event->ev_arg );
+        write( fd, &ch, 1 );
+        write( fd, &event, sizeof(struct event*) );
+        write( fd, interval, sizeof(struct timeval) );
+        tr_lockUnlock( lock );
+    }
 }
 
 void
 tr_event_del( tr_handle_t    * handle,
               struct event   * event )
 {
-    const char ch = 'd';
-    int fd = handle->events->fds[1];
-    tr_lock_t * lock = handle->events->lock;
+    if( tr_amInThread( handle->events->thread ) )
+    {
+        event_del( event );
+        tr_free( event );
+    }
+    else
+    {
+        const char ch = 'd';
+        int fd = handle->events->fds[1];
+        tr_lock_t * lock = handle->events->lock;
 
-    tr_lockLock( lock );
-    tr_dbg( "writing event to pipe: del event %p", event );
-#ifdef DEBUG
-    fprintf( stderr, "reads: [%d] writes: [%d]\n", reads, ++writes );
-#endif
-    write( fd, &ch, 1 );
-    write( fd, &event, sizeof(struct event*) );
-    tr_lockUnlock( lock );
+        tr_lockLock( lock );
+        tr_dbg( "writing event to pipe: del event %p", event );
+        write( fd, &ch, 1 );
+        write( fd, &event, sizeof(struct event*) );
+        tr_lockUnlock( lock );
+    }
 }
 
 void
@@ -242,21 +252,26 @@ tr_evhttp_make_request (tr_handle_t               * handle,
                         enum   evhttp_cmd_type      type,
                         char                      * uri)
 {
-    const char ch = 'h';
-    int fd = handle->events->fds[1];
-    tr_lock_t * lock = handle->events->lock;
+    if( tr_amInThread( handle->events->thread ) )
+    {
+        evhttp_make_request( evcon, req, type, uri );
+        tr_free( uri );
+    }
+    else
+    {
+        const char ch = 'h';
+        int fd = handle->events->fds[1];
+        tr_lock_t * lock = handle->events->lock;
 
-    tr_lockLock( lock );
-    tr_dbg( "writing HTTP req to pipe: req.cb_arg is %p", req->cb_arg );
-#ifdef DEBUG
-    fprintf( stderr, "reads: [%d] writes: [%d]\n", reads, ++writes );
-#endif
-    write( fd, &ch, 1 );
-    write( fd, &evcon, sizeof(struct evhttp_connection*) );
-    write( fd, &req, sizeof(struct evhttp_request*) );
-    write( fd, &type, sizeof(enum evhttp_cmd_type) );
-    write( fd, &uri, sizeof(char*) );
-    tr_lockUnlock( lock );
+        tr_lockLock( lock );
+        tr_dbg( "writing HTTP req to pipe: req.cb_arg is %p", req->cb_arg );
+        write( fd, &ch, 1 );
+        write( fd, &evcon, sizeof(struct evhttp_connection*) );
+        write( fd, &req, sizeof(struct evhttp_request*) );
+        write( fd, &type, sizeof(enum evhttp_cmd_type) );
+        write( fd, &uri, sizeof(char*) );
+        tr_lockUnlock( lock );
+    }
 }
 
 void
@@ -265,18 +280,25 @@ tr_bufferevent_write( tr_handle_t           * handle,
                       const void            * buf,
                       size_t                  buflen )
 {
-    const char ch = 'w';
-    int fd = handle->events->fds[1];
-    tr_lock_t * lock = handle->events->lock;
-    char * local = tr_strndup( buf, buflen );
+    if( tr_amInThread( handle->events->thread ) )
+    {
+        bufferevent_write( bufev, (void*)buf, buflen );
+    }
+    else
+    {
+        const char ch = 'w';
+        int fd = handle->events->fds[1];
+        tr_lock_t * lock = handle->events->lock;
+        char * local = tr_strndup( buf, buflen );
 
-    tr_lockLock( lock );
-    tr_dbg( "writing bufferevent_write pipe" );
-    write( fd, &ch, 1 );
-    write( fd, &bufev, sizeof(struct bufferevent*) );
-    write( fd, &local, sizeof(char*) );
-    write( fd, &buflen, sizeof(size_t) );
-    tr_lockUnlock( lock );
+        tr_lockLock( lock );
+        tr_dbg( "writing bufferevent_write pipe" );
+        write( fd, &ch, 1 );
+        write( fd, &bufev, sizeof(struct bufferevent*) );
+        write( fd, &local, sizeof(char*) );
+        write( fd, &buflen, sizeof(size_t) );
+        tr_lockUnlock( lock );
+    }
 }
 
 void
@@ -285,14 +307,22 @@ tr_setBufferEventMode( struct tr_handle   * handle,
                        short                mode_enable,
                        short                mode_disable )
 {
-    const char ch = 'm';
-    int fd = handle->events->fds[1];
-    tr_lock_t * lock = handle->events->lock;
+    if( tr_amInThread( handle->events->thread ) )
+    {
+        bufferevent_enable( bufev, mode_enable );
+        bufferevent_disable( bufev, mode_disable );
+    }
+    else
+    {
+        const char ch = 'm';
+        int fd = handle->events->fds[1];
+        tr_lock_t * lock = handle->events->lock;
 
-    tr_lockLock( lock );
-    write( fd, &ch, 1 );
-    write( fd, &bufev, sizeof(struct bufferevent*) );
-    write( fd, &mode_enable, sizeof(short) );
-    write( fd, &mode_disable, sizeof(short) );
-    tr_lockUnlock( lock );
+        tr_lockLock( lock );
+        write( fd, &ch, 1 );
+        write( fd, &bufev, sizeof(struct bufferevent*) );
+        write( fd, &mode_enable, sizeof(short) );
+        write( fd, &mode_disable, sizeof(short) );
+        tr_lockUnlock( lock );
+    }
 }

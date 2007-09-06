@@ -66,6 +66,7 @@ struct tr_thread_s
     thread_id        thread;
 #elif defined(WIN32)
     HANDLE           thread;
+    unsigned int     thread_id;
 #else
     pthread_t        thread;
 #endif
@@ -116,7 +117,7 @@ tr_threadNew( void (*func)(void *),
     t->thread = spawn_thread( (void*)ThreadFunc, name, B_NORMAL_PRIORITY, t );
     resume_thread( t->thread );
 #elif defined(WIN32)
-    t->thread = (HANDLE) _beginthreadex( NULL, 0, &ThreadFunc, t, 0, NULL );
+    t->thread = (HANDLE) _beginthreadex( NULL, 0, &ThreadFunc, t, 0, &t->thread_id );
 #else
     pthread_create( &t->thread, NULL, (void * (*) (void *)) ThreadFunc, t );
 #endif
@@ -124,6 +125,18 @@ tr_threadNew( void (*func)(void *),
     return t;
 }
 
+int
+tr_amInThread ( const tr_thread_t * t )
+{
+#ifdef __BEOS__
+    return find_thread(NULL) == t->thread;
+#elif defined(WIN32)
+    return GetCurrentThreadId() == t->thread_id;
+#else
+    return pthread_equal( t->thread, pthread_self( ) );
+#endif
+}
+    
 void
 tr_threadJoin( tr_thread_t * t )
 {
