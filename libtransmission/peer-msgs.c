@@ -157,7 +157,7 @@ isPieceInteresting( const tr_peermsgs   * peer,
 }
 
 static int
-isInteresting( const tr_peermsgs * peer )
+isPeerInteresting( const tr_peermsgs * peer )
 {
     int i;
     const tr_torrent * torrent = peer->torrent;
@@ -189,7 +189,7 @@ sendInterest( tr_peermsgs * peer, int weAreInterested )
 static void
 updateInterest( tr_peermsgs * peer )
 {
-    const int i = isInteresting( peer );
+    const int i = isPeerInteresting( peer );
     if( i != peer->info->clientIsInterested )
         sendInterest( peer, i );
 }
@@ -224,7 +224,7 @@ tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
 int
 tr_peerMsgsAddRequest( tr_peermsgs * peer,
                        uint32_t      index, 
-                       uint32_t      begin, 
+                       uint32_t      offset, 
                        uint32_t      length )
 {
     int ret =-1;
@@ -233,18 +233,18 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
     {
         const uint8_t bt_msgid = BT_REQUEST;
         const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
-        struct peer_request * req = tr_new( peer_request, 1 );
+        struct peer_request * req = tr_new( struct peer_request, 1 );
 
         tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
         tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
         tr_peerIoWriteUint32( peer->io, peer->outMessages, index );
-        tr_peerIoWriteUint32( peer->io, peer->outMessages, begin );
+        tr_peerIoWriteUint32( peer->io, peer->outMessages, offset );
         tr_peerIoWriteUint32( peer->io, peer->outMessages, length );
-        fprintf( stderr, "peer %p: requesting a block from piece %u, begin %u, length %u\n",
-                         peer, (unsigned int)index, (unsigned int)begin, (unsigned int)length );
+        fprintf( stderr, "peer %p: requesting a block from piece %u, offset %u, length %u\n",
+                         peer, (unsigned int)index, (unsigned int)offset, (unsigned int)length );
 
         req->index = index;
-        req->begin = begin;
+        req->offset = offset;
         req->length = length;
         tr_list_append( &peer->clientAskedFor, req );
 
@@ -537,7 +537,15 @@ canDownload( const tr_peermsgs * peer )
 }
 
 static int
-weAskedForThisBlock( const tr_peermsgs * peer, uint32_t index, uint32_t offset, uint32_t
+weAskedForThisBlock( const tr_peermsgs * peer, uint32_t index, uint32_t offset, uint32_t length )
+{
+    struct peer_request tmp;
+    tmp.index = index;
+    tmp.offset = offset;
+    tmp.length = length;
+
+    return tr_list_find( peer->clientAskedFor, &tmp, peer_request_compare_func ) != NULL;
+}
 
 static void
 gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
@@ -555,20 +563,10 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
         tr_dbg( "block is the wrong length..." );
         return;
     }
-
-cc
-struct peer_request
-{
-    uint32_t index;
-    uint32_t offset;
-    uint32_t length;
-};
-
-
-        tr_list_append( &peer->clientAskedFor, req );
-
-ccc
-    --peer->outReqCount;
+    if( !weAskedForThisBlock( peer, index, offset, len ) ) {
+        tr_dbg( "we didn't ask the peer for this message..." );
+        return;
+    }
 
     /* write to disk */
     if( tr_ioWrite( tor, index, offset, len, EVBUFFER_DATA( inbuf )))
@@ -584,8 +582,6 @@ ccc
     tor->downloadedCur += len;
     tr_rcTransferred( tor->download, len );
     tr_rcTransferred( tor->handle->download, len );
-
-//    broadcastCancel( tor, index, begin, len - 8 );
 }
 
 
