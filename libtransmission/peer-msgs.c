@@ -722,13 +722,6 @@ pulse( void * vpeer )
     tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     size_t len;
 
-fprintf( stderr, "peer %p pulse... notlistening %d, outblock size: %d, outmessages size %d, peerAskedFor %p\n",
-         vpeer,
-         (int)peer->notListening,
-         (int)EVBUFFER_LENGTH( peer->outBlock ),
-         (int)EVBUFFER_LENGTH( peer->outMessages ),
-         peer->peerAskedFor );
-
     /* if we froze out a downloaded block because of speed limits,
        start listening to the peer again */
     if( peer->notListening )
@@ -740,11 +733,10 @@ fprintf( stderr, "peer %p pulse... notlistening %d, outblock size: %d, outmessag
 
     if(( len = EVBUFFER_LENGTH( peer->outBlock ) ))
     {
-fprintf( stderr, "peer %p needing to upload... canUpload %d\n", peer, canUpload(peer) );
         if( canUpload( peer ) )
         {
-            const size_t outlen = MIN( len, 2048 );
-fprintf( stderr, "peer %p writing %d bytes...\n", peer, (int)outlen );
+            const size_t outlen = MIN( len, 4096 );
+fprintf( stderr, "peer %p outblock writing %d bytes...\n", peer, (int)outlen );
             tr_peerIoWrite( peer->io, EVBUFFER_DATA(peer->outBlock), outlen );
             evbuffer_drain( peer->outBlock, outlen );
 
@@ -781,9 +773,7 @@ fprintf( stderr, "peer %p starting to upload a block...\n", peer );
 static void
 didWrite( struct bufferevent * evin UNUSED, void * vpeer )
 {
-    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
-    fprintf( stderr, "peer %p got a didWrite...\n", peer );
-    pulse( vpeer );
+    pulse( (tr_peermsgs *) vpeer );
 }
 
 static void

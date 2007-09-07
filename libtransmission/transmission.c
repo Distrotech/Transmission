@@ -89,6 +89,11 @@ tr_handle_t * tr_init( const char * tag )
     tr_handle_t * h;
     int           i;
 
+#ifndef WIN32
+    /* Don't exit when writing on a broken socket */
+    signal( SIGPIPE, SIG_IGN );
+#endif
+
     tr_msgInit();
 
     h = tr_new0( tr_handle_t, 1 );
@@ -110,11 +115,6 @@ tr_handle_t * tr_init( const char * tag )
     /* Azureus identity */
     for( i=0; i < TR_AZ_ID_LEN; ++i )
         h->azId[i] = tr_rand( 0xff );
-
-#ifndef WIN32
-    /* Don't exit when writing on a broken socket */
-    signal( SIGPIPE, SIG_IGN );
-#endif
 
     /* Initialize rate and file descripts controls */
     h->upload   = tr_rcInit();

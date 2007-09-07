@@ -40,6 +40,8 @@ void tr_cryptoSetTorrentHash( tr_crypto     * crypto,
 
 const uint8_t*  tr_cryptoGetTorrentHash( const tr_crypto * crypto );
 
+int tr_cryptoHasTorrentHash( const tr_crypto * crypto );
+
 /**
 ***
 **/

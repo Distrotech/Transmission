@@ -645,8 +645,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
         return READ_MORE;
 
     /* pstrlen */
-    evbuffer_remove( inbuf, &pstrlen, 1 );
-    bytesRead++;
+    pstrlen = EVBUFFER_DATA(inbuf)[0];
     fprintf( stderr, "pstrlen 1 is %d [%c]\n", (int)pstrlen, pstrlen );
     isEncrypted = pstrlen != 19;
     tr_peerIoSetEncryption( handshake->io, isEncrypted
@@ -654,8 +653,14 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
         : PEER_ENCRYPTION_PLAINTEXT );
     if( isEncrypted ) {
         fprintf( stderr, "I guess it's encrypted...\n" );
+        if( tr_peerIoIsIncoming( handshake->io ) ) {
+            setState( handshake, AWAITING_YA );
+            return READ_AGAIN;
+        }
         tr_cryptoDecrypt( handshake->crypto, 1, &pstrlen, &pstrlen );
     }
+    bytesRead++;
+    evbuffer_drain( inbuf, 1 );
     fprintf( stderr, "pstrlen is %d [%c]\n", (int)pstrlen, pstrlen );
     assert( pstrlen == 19 );
 
@@ -673,8 +678,17 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
 
     /* torrent hash */
     tr_peerIoReadBytes( handshake->io, inbuf, hash, sizeof(hash) );
-    assert( !memcmp( hash, tr_peerIoGetTorrentHash(handshake->io), SHA_DIGEST_LENGTH ) );
     bytesRead += sizeof(hash);
+    if( tr_peerIoIsIncoming( handshake->io ) )
+    {
+        assert( !tr_peerIoHasTorrentHash( handshake->io ) );
+        tr_peerIoSetTorrentHash( handshake->io, hash );
+    }
+    else
+    {
+        assert( tr_peerIoHasTorrentHash( handshake->io ) );
+        assert( !memcmp( hash, tr_peerIoGetTorrentHash(handshake->io), SHA_DIGEST_LENGTH ) );
+    }
 
     /* peer id */
     tr_peerIoReadBytes( handshake->io, inbuf, peer_id, sizeof(peer_id) );

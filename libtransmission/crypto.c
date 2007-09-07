@@ -284,7 +284,16 @@ tr_cryptoSetTorrentHash( tr_crypto     * crypto,
 const uint8_t*
 tr_cryptoGetTorrentHash( const tr_crypto * crypto )
 {
+    assert( crypto != NULL );
     assert( crypto->torrentHashIsSet );
 
     return crypto->torrentHash;
+}
+
+int
+tr_cryptoHasTorrentHash( const tr_crypto * crypto )
+{
+    assert( crypto != NULL );
+
+    return crypto->torrentHashIsSet ? 1 : 0;
 }

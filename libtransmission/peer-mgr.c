@@ -219,7 +219,7 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 
         case TR_PEERMSG_GOT_HAVE: {
             const uint32_t begin = tr_torPieceFirstBlock( t->tor, e->pieceIndex );
-            const uint32_t end = begin + (uint32_t)tr_torPieceCountBlocks( t->tor, (int)e->pieceIndex );
+            const uint32_t end = begin + tr_torPieceCountBlocks( t->tor, (int)e->pieceIndex );
             uint32_t i;
             for( i=begin; i<end; ++i ) {
                 assert( t->blocks[i].block == i );
@@ -250,17 +250,27 @@ static void
 myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
 {
     int ok = isConnected;
-    const uint8_t * hash = tr_peerIoGetTorrentHash( io );
-    tr_peerMgr * manager = (tr_peerMgr*) vmanager;
-    Torrent * t = getExistingTorrent( manager, hash );
     uint16_t port;
     const struct in_addr * in_addr;
-
-    fprintf( stderr, "peer-mgr: torrent [%s] finished a handshake; isConnected is %d\n", t->tor->info.name, isConnected );
+    tr_peerMgr * manager = (tr_peerMgr*) vmanager;
+    const uint8_t * hash = NULL;
+    Torrent * t;
 
     assert( io != NULL );
 
     in_addr = tr_peerIoGetAddress( io, &port );
+
+    if( !tr_peerIoHasTorrentHash( io ) ) /* incoming connection gone wrong? */
+    {
+        tr_peerIoFree( io );
+        --manager->connectionCount;
+        return;
+    }
+
+    hash = tr_peerIoGetTorrentHash( io );
+    t = getExistingTorrent( manager, hash );
+
+    fprintf( stderr, "peer-mgr: torrent [%s] finished a handshake; isConnected is %d\n", t->tor->info.name, isConnected );
 
     /* if we couldn't connect or were snubbed,
      * the peer's probably not worth remembering. */
@@ -303,6 +313,7 @@ tr_peerMgrAddIncoming( tr_peerMgr      * manager,
 {
     ++manager->connectionCount;
 
+fprintf( stderr, "peer-mgr: new INCOMING CONNECTION...\n" );
     tr_handshakeAdd( tr_peerIoNewIncoming( manager->handle, addr, socket ),
                      HANDSHAKE_ENCRYPTION_PREFERRED,
                      myHandshakeDoneCB,
@@ -318,7 +329,12 @@ maybeConnect( tr_peerMgr * manager, Torrent * t, tr_peer * peer )
                  t->tor->info.name,
                  (uint32_t) peer->in_addr.s_addr, peer->port );
 
-        peer->io = tr_peerIoNewOutgoing( manager->handle, &peer->in_addr, peer->port, t->hash );
+        ++manager->connectionCount;
+
+        peer->io = tr_peerIoNewOutgoing( manager->handle,
+                                         &peer->in_addr,
+                                         peer->port,
+                                         t->hash );
 
         tr_handshakeAdd( peer->io, HANDSHAKE_ENCRYPTION_PREFERRED,
                          myHandshakeDoneCB, manager );
@@ -460,8 +476,8 @@ tr_peerMgrAddTorrent( tr_peerMgr * manager,
     t->blocks = tr_new0( struct tr_block, t->blockCount );
     for( i=0; i<t->blockCount; ++i ) {
         t->blocks[i].block = i;
-        t->blocks[i].scarcity = tr_cpPieceIsComplete( t->tor->completion, i )
-                                                    ? UINT32_MAX : 0;
+        t->blocks[i].scarcity = tr_cpBlockIsComplete( t->tor->completion, i )
+                                                      ? UINT32_MAX : 0;
     }
     memcpy( t->hash, tor->info.hash, SHA_DIGEST_LENGTH );
     tr_ptrArrayInsertSorted( manager->torrents, t, torrentCompare );

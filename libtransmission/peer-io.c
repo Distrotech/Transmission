@@ -112,6 +112,7 @@ tr_peerIoNew( struct tr_handle  * handle,
     c->socket = socket;
     c->rateToPeer = tr_rcInit( );
     c->rateToClient = tr_rcInit( );
+    c->isIncoming = isIncoming ? 1 : 0;
 fprintf( stderr, "io %p rates: peer %p client %p\n", c, c->rateToPeer, c->rateToClient );
     c->bufev = bufferevent_new( c->socket,
                                 canReadWrapper,
@@ -217,7 +218,7 @@ tr_peerIoSetIOMode( tr_peerIo * c, short enable, short disable )
 int
 tr_peerIoIsIncoming( const tr_peerIo * c )
 {
-    return c->isIncoming;
+    return c->isIncoming ? 1 : 0;
 }
 
 int
@@ -259,13 +260,27 @@ void
 tr_peerIoSetTorrentHash( tr_peerIo     * io,
                          const uint8_t * hash )
 {
+    assert( io != NULL );
+
     tr_cryptoSetTorrentHash( io->crypto, hash );
 }
 
 const uint8_t*
 tr_peerIoGetTorrentHash( tr_peerIo * io )
 {
+    assert( io != NULL );
+    assert( io->crypto != NULL );
+
     return tr_cryptoGetTorrentHash( io->crypto );
+}
+
+int
+tr_peerIoHasTorrentHash( const tr_peerIo * io )
+{
+    assert( io != NULL );
+    assert( io->crypto != NULL );
+
+    return tr_cryptoHasTorrentHash( io->crypto );
 }
 
 /**

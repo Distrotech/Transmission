@@ -70,6 +70,8 @@ const struct in_addr*
 const uint8_t*
       tr_peerIoGetTorrentHash( tr_peerIo * io );
 
+int   tr_peerIoHasTorrentHash( const tr_peerIo * io );
+
 void  tr_peerIoSetTorrentHash( tr_peerIo      * io,
                                const uint8_t  * hash );
 
