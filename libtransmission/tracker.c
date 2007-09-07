@@ -382,7 +382,7 @@ onTorrentFreeNow( void * vtor )
 
     tr_timerFree( &tor->scrapeTag );
     tr_timerFree( &tor->reannounceTag );
-    tr_publisherFree( tor->publisher );
+    tr_publisherFree( &tor->publisher );
     tr_free( tor->trackerID );
     tr_free( tor->lastRequest );
     tr_free( tor );

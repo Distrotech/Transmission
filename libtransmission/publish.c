@@ -10,6 +10,7 @@
  * $Id$
  */
 
+#include <assert.h>
 #include "list.h"
 #include "publish.h"
 #include "utils.h"
@@ -32,10 +33,14 @@ tr_publisherNew( void )
 }
 
 void
-tr_publisherFree( tr_publisher_t * p )
+tr_publisherFree( tr_publisher_t ** p )
 {
-    tr_list_free( &p->list );
-    tr_free( p );
+    assert( p != NULL );
+    assert( *p != NULL );
+
+    tr_list_free( &(*p)->list );
+    tr_free( *p );
+    *p = NULL;
 }
 
 tr_publisher_tag

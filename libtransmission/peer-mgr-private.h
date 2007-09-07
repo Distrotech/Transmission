@@ -15,6 +15,7 @@
 
 #include <inttypes.h> /* uint16_t */
 #include <arpa/inet.h> /* struct in_addr */
+#include "publish.h" /* tr_publisher_tag */
 
 struct tr_bitfield;
 struct tr_peerIo;
@@ -44,6 +45,7 @@ typedef struct tr_peer
     unsigned int  clientIsInterested : 1;
 
     struct tr_peermsgs * msgs;
+    tr_publisher_tag msgsTag;
 
     struct tr_pex * lastPex;
     int lastPexCount;

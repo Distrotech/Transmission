@@ -44,7 +44,10 @@
 #define PEX_INTERVAL (MINUTES_TO_MSEC(1))
 
 /* the most requests we'll batch up for this peer */
-#define MAX_OUT_REQUESTS 10
+#define OUT_REQUESTS_MAX 10
+
+/* when we get down to this many requests, we ask the manager for more */
+#define OUT_REQUESTS_LOW 4
 
 enum
 {
@@ -92,7 +95,7 @@ struct peer_request
 };
 
 static int
-peer_request_compare_func( const void * va, const void * vb )
+peer_request_compare( const void * va, const void * vb )
 {
     struct peer_request * a = (struct peer_request*) va;
     struct peer_request * b = (struct peer_request*) vb;
@@ -109,6 +112,8 @@ struct tr_peermsgs
     tr_handle * handle;
     tr_torrent * torrent;
     tr_peerIo * io;
+
+    tr_publisher_t * publisher;
 
     struct evbuffer * outMessages; /* buffer of all the non-piece messages */
     struct evbuffer * outBlock;    /* the block we're currently sending */
@@ -135,6 +140,56 @@ struct tr_peermsgs
     tr_pex * pex;
     int pexCount;
 };
+
+/**
+***  EVENTS
+**/
+
+static const tr_peermsgs_event blankEvent = { 0, 0, NULL };
+
+static void
+publishEvent( tr_peermsgs * peer, int eventType )
+{
+    tr_peermsgs_event e = blankEvent;
+    e.eventType = eventType;
+    tr_publisherPublish( peer->publisher, peer, &e );
+}
+
+static void
+fireGotPex( tr_peermsgs * peer )
+{
+    publishEvent( peer, TR_PEERMSG_GOT_PEX );
+}
+
+static void
+fireGotBitfield( tr_peermsgs * peer, const tr_bitfield * bitfield )
+{
+    tr_peermsgs_event e = blankEvent;
+    e.eventType = TR_PEERMSG_GOT_BITFIELD;
+    e.bitfield = bitfield;
+    tr_publisherPublish( peer->publisher, peer, &e );
+}
+
+static void
+fireGotHave( tr_peermsgs * peer, uint32_t pieceIndex )
+{
+    tr_peermsgs_event e = blankEvent;
+    e.eventType = TR_PEERMSG_GOT_HAVE;
+    e.pieceIndex = pieceIndex;
+    tr_publisherPublish( peer->publisher, peer, &e );
+}
+
+static void
+fireGotError( tr_peermsgs * peer )
+{
+    publishEvent( peer, TR_PEERMSG_GOT_ERROR );
+}
+
+static void
+fireBlocksRunningLow( tr_peermsgs * peer )
+{
+    publishEvent( peer, TR_PEERMSG_BLOCKS_RUNNING_LOW );
+}
 
 /**
 ***  INTEREST
@@ -229,7 +284,7 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
 {
     int ret =-1;
 
-    if( tr_list_size(peer->clientAskedFor) < MAX_OUT_REQUESTS )
+    if( tr_list_size(peer->clientAskedFor) < OUT_REQUESTS_MAX )
     {
         const uint8_t bt_msgid = BT_REQUEST;
         const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
@@ -333,6 +388,8 @@ parseUtPex( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
                             TR_PEER_FROM_PEX,
                             (uint8_t*)sub->val.s.s, n );
     }
+
+    fireGotPex( peer );
 
     tr_bencFree( &val );
     tr_free( tmp );
@@ -439,6 +496,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &ui32 );
             tr_bitfieldAdd( peer->info->have, ui32 );
             peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
+            fireGotHave( peer, ui32 );
             updateInterest( peer );
             break;
 
@@ -448,6 +506,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadBytes( peer->io, inbuf, peer->info->have->bits, msglen );
             peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
             fprintf( stderr, "peer progress is %f\n", peer->info->progress );
+            fireGotBitfield( peer, peer->info->have );
             updateInterest( peer );
             /* FIXME: maybe unchoke */
             break;
@@ -473,7 +532,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &req.index );
             tr_peerIoReadUint32( peer->io, inbuf, &req.offset );
             tr_peerIoReadUint32( peer->io, inbuf, &req.length );
-            node = tr_list_find( peer->peerAskedFor, &req, peer_request_compare_func );
+            node = tr_list_find( peer->peerAskedFor, &req, peer_request_compare );
             if( node != NULL ) {
                 fprintf( stderr, "found the req that peer is cancelling... cancelled.\n" );
                 tr_list_remove_data( &peer->peerAskedFor, node->data );
@@ -536,40 +595,39 @@ canDownload( const tr_peermsgs * peer )
     return TRUE;
 }
 
-static int
-weAskedForThisBlock( const tr_peermsgs * peer, uint32_t index, uint32_t offset, uint32_t length )
-{
-    struct peer_request tmp;
-    tmp.index = index;
-    tmp.offset = offset;
-    tmp.length = length;
-
-    return tr_list_find( peer->clientAskedFor, &tmp, peer_request_compare_func ) != NULL;
-}
-
 static void
 gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
 {
     tr_torrent * tor = peer->torrent;
-    const size_t len = EVBUFFER_LENGTH( inbuf );
+    const size_t length = EVBUFFER_LENGTH( inbuf );
     const int block = _tr_block( tor, index, offset );
+    struct peer_request key, *req;
 
     /* sanity clause */
     if( tr_cpBlockIsComplete( tor->completion, block ) ) {
         tr_dbg( "have this block already..." );
         return;
     }
-    if( (int)len != tr_torBlockCountBytes( tor, block ) ) {
+    if( (int)length != tr_torBlockCountBytes( tor, block ) ) {
         tr_dbg( "block is the wrong length..." );
         return;
     }
-    if( !weAskedForThisBlock( peer, index, offset, len ) ) {
+
+    /* remove it from our `we asked for this' list */
+    key.index = index;
+    key.offset = offset;
+    key.length = length;
+    req = (struct peer_request*) tr_list_find( peer->clientAskedFor, &key,
+                                               peer_request_compare );
+    if( req == NULL ) {
         tr_dbg( "we didn't ask the peer for this message..." );
         return;
     }
+    tr_list_remove_data( &peer->clientAskedFor, req );
+    tr_free( req );
 
     /* write to disk */
-    if( tr_ioWrite( tor, index, offset, len, EVBUFFER_DATA( inbuf )))
+    if( tr_ioWrite( tor, index, offset, length, EVBUFFER_DATA( inbuf )))
         return;
 
     /* make a note that this peer helped us with this piece */
@@ -579,9 +637,12 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
 
     tr_cpBlockAdd( tor->completion, block );
 
-    tor->downloadedCur += len;
-    tr_rcTransferred( tor->download, len );
-    tr_rcTransferred( tor->handle->download, len );
+    tor->downloadedCur += length;
+    tr_rcTransferred( tor->download, length );
+    tr_rcTransferred( tor->handle->download, length );
+
+    if( tr_list_size(peer->clientAskedFor) <= OUT_REQUESTS_LOW )
+        fireBlocksRunningLow( peer );
 }
 
 
@@ -726,10 +787,9 @@ didWrite( struct bufferevent * evin UNUSED, void * vpeer )
 }
 
 static void
-gotError( struct bufferevent * evbuf UNUSED, short what, void * vpeer )
+gotError( struct bufferevent * evbuf UNUSED, short what UNUSED, void * vpeer )
 {
-    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
-    fprintf( stderr, "peer %p got an error in %d\n", peer, (int)what );
+    fireGotError( (tr_peermsgs*)vpeer );
 }
 
 static void
@@ -898,6 +958,7 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     assert( info->io != NULL );
 
     peer = tr_new0( tr_peermsgs, 1 );
+    peer->publisher = tr_publisherNew( );
     peer->info = info;
     peer->handle = torrent->handle;
     peer->torrent = torrent;
@@ -928,6 +989,7 @@ tr_peerMsgsFree( tr_peermsgs* p )
     if( p != NULL )
     {
 fprintf( stderr, "peer %p destroying its pulse tag\n", p );
+        tr_publisherFree( &p->publisher );
         tr_timerFree( &p->pulseTag );
         tr_timerFree( &p->pexTag );
         evbuffer_free( p->outMessages );
@@ -935,4 +997,19 @@ fprintf( stderr, "peer %p destroying its pulse tag\n", p );
         evbuffer_free( p->inBlock );
         tr_free( p );
     }
+}
+
+tr_publisher_tag
+tr_peerMsgsSubscribe( tr_peermsgs       * peer,
+                      tr_delivery_func    func,
+                      void              * userData )
+{
+    return tr_publisherSubscribe( peer->publisher, func, userData );
+}
+
+void
+tr_peerMsgsUnsubscribe( tr_peermsgs       * peer,
+                        tr_publisher_tag    tag )
+{
+    tr_publisherUnsubscribe( peer->publisher, tag );
 }
