@@ -149,6 +149,10 @@ void tr_set_compare( const void * a, size_t aCount,
                      tr_set_func in_both_cb,
                      void * userData );
                     
+int tr_compareUint8 (  uint8_t a,  uint8_t b );
+int tr_compareUint16( uint16_t a, uint16_t b );
+int tr_compareUint32( uint32_t a, uint32_t b );
+int tr_compareUint64( uint64_t a, uint64_t b );
 
 /***
 ****

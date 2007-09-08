@@ -203,7 +203,7 @@ void tr_cpDownloaderRem( tr_completion * cp, int block )
 
 int tr_cpBlockIsComplete( const tr_completion * cp, int block )
 {
-    return tr_bitfieldHas( cp->blockBitfield, block );
+    return tr_bitfieldHas( cp->blockBitfield, block ) ? 1 : 0;
 }
 
 void

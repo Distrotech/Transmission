@@ -63,8 +63,8 @@ static void
 didWriteWrapper( struct bufferevent * e, void * userData )
 {
     tr_peerIo * c = (tr_peerIo *) userData;
-    assert( c->didWrite != NULL );
-    (*c->didWrite)( e, c->userData );
+    if( c->didWrite != NULL )
+        (*c->didWrite)( e, c->userData );
 }
 
 static void
@@ -72,13 +72,14 @@ canReadWrapper( struct bufferevent * e, void * userData )
 {
     tr_peerIo * c = (tr_peerIo *) userData;
 
-    assert( c->canRead != NULL );
+    if( c->canRead == NULL )
+        return;
 
     for( ;; ) {
         const int ret = (*c->canRead)( e, c->userData );
         switch( ret ) {
             case READ_AGAIN: if( EVBUFFER_LENGTH( e->input ) ) continue; /* note fall-through */
-            case READ_MORE: fprintf( stderr, "waiting for bytes from peer...\n" );
+            case READ_MORE: //fprintf( stderr, "waiting for bytes from peer...\n" );
                             tr_peerIoSetIOMode( c, EV_READ, 0 ); return; break;
             case READ_DONE: return; fprintf( stderr, "READ_DONE\n"); break;
         }

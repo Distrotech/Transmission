@@ -671,6 +671,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     fprintf( stderr, "pstrlen is [%s]\n", pstr );
     bytesRead += pstrlen;
     assert( !strcmp( (char*)pstr, "BitTorrent protocol" ) );
+    tr_free( pstr );
 
     /* reserved bytes */
     tr_peerIoReadBytes( handshake->io, inbuf, reserved, sizeof(reserved) );

@@ -29,6 +29,9 @@ void         tr_peerMsgsSetChoke( tr_peermsgs *, int doChoke );
 
 void         tr_peerMsgsFree( tr_peermsgs* );
 
+
+enum { TR_ADDREQ_OK=0, TR_ADDREQ_FULL, TR_ADDREQ_MISSING };
+
 int          tr_peerMsgsAddRequest( tr_peermsgs * peer,
                                     uint32_t      index,
                                     uint32_t      begin,
@@ -42,6 +45,7 @@ typedef enum
 {
     TR_PEERMSG_GOT_BITFIELD,
     TR_PEERMSG_GOT_HAVE,
+    TR_PEERMSG_GOT_BLOCK,
     TR_PEERMSG_GOT_PEX,
     TR_PEERMSG_GOT_ERROR,
     TR_PEERMSG_BLOCKS_RUNNING_LOW,
@@ -52,6 +56,7 @@ typedef struct
 {
     PeerMsgsEventType eventType;
     uint32_t pieceIndex; /* for TR_PEERMSG_GOT_HAVE */
+    uint32_t blockIndex; /* For TR_PEERMSG_GOT_BLOCK */
     const struct tr_bitfield * bitfield; /* for TR_PEERMSG_GOT_BITFIELD */
 }
 tr_peermsgs_event;

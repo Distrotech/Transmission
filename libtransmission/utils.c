@@ -295,6 +295,46 @@ void * tr_memmem ( const void *vbig, size_t big_len,
 }
 #endif
 
+/**
+***
+**/
+
+int
+tr_compareUint8 (  uint8_t a,  uint8_t b )
+{
+    if( a < b ) return -1;
+    if( a > b ) return 1;
+    return 0;
+}
+
+int
+tr_compareUint16( uint16_t a, uint16_t b )
+{
+    if( a < b ) return -1;
+    if( a > b ) return 1;
+    return 0;
+}
+
+int
+tr_compareUint32( uint32_t a, uint32_t b )
+{
+    if( a < b ) return -1;
+    if( a > b ) return 1;
+    return 0;
+}
+
+int
+tr_compareUint64( uint64_t a, uint64_t b )
+{
+    if( a < b ) return -1;
+    if( a > b ) return 1;
+    return 0;
+}
+
+/**
+***
+**/
+
 struct timeval
 timevalSec ( int seconds )
 {

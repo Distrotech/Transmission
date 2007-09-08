@@ -44,10 +44,10 @@
 #define PEX_INTERVAL (MINUTES_TO_MSEC(1))
 
 /* the most requests we'll batch up for this peer */
-#define OUT_REQUESTS_MAX 10
+#define OUT_REQUESTS_MAX 6
 
 /* when we get down to this many requests, we ask the manager for more */
-#define OUT_REQUESTS_LOW 4
+#define OUT_REQUESTS_LOW 2
 
 enum
 {
@@ -145,7 +145,7 @@ struct tr_peermsgs
 ***  EVENTS
 **/
 
-static const tr_peermsgs_event blankEvent = { 0, 0, NULL };
+static const tr_peermsgs_event blankEvent = { 0, 0, 0, NULL };
 
 static void
 publishEvent( tr_peermsgs * peer, int eventType )
@@ -176,6 +176,15 @@ fireGotHave( tr_peermsgs * peer, uint32_t pieceIndex )
     tr_peermsgs_event e = blankEvent;
     e.eventType = TR_PEERMSG_GOT_HAVE;
     e.pieceIndex = pieceIndex;
+    tr_publisherPublish( peer->publisher, peer, &e );
+}
+
+static void
+fireGotBlock( tr_peermsgs * peer, uint32_t blockIndex )
+{
+    tr_peermsgs_event e = blankEvent;
+    e.eventType = TR_PEERMSG_GOT_BLOCK;
+    e.pieceIndex = blockIndex;
     tr_publisherPublish( peer->publisher, peer, &e );
 }
 
@@ -253,6 +262,7 @@ void
 tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
 {
     assert( peer != NULL );
+    assert( peer->info != NULL );
 
     if( peer->info->peerIsChoked != !!choke )
     {
@@ -282,31 +292,34 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
                        uint32_t      offset, 
                        uint32_t      length )
 {
-    int ret =-1;
+    const uint8_t bt_msgid = BT_REQUEST;
+    const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
+    struct peer_request * req;
 
-    if( tr_list_size(peer->clientAskedFor) < OUT_REQUESTS_MAX )
-    {
-        const uint8_t bt_msgid = BT_REQUEST;
-        const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
-        struct peer_request * req = tr_new( struct peer_request, 1 );
+    if( tr_list_size(peer->clientAskedFor) >= OUT_REQUESTS_MAX )
+        return TR_ADDREQ_FULL;
 
-        tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
-        tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
-        tr_peerIoWriteUint32( peer->io, peer->outMessages, index );
-        tr_peerIoWriteUint32( peer->io, peer->outMessages, offset );
-        tr_peerIoWriteUint32( peer->io, peer->outMessages, length );
-        fprintf( stderr, "peer %p: requesting a block from piece %u, offset %u, length %u\n",
-                         peer, (unsigned int)index, (unsigned int)offset, (unsigned int)length );
+    if( !tr_bitfieldHas( peer->info->have, index ) )
+        return TR_ADDREQ_MISSING;
 
-        req->index = index;
-        req->offset = offset;
-        req->length = length;
-        tr_list_append( &peer->clientAskedFor, req );
+    /* queue the request */
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
+    tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, index );
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, offset );
+    tr_peerIoWriteUint32( peer->io, peer->outMessages, length );
+    fprintf( stderr, "peer %p: requesting a block from piece %u, offset %u, length %u\n",
+             peer, (unsigned int)index, (unsigned int)offset, (unsigned int)length );
 
-        ret = 0;
-    }
+    /* add it to our `requests sent' list */
+    req = tr_new( struct peer_request, 1 );
+    req->index = index;
+    req->offset = offset;
+    req->length = length;
+    tr_list_prepend( &peer->clientAskedFor, req );
+    fprintf( stderr, "added a request; peer %p's clientAskedFor.size() is now %d\n", peer, tr_list_size(peer->clientAskedFor));
 
-    return ret;
+    return TR_ADDREQ_OK;
 }
 
 /**
@@ -435,8 +448,9 @@ readBtLength( tr_peermsgs * peer, struct evbuffer * inbuf )
         fprintf( stderr, "peer sent us a keepalive message...\n" );
         peer->gotKeepAliveTime = tr_date( );
     } else {
-        fprintf( stderr, "peer is sending us a message with %d bytes...\n", (int)len );
+        fprintf( stderr, "peer is sending us a message with %"PRIu64" bytes...\n", (uint64_t)len );
         peer->incomingMessageLength = len;
+        fprintf( stderr, "peer is sending us a message with %"PRIu64" bytes...\n", (uint64_t)peer->incomingMessageLength );
         peer->state = AWAITING_BT_MESSAGE;
     } return READ_AGAIN;
 }
@@ -446,7 +460,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
 {
     uint8_t id;
     uint32_t ui32;
-    size_t msglen = peer->incomingMessageLength;
+    uint32_t msglen = peer->incomingMessageLength;
 
     if( EVBUFFER_LENGTH(inbuf) < msglen )
         return READ_MORE;
@@ -520,7 +534,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &req->offset );
             tr_peerIoReadUint32( peer->io, inbuf, &req->length );
             if( !peer->info->peerIsChoked )
-                tr_list_append( &peer->peerAskedFor, req );
+                tr_list_prepend( &peer->peerAskedFor, req );
             break;
         }
 
@@ -547,8 +561,10 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.index );
             tr_peerIoReadUint32( peer->io, inbuf, &peer->blockToUs.offset );
             peer->blockToUs.length = msglen - 8;
+fprintf( stderr, "left to read is [%"PRIu64"]\n", (uint64_t)peer->blockToUs.length );
             assert( peer->blockToUs.length > 0 );
             evbuffer_drain( peer->inBlock, ~0 );
+            return READ_AGAIN;
             break;
         }
 
@@ -605,10 +621,12 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
 
     /* sanity clause */
     if( tr_cpBlockIsComplete( tor->completion, block ) ) {
+fprintf( stderr, "have this block already...\n" );
         tr_dbg( "have this block already..." );
         return;
     }
     if( (int)length != tr_torBlockCountBytes( tor, block ) ) {
+fprintf( stderr, "block is the wrong length... expected %d and got %d\n", (int)length, (int)tr_torBlockCountBytes(tor,block) );
         tr_dbg( "block is the wrong length..." );
         return;
     }
@@ -617,14 +635,23 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
     key.index = index;
     key.offset = offset;
     key.length = length;
-    req = (struct peer_request*) tr_list_find( peer->clientAskedFor, &key,
-                                               peer_request_compare );
+    req = (struct peer_request*) tr_list_remove( &peer->clientAskedFor, &key,
+                                                 peer_request_compare );
     if( req == NULL ) {
+fprintf( stderr, "we didn't ask for this message...\n" );
         tr_dbg( "we didn't ask the peer for this message..." );
         return;
     }
-    tr_list_remove_data( &peer->clientAskedFor, req );
     tr_free( req );
+    fprintf( stderr, "peer %p now has %d block requests in its outbox\n", peer, tr_list_size(peer->clientAskedFor));
+
+    {
+        uint64_t block = index;
+        block *= tor->info.pieceSize;
+        block += offset;
+        block /= tor->blockSize;
+        fireGotBlock( peer, (uint32_t)block );
+    }
 
     /* write to disk */
     if( tr_ioWrite( tor, index, offset, length, EVBUFFER_DATA( inbuf )))
@@ -640,9 +667,6 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
     tor->downloadedCur += length;
     tr_rcTransferred( tor->download, length );
     tr_rcTransferred( tor->handle->download, length );
-
-    if( tr_list_size(peer->clientAskedFor) <= OUT_REQUESTS_LOW )
-        fireBlocksRunningLow( peer );
 }
 
 
@@ -666,9 +690,12 @@ readBtPiece( tr_peermsgs * peer, struct evbuffer * inbuf )
         evbuffer_add( peer->inBlock, tmp, len );
         tr_free( tmp );
         peer->blockToUs.length -= len;
+fprintf( stderr, "got %"PRIu64"; left to read is [%"PRIu64"]\n", (uint64_t)len, (uint64_t)peer->blockToUs.length );
+
 
         if( !peer->blockToUs.length )
         {
+fprintf( stderr, "w00t\n" );
             gotBlock( peer, peer->blockToUs.index,
                             peer->blockToUs.offset,
                             peer->inBlock );
@@ -736,7 +763,6 @@ pulse( void * vpeer )
         if( canUpload( peer ) )
         {
             const size_t outlen = MIN( len, 4096 );
-fprintf( stderr, "peer %p outblock writing %d bytes...\n", peer, (int)outlen );
             tr_peerIoWrite( peer->io, EVBUFFER_DATA(peer->outBlock), outlen );
             evbuffer_drain( peer->outBlock, outlen );
 
@@ -766,6 +792,9 @@ fprintf( stderr, "peer %p starting to upload a block...\n", peer );
         tr_peerIoWriteBytes ( peer->io, peer->outBlock, tmp, req->length );
         tr_free( tmp );
     }
+
+    if( tr_list_size(peer->clientAskedFor) <= OUT_REQUESTS_LOW )
+        fireBlocksRunningLow( peer );
 
     return TRUE; /* loop forever */
 }
