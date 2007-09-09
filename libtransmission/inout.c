@@ -38,6 +38,10 @@ struct tr_io_s
 *****  Low-level IO functions
 ****/
 
+#ifdef WIN32
+#define lseek _lseeki64
+#endif
+
 enum { TR_IO_READ, TR_IO_WRITE };
 
 static int
