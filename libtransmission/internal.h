@@ -139,6 +139,7 @@ struct tr_torrent
 
     volatile char              dieFlag;
     struct tr_bitfield       * uncheckedPieces;
+    run_status_t               runStatusAfterCheck;
     run_status_t               runStatus;
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;

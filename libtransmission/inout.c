@@ -23,7 +23,9 @@
 #include "crypto.h"
 #include "fdlimit.h"
 #include "inout.h"
+#include "list.h"
 #include "net.h"
+#include "platform.h"
 #include "peer-mgr.h"
 #include "utils.h"
 
@@ -193,7 +195,7 @@ tr_ioWrite( tr_torrent * tor, int pieceIndex, int begin, int len, uint8_t * buf 
 ****/
 
 static int
-tr_ioRecalculateHash ( tr_torrent  * tor,
+tr_ioRecalculateHash ( tr_torrent    * tor,
                        int             pieceIndex,
                        uint8_t       * setme )
 {
@@ -321,4 +323,120 @@ tr_ioHash( tr_io_t * io, int pieceIndex )
     tr_peerMgrSetBlame( tor->handle->peerMgr, tor->info.hash, pieceIndex, success );
 
     return ret;
+}
+
+/**
+***
+**/
+
+struct recheck_node
+{
+    tr_torrent * torrent;
+    tr_recheck_done_cb recheck_done_cb;
+};
+
+struct recheck_node currentNode;
+
+static tr_list * recheckList = NULL;
+
+static tr_thread_t * recheckThread = NULL;
+
+static int stopCurrent = FALSE;
+
+static void
+recheckThreadFunc( void * unused UNUSED )
+{
+    for( ;; )
+    {
+        int i;
+        tr_torrent * tor;
+
+        struct recheck_node * node = (struct recheck_node*) recheckList ? recheckList->data : NULL;
+        if( node == NULL )
+            break;
+
+        currentNode = *node;
+        tor = currentNode.torrent;
+        tr_list_remove_data( &recheckList, node );
+        tr_free( node );
+
+        if( tor->uncheckedPieces == NULL )
+            continue;
+
+        /* remove the unchecked pieces from completion... */
+        for( i=0; i<tor->info.pieceCount; ++i ) 
+            if( tr_bitfieldHas( tor->uncheckedPieces, i ) )
+                tr_cpPieceRem( tor->completion, i );
+
+        tr_inf( "Verifying some pieces of \"%s\"", tor->info.name );
+
+        for( i=0; i<tor->info.pieceCount && !stopCurrent; ++i ) 
+        {
+            if( !tr_bitfieldHas( tor->uncheckedPieces, i ) )
+                continue;
+
+            tr_torrentSetHasPiece( tor, i, !checkPiece( tor, i ) );
+            tr_bitfieldRem( tor->uncheckedPieces, i );
+        }
+
+        if( stopCurrent )
+        {
+            stopCurrent = FALSE;
+            (currentNode.recheck_done_cb)( tor, TR_RECHECK_ABORTED );
+        }
+        else
+        {
+            tr_bitfieldFree( tor->uncheckedPieces );
+            tor->uncheckedPieces = NULL;
+            tor->fastResumeDirty = TRUE;
+            (currentNode.recheck_done_cb)( tor, TR_RECHECK_DONE );
+        }
+    }
+
+    recheckThread = NULL;
+}
+
+void
+tr_ioRecheckAdd( tr_torrent          * tor,
+                 tr_recheck_done_cb    recheck_done_cb )
+{
+    if( tor->uncheckedPieces == NULL )
+    {
+        (*recheck_done_cb)(tor, TR_RECHECK_DONE );
+    }
+    else
+    {
+        struct recheck_node * node;
+        node = tr_new( struct recheck_node, 1 );
+        node->torrent = tor;
+        node->recheck_done_cb = recheck_done_cb;
+        tr_list_append( &recheckList, node );
+
+        if( recheckThread == NULL )
+            recheckThread = tr_threadNew( recheckThreadFunc, NULL, "recheckThreadFunc" );
+    }
+}
+
+static int
+compareRecheckByTorrent( const void * va, const void * vb )
+{
+    const struct recheck_node * a = ( const struct recheck_node * ) va;
+    const struct recheck_node * b = ( const struct recheck_node * ) vb;
+    return a->torrent - b->torrent;
+}
+
+void
+tr_ioRecheckRemove( tr_torrent * tor )
+{
+    if( tor == currentNode.torrent )
+        stopCurrent = TRUE;
+    else {
+        struct recheck_node tmp;
+        tmp.torrent = tor;
+        struct recheck_node * node = tr_list_remove( &recheckList, &tmp, compareRecheckByTorrent );
+        if( node != NULL ) {
+            (node->recheck_done_cb)( tor, TR_RECHECK_ABORTED );
+            tr_free( node );
+        }
+    }
 }

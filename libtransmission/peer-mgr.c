@@ -237,6 +237,7 @@ freeTorrent( tr_peerMgr * manager, Torrent * t )
         freePeer( peers[i] );
     tr_ptrArrayFree( t->peers );
     tr_ptrArrayRemoveSorted( manager->torrents, t, torrentCompare );
+    tr_free( t->blocks );
     tr_free( t );
 }
 
@@ -429,6 +430,12 @@ myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
 
     hash = tr_peerIoGetTorrentHash( io );
     t = getExistingTorrent( manager, hash );
+    if( t == NULL )
+    {
+        tr_peerIoFree( io );
+        --manager->connectionCount;
+        return;
+    }
 
     fprintf( stderr, "peer-mgr: torrent [%s] finished a handshake; isConnected is %d\n", t->tor->info.name, isConnected );
 

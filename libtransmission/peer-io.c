@@ -436,7 +436,7 @@ tr_peerIoReadBytes( tr_peerIo        * io,
             break;
 
         case PEER_ENCRYPTION_RC4:
-            fprintf( stderr, "reading and decrypting %d bytes from inbuf...\n", byteCount );
+            fprintf( stderr, "reading AND DECRYPTING %d bytes from inbuf...\n", byteCount );
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_cryptoDecrypt( io->crypto, byteCount, bytes, bytes );
             tr_rcTransferred( io->rateToClient, byteCount );

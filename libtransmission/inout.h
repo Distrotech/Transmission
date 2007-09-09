@@ -61,4 +61,26 @@ void tr_ioSync( tr_io_t * );
 
 void      tr_ioClose       ( tr_io_t * );
 
+/**
+***
+**/
+
+typedef enum
+{
+   TR_RECHECK_DONE,
+   TR_RECHECK_ABORTED
+}
+RecheckState;
+
+typedef void (*tr_recheck_done_cb)(tr_torrent * tor, int recheckState );
+
+void tr_ioRecheckAdd( tr_torrent          * tor,
+                      tr_recheck_done_cb    recheck_done_cb );
+
+void tr_ioRecheckRemove( tr_torrent * tor );
+
+/**
+***
+**/
+
 #endif
