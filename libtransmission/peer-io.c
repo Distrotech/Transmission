@@ -373,6 +373,12 @@ tr_peerIoSetEncryption( tr_peerIo * io,
     io->encryptionMode = encryptionMode;
 }
 
+int
+tr_peerIoIsEncrypted( const tr_peerIo * io )
+{
+    return io!=NULL && io->encryptionMode==PEER_ENCRYPTION_RC4;
+}
+
 void
 tr_peerIoWriteBytes( tr_peerIo        * io,
                      struct evbuffer  * outbuf,

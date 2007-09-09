@@ -775,7 +775,8 @@ tr_peerMgrPeerStats( const tr_peerMgr  * manager,
         stat->from             = peer->from;
         stat->client           = peer->client;
         stat->progress         = peer->progress;
-        stat->isConnected      = live;
+        stat->isConnected      = live ? 1 : 0;
+        stat->isEncrypted      = tr_peerIoIsEncrypted( peer->io ) ? 1 : 0;
         stat->uploadToRate     = tr_peerIoGetRateToPeer( peer->io );
         stat->downloadFromRate = tr_peerIoGetRateToClient( peer->io );
         stat->isDownloading    = stat->uploadToRate > 0.01;

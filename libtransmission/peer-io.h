@@ -137,6 +137,8 @@ EncryptionMode;
 void tr_peerIoSetEncryption( tr_peerIo       * io,
                               int              encryptionMode );
 
+int  tr_peerIoIsEncrypted( const tr_peerIo * io );
+
 void tr_peerIoWriteBytes  ( tr_peerIo        * io,
                             struct evbuffer  * outbuf,
                             const void       * bytes,

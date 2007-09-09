@@ -658,15 +658,17 @@ struct tr_peer_stat
     char    addr[INET_ADDRSTRLEN];
     const char * client;
     
-    int     isConnected;
-    int     from;
-    float   progress;
-    int     port;
+    unsigned int isConnected   : 1;
+    unsigned int isEncrypted   : 1;
+    unsigned int isDownloading : 1;
+    unsigned int isUploading   : 1;
+
+    uint8_t  from;
+    uint16_t port;
     
-    int     isDownloading;
-    int     isUploading;
-    float   downloadFromRate;
-    float   uploadToRate;
+    float progress;
+    float downloadFromRate;
+    float uploadToRate;
 };
 
 struct tr_msg_list_s
