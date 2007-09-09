@@ -619,10 +619,11 @@ tr_peerMgrStartTorrent( tr_peerMgr     * manager UNUSED,
 }
 
 void
-tr_peerMgrStopTorrent( tr_peerMgr     * manager UNUSED,
-                       const uint8_t  * torrentHash UNUSED )
+tr_peerMgrStopTorrent( tr_peerMgr     * manager,
+                       const uint8_t  * torrentHash)
 {
-    //fprintf( stderr, "FIXME\n" );
+    Torrent * t = getExistingTorrent( manager, torrentHash );
+    freeTorrent( manager, t );
 }
 
 void
