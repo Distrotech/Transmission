@@ -264,11 +264,9 @@ static void torrentThreadLoop( void * );
 static void fastResumeSave( tr_torrent * );
 
 static void
-recheckDoneCB( tr_torrent * tor, int recheckState UNUSED )
+recheckDoneCB( tr_torrent * tor )
 {
-fprintf( stderr, "recheck done -- setting torrent %s to %d\n", tor->info.name, tor->runStatusAfterCheck );
     tr_peerMgrUpdateCompletion( tor->handle->peerMgr, tor->info.hash );
-    tor->runStatus = tor->runStatusAfterCheck;
     fastResumeSave( tor );
 
     if( tor->runStatus == TR_RUN_RUNNING )
@@ -412,9 +410,7 @@ torrentRealInit( tr_handle_t * h,
     h->torrentCount++;
     tr_sharedUnlock( h->shared );
 
-    tor->runStatusAfterCheck = tor->runStatus;
-    tor->runStatus = TR_RUN_CHECKING;
-    tr_ioRecheckAdd( tor, recheckDoneCB );
+    tr_ioRecheckAdd( tor, recheckDoneCB, tor->runStatus );
 }
 
 static int
@@ -759,15 +755,12 @@ tr_torrentStat( tr_torrent * tor )
     s->percentDone = tr_cpPercentDone( tor->completion );
     s->left = tr_cpLeftUntilDone( tor->completion );
 
-    if( tor->uncheckedPieces )
-        s->status = tor->runStatus==TR_RUN_CHECKING
-            ? TR_STATUS_CHECK
-            : TR_STATUS_CHECK_WAIT;
-    else switch( tor->runStatus ) {
+    switch( tor->runStatus ) {
+        case TR_RUN_CHECKING_WAIT: s->status = TR_STATUS_CHECK_WAIT; break;
+        case TR_RUN_CHECKING: s->status = TR_STATUS_CHECK; break;
         case TR_RUN_STOPPING: /* fallthrough */
         case TR_RUN_STOPPING_NET_WAIT: s->status = TR_STATUS_STOPPING; break;
         case TR_RUN_STOPPED: s->status = TR_STATUS_STOPPED; break;
-        case TR_RUN_CHECKING: s->status = TR_STATUS_CHECK; break;
         case TR_RUN_RUNNING: switch( tor->cpStatus ) {
             case TR_CP_INCOMPLETE: s->status = TR_STATUS_DOWNLOAD; break;
             case TR_CP_DONE: s->status = TR_STATUS_DONE; break;
@@ -984,9 +977,7 @@ void tr_torrentRecheck( tr_torrent * tor )
         tor->uncheckedPieces = tr_bitfieldNew( tor->info.pieceCount );
     tr_bitfieldAddRange( tor->uncheckedPieces, 0, tor->info.pieceCount );
 
-    tor->runStatusAfterCheck = tor->runStatus;
-    tor->runStatus = TR_RUN_CHECKING;
-    tr_ioRecheckAdd( tor, recheckDoneCB );
+    tr_ioRecheckAdd( tor, recheckDoneCB, tor->runStatus );
 }
 
 
@@ -1039,9 +1030,7 @@ static void setRunState( tr_torrent * tor, run_status_t run )
 void
 tr_torrentStart( tr_torrent * tor )
 {
-    tor->runStatusAfterCheck = TR_RUN_RUNNING;
-    tor->runStatus = TR_RUN_CHECKING;
-    tr_ioRecheckAdd( tor, recheckDoneCB );
+    tr_ioRecheckAdd( tor, recheckDoneCB, TR_RUN_RUNNING );
 }
 
 void tr_torrentStop( tr_torrent * tor )

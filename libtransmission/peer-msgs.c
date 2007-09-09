@@ -73,20 +73,6 @@ enum
     READING_BT_PIECE
 };
 
-static const char *
-getStateName( int state )
-{
-    switch( state )
-    {
-        case AWAITING_BT_LENGTH: return "awaiting bt length";
-        case AWAITING_BT_MESSAGE: return "awaiting bt message";
-        case READING_BT_PIECE: return "reading bt piece";
-    }
-
-    fprintf (stderr, "PeerManager::getStateName: unhandled state %d\n", state );
-    abort( );
-}
-
 struct peer_request
 {
     uint32_t index;
@@ -713,7 +699,6 @@ canRead( struct bufferevent * evin, void * vpeer )
     ReadState ret;
     tr_peermsgs * peer = (tr_peermsgs *) vpeer;
     struct evbuffer * inbuf = EVBUFFER_INPUT ( evin );
-    fprintf( stderr, "peer %p got a canRead; state is [%s]\n", peer, getStateName(peer->state) );
 
     switch( peer->state )
     {

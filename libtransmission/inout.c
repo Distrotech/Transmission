@@ -337,7 +337,17 @@ struct recheck_node
 {
     tr_torrent * torrent;
     tr_recheck_done_cb recheck_done_cb;
+    run_status_t status_when_done;
 };
+
+static void
+fireCheckDone( tr_torrent          * torrent,
+               tr_recheck_done_cb    recheck_done_cb,
+               run_status_t          status_when_done )
+{
+    torrent->runStatus = status_when_done;
+    (*recheck_done_cb)( torrent );
+}
 
 struct recheck_node currentNode;
 
@@ -364,8 +374,12 @@ recheckThreadFunc( void * unused UNUSED )
         tr_list_remove_data( &recheckList, node );
         tr_free( node );
 
-        if( tor->uncheckedPieces == NULL )
+        if( tor->uncheckedPieces == NULL ) {
+            fireCheckDone( tor, currentNode.recheck_done_cb, currentNode.status_when_done );
             continue;
+        }
+
+        tor->runStatus = TR_RUN_CHECKING;
 
         /* remove the unchecked pieces from completion... */
         for( i=0; i<tor->info.pieceCount; ++i ) 
@@ -383,18 +397,14 @@ recheckThreadFunc( void * unused UNUSED )
             tr_bitfieldRem( tor->uncheckedPieces, i );
         }
 
-        if( stopCurrent )
-        {
-            stopCurrent = FALSE;
-            (currentNode.recheck_done_cb)( tor, TR_RECHECK_ABORTED );
-        }
-        else
+        if( !stopCurrent )
         {
             tr_bitfieldFree( tor->uncheckedPieces );
             tor->uncheckedPieces = NULL;
-            tor->fastResumeDirty = TRUE;
-            (currentNode.recheck_done_cb)( tor, TR_RECHECK_DONE );
         }
+        stopCurrent = FALSE;
+        tor->fastResumeDirty = TRUE;
+        fireCheckDone( tor, currentNode.recheck_done_cb, currentNode.status_when_done );
     }
 
     recheckThread = NULL;
@@ -402,11 +412,12 @@ recheckThreadFunc( void * unused UNUSED )
 
 void
 tr_ioRecheckAdd( tr_torrent          * tor,
-                 tr_recheck_done_cb    recheck_done_cb )
+                 tr_recheck_done_cb    recheck_done_cb,
+                 run_status_t          status_when_done )
 {
     if( tor->uncheckedPieces == NULL )
     {
-        (*recheck_done_cb)(tor, TR_RECHECK_DONE );
+        fireCheckDone( tor, recheck_done_cb, status_when_done );
     }
     else
     {
@@ -414,7 +425,10 @@ tr_ioRecheckAdd( tr_torrent          * tor,
         node = tr_new( struct recheck_node, 1 );
         node->torrent = tor;
         node->recheck_done_cb = recheck_done_cb;
+        node->status_when_done = status_when_done;
         tr_list_append( &recheckList, node );
+
+        tor->runStatus = TR_RUN_CHECKING_WAIT;
 
         if( recheckThread == NULL )
             recheckThread = tr_threadNew( recheckThreadFunc, NULL, "recheckThreadFunc" );
@@ -439,7 +453,7 @@ tr_ioRecheckRemove( tr_torrent * tor )
         tmp.torrent = tor;
         struct recheck_node * node = tr_list_remove( &recheckList, &tmp, compareRecheckByTorrent );
         if( node != NULL ) {
-            (node->recheck_done_cb)( tor, TR_RECHECK_ABORTED );
+            fireCheckDone( tor, node->recheck_done_cb, node->status_when_done );
             tr_free( node );
         }
     }

@@ -91,12 +91,13 @@ int _tr_block( const tr_torrent * tor, int index, int begin );
 
 typedef enum
 {
-    TR_RUN_CHECKING           = (1<<0), /* checking files' checksums */
-    TR_RUN_RUNNING            = (1<<1), /* seeding or leeching */
-    TR_RUN_STOPPING           = (1<<2), /* stopping */
-    TR_RUN_STOPPING_NET_WAIT  = (1<<3), /* waiting on network -- we're
+    TR_RUN_CHECKING_WAIT      = (1<<0), /* waiting to be checked */
+    TR_RUN_CHECKING           = (1<<1), /* checking files' checksums */
+    TR_RUN_RUNNING            = (1<<2), /* seeding or leeching */
+    TR_RUN_STOPPING           = (1<<3), /* stopping */
+    TR_RUN_STOPPING_NET_WAIT  = (1<<4), /* waiting on network -- we're
                                            telling tracker we've stopped */
-    TR_RUN_STOPPED            = (1<<4)  /* stopped */
+    TR_RUN_STOPPED            = (1<<5)  /* stopped */
 }
 run_status_t;
 
@@ -139,7 +140,6 @@ struct tr_torrent
 
     volatile char              dieFlag;
     struct tr_bitfield       * uncheckedPieces;
-    run_status_t               runStatusAfterCheck;
     run_status_t               runStatus;
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;
