@@ -306,6 +306,7 @@ fprintf( stderr, " .done.\n" );
 
         if( t->blocks[i].have || t->blocks[i].dnd )
             continue;
+
         if( !size ) { /* all peers full */
             fprintf( stderr, "all peers full...\n" );
             break;
@@ -622,6 +623,19 @@ tr_peerMgrStopTorrent( tr_peerMgr     * manager UNUSED,
                        const uint8_t  * torrentHash UNUSED )
 {
     //fprintf( stderr, "FIXME\n" );
+}
+
+void
+tr_peerMgrUpdateCompletion( tr_peerMgr     * manager,
+                            const uint8_t  * torrentHash )
+{
+    uint32_t i;
+    Torrent * t = getExistingTorrent( manager, torrentHash );
+
+    for( i=0; i<t->blockCount; ++i ) {
+        assert( t->blocks[i].block == i );
+        t->blocks[i].have = tr_cpBlockIsComplete( t->tor->completion, i ) ? 1 : 0;
+    }
 }
 
 void

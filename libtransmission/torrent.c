@@ -267,6 +267,7 @@ static void
 recheckDoneCB( tr_torrent * tor, int recheckState UNUSED )
 {
 fprintf( stderr, "recheck done -- setting torrent %s to %d\n", tor->info.name, tor->runStatusAfterCheck );
+    tr_peerMgrUpdateCompletion( tor->handle->peerMgr, tor->info.hash );
     tor->runStatus = tor->runStatusAfterCheck;
     fastResumeSave( tor );
 
