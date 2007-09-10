@@ -350,7 +350,7 @@ ensureRefillTag( Torrent * t )
 {
     if( t->refill_tag == NULL )
         t->refill_tag = tr_timerNew( t->manager->handle,
-                                     refillPulse, t, NULL, 5000 );
+                                     refillPulse, t, NULL, 500 );
 }
 
 static void
