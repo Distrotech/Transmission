@@ -45,6 +45,8 @@ typedef enum { TR_NET_OK, TR_NET_ERROR, TR_NET_WAIT } tr_tristate_t;
 #define FALSE 0
 #endif
 
+#include "timer.h"
+
 int tr_trackerInfoInit( struct tr_tracker_info_s  * info,
                         const char                * address,
                         int                         address_len );
@@ -114,6 +116,8 @@ struct tr_torrent
     struct tr_ratecontrol     * download;
     struct tr_ratecontrol     * swarmspeed;
 
+    tr_timer_tag                saveTag;
+
     int                        error;
     char                       errorString[128];
     int                        hasChangedState;
@@ -144,16 +148,13 @@ struct tr_torrent
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;
     cp_status_t                cpStatus;
-    struct tr_thread_s       * thread;
     struct tr_rwlock_s       * lock;
 
     struct tr_tracker        * tracker;
     struct tr_publisher_tag  * trackerSubscription;
-    struct tr_io_s           * io;
     uint64_t                   startDate;
     uint64_t                   stopDate;
     char                       ioLoaded;
-    char                       fastResumeDirty;
 
     uint64_t                   downloadedCur;
     uint64_t                   downloadedPrev;

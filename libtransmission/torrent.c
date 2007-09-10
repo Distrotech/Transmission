@@ -148,7 +148,7 @@ tr_torrentGetSpeedLimit( const tr_torrent  * tor,
 ****
 ***/
 
-static void setRunState( tr_torrent *, run_status_t );
+static void tr_torrentHasStopped( tr_torrent * );
 
 static void
 onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
@@ -179,8 +179,8 @@ onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
             break;
 
         case TR_TRACKER_STOPPED:
-            if( tor->runStatus == TR_RUN_STOPPING_NET_WAIT )
-                setRunState( tor, TR_RUN_STOPPED );
+            assert( tor->runStatus == TR_RUN_STOPPING_NET_WAIT );
+            tr_torrentHasStopped( tor );
             break;
     }
 }
@@ -260,22 +260,31 @@ tr_torrentInitFilePieces( tr_torrent * tor )
         tor->info.pieces[i].priority = calculatePiecePriority( tor, i );
 }
 
-static void torrentThreadLoop( void * );
-static void fastResumeSave( tr_torrent * );
+static void recheckCpState( tr_torrent * );
+
+static void
+tr_torrentStartImpl( tr_torrent * tor )
+{
+    assert( tor != NULL );
+    assert( tor->runStatus == TR_RUN_RUNNING );
+
+    *tor->errorString = '\0';
+    tr_torrentResetTransferStats( tor );
+    recheckCpState( tor );
+    tor->startDate = tr_date();
+    tr_trackerStart( tor->tracker );
+}
 
 static void
 recheckDoneCB( tr_torrent * tor )
 {
-    tr_peerMgrUpdateCompletion( tor->handle->peerMgr, tor->info.hash );
-    fastResumeSave( tor );
+    tr_peerMgrUpdateCompletion( tor->handle->peerMgr,
+                                tor->info.hash );
+
+    recheckCpState( tor );
 
     if( tor->runStatus == TR_RUN_RUNNING )
-    {
-        tr_trackerStart( tor->tracker );
-
-        if( tor->thread == NULL )
-            tor->thread = tr_threadNew( torrentThreadLoop, tor, "torrent thread" );
-    }
+        tr_torrentStartImpl( tor );
 }
 
 static void
@@ -627,19 +636,37 @@ int tr_torrentScrape( tr_torrent * tor, int * s, int * l, int * d )
 }
 #endif
 
-static void
-fastResumeSave( tr_torrent * tor )
+static int
+saveFastResumeNow( void * vtor )
 {
+    tr_torrent * tor = (tr_torrent *) vtor;
+
     tr_fastResumeSave( tor );
-    tor->fastResumeDirty = FALSE;
+    recheckCpState( tor );
+
+    tr_timerFree( &tor->saveTag );
+    return FALSE;
 }
+
+static void
+saveFastResumeSoon( void * vtor )
+{
+    tr_torrent * tor = (tr_torrent *) vtor;
+
+    if( tor->saveTag == NULL )
+        tor->saveTag = tr_timerNew( tor->handle, saveFastResumeNow, tor, NULL, 1000 );
+}
+
+/**
+***
+**/
 
 void
 tr_torrentSetFolder( tr_torrent * tor, const char * path )
 {
     tr_free( tor->destination );
     tor->destination = tr_strdup( path );
-    fastResumeSave( tor );
+    saveFastResumeSoon( tor );
 }
 
 const char*
@@ -980,71 +1007,14 @@ void tr_torrentRecheck( tr_torrent * tor )
     tr_ioRecheckAdd( tor, recheckDoneCB, tor->runStatus );
 }
 
-
-#if 0
-int tr_torrentAttachPeer( tr_torrent * tor, tr_peer_t * peer )
-{
-    int i;
-    tr_peer_t * otherPeer;
-
-    assert( tor != NULL );
-    assert( peer != NULL );
-
-    if( tor->peerCount >= TR_MAX_PEER_COUNT )
-    {
-        tr_peerDestroy(  peer );
-        return 0;
-    }
-
-    /* Don't accept two connections from the same IP */
-    for( i = 0; i < tor->peerCount; i++ )
-    {
-        otherPeer = tor->peers[i];
-        if( !memcmp( tr_peerAddress( peer ), tr_peerAddress( otherPeer ), 4 ) )
-        {
-            tr_peerDestroy(  peer );
-            return 0;
-        }
-    }
-
-    tr_peerSetPrivate( peer, tor->info.flags & TR_FLAG_PRIVATE ||
-                       tor->pexDisabled );
-    tr_peerSetTorrent( peer, tor );
-    tor->peers[tor->peerCount++] = peer;
-
-    return 1;
-}
-#endif
-
 /***
 ****
 ***/
-
-static void setRunState( tr_torrent * tor, run_status_t run )
-{
-    tr_torrentWriterLock( tor );
-    tor->runStatus = run;
-    tr_torrentWriterUnlock( tor );
-}
 
 void
 tr_torrentStart( tr_torrent * tor )
 {
     tr_ioRecheckAdd( tor, recheckDoneCB, TR_RUN_RUNNING );
-}
-
-void tr_torrentStop( tr_torrent * tor )
-{
-    if((tor->runStatus != TR_RUN_STOPPING) && (tor->runStatus != TR_RUN_STOPPED) )
-        setRunState( tor, TR_RUN_STOPPING );
-}
-
-void tr_torrentClose( tr_torrent * tor )
-{
-    tor->runStatusToSave = tor->runStatus;
-    tor->runStatusToSaveIsSet = TRUE;
-    tr_torrentStop( tor );
-    tor->dieFlag = TRUE;
 }
 
 static void
@@ -1093,6 +1063,40 @@ tr_torrentFree( tr_torrent * tor )
 }
 
 static void
+tr_torrentHasStopped( tr_torrent * tor )
+{
+    /* close the IO */
+    tr_ioClose( tor );
+    saveFastResumeSoon( tor );
+
+    /* free everything */
+    tr_torrentFree( tor );
+}
+
+void
+tr_torrentStop( tr_torrent * tor )
+{
+    if( tor->runStatus==TR_RUN_STOPPING || tor->runStatus==TR_RUN_STOPPED )
+        return;
+
+    /* close the peers */
+    tr_peerMgrStopTorrent( tor->handle->peerMgr, tor->info.hash );
+
+    /* tell the tracker we're stopping */
+    tor->runStatus = TR_RUN_STOPPING_NET_WAIT;
+    tor->stopDate = tr_date();
+    tr_trackerStop( tor->tracker );
+}
+
+void tr_torrentClose( tr_torrent * tor )
+{
+    tor->runStatusToSave = tor->runStatus;
+    tor->runStatusToSaveIsSet = TRUE;
+    tr_torrentStop( tor );
+    tor->dieFlag = TRUE;
+}
+
+static void
 recheckCpState( tr_torrent * tor )
 {
     cp_status_t cpStatus;
@@ -1107,75 +1111,11 @@ recheckCpState( tr_torrent * tor )
             && tor->downloadedCur ) {        /* and it just happened */
             tr_trackerCompleted( tor->tracker ); /* tell the tracker */
         }
-        tr_ioSync( tor->io );
-        fastResumeSave( tor );
+        tr_ioClose( tor );
+        saveFastResumeSoon( tor );
     }
     tr_torrentWriterUnlock( tor );
 }
-
-static void
-torrentThreadLoop ( void * _tor )
-{
-    tr_torrent * tor = _tor;
-
-    /* loop until the torrent is being deleted */
-    while( ! ( tor->dieFlag && (tor->runStatus == TR_RUN_STOPPED) ) )
-    {
-        /* sleep a little while */
-        tr_wait( tor->runStatus == TR_RUN_STOPPED ? 1600 : 100 );
-
-        if( tor->fastResumeDirty )
-        {
-            fastResumeSave( tor );
-            recheckCpState( tor );
-        }
-
-        /* if we're stopping... */
-        if( tor->runStatus == TR_RUN_STOPPING )
-        {
-            tr_torrentWriterLock( tor );
-
-            /* close the IO */
-            tr_ioClose( tor->io );
-            tor->io = NULL;
-            fastResumeSave( tor );
-
-            /* close the peers */
-            tr_peerMgrStopTorrent( tor->handle->peerMgr, tor->info.hash );
-
-            /* resest the transfer rates */
-            tr_rcReset( tor->download );
-            tr_rcReset( tor->upload );
-            tr_rcReset( tor->swarmspeed );
-
-            /* tell the tracker we're stopping */
-            tr_trackerStop( tor->tracker );
-            tor->runStatus = TR_RUN_STOPPING_NET_WAIT;
-            tor->stopDate = tr_date();
-            tr_torrentWriterUnlock( tor );
-        }
-
-        /* ping our peers if we're running... */
-        if( tor->runStatus == TR_RUN_RUNNING )
-        {
-            /* starting to run... */
-            if( tor->io == NULL )
-            {
-                *tor->errorString = '\0';
-                tr_torrentResetTransferStats( tor );
-                tor->io = tr_ioNew( tor );
-                tor->startDate = tr_date();
-            }
-
-            /* refresh our completion state */
-            recheckCpState( tor );
-        }
-    }
-
-    tr_ioClose( tor->io );
-    tr_torrentFree( tor );
-}
-
 
 /**
 ***  File priorities
@@ -1204,7 +1144,7 @@ tr_torrentSetFilePriority( tr_torrent   * tor,
              fileIndex, file->firstPiece, file->lastPiece,
              priority, tor->info.files[fileIndex].name );
 
-    tor->fastResumeDirty = TRUE;
+    saveFastResumeSoon( tor );
 
     tr_torrentWriterUnlock( tor );
 }
@@ -1318,7 +1258,7 @@ tr_torrentSetFileDL( tr_torrent  * tor,
 
     tr_cpInvalidateDND ( tor->completion );
 
-    tor->fastResumeDirty = TRUE;
+    saveFastResumeSoon( tor );
 
     tr_torrentWriterUnlock( tor );
 }

@@ -21,6 +21,7 @@
 #include "transmission.h"
 #include "completion.h"
 #include "crypto.h"
+#include "fastresume.h"
 #include "fdlimit.h"
 #include "inout.h"
 #include "list.h"
@@ -29,7 +30,7 @@
 #include "peer-mgr.h"
 #include "utils.h"
 
-struct tr_io_s
+struct tr_io
 {
     tr_torrent * tor;
 };
@@ -235,77 +236,22 @@ checkPiece ( tr_torrent * tor, int pieceIndex )
     return ret;
 }
 
-void
-tr_ioCheckFiles( tr_torrent * tor )
-{
-    assert( tor != NULL );
-    assert( tor->completion != NULL );
-    assert( tor->info.pieceCount > 0 );
-
-    if( tor->uncheckedPieces != NULL )
-    {
-        int i;
-
-        /* remove the unchecked pieces from completion... */
-        for( i=0; i<tor->info.pieceCount; ++i ) 
-            if( tr_bitfieldHas( tor->uncheckedPieces, i ) )
-                tr_cpPieceRem( tor->completion, i );
-
-        tr_inf( "Verifying some pieces of \"%s\"", tor->info.name );
-
-        for( i=0; i<tor->info.pieceCount; ++i ) 
-        {
-            if( !tr_bitfieldHas( tor->uncheckedPieces, i ) )
-                continue;
-
-            tr_torrentSetHasPiece( tor, i, !checkPiece( tor, i ) );
-            tr_bitfieldRem( tor->uncheckedPieces, i );
-        }
-
-        tr_bitfieldFree( tor->uncheckedPieces );
-        tor->uncheckedPieces = NULL;
-        tor->fastResumeDirty = TRUE;
-    }
-}
-
-/****
-*****  Life Cycle
-****/
-
-tr_io_t*
-tr_ioNew ( tr_torrent * tor )
-{
-    tr_io_t * io = tr_calloc( 1, sizeof( tr_io_t ) );
-    io->tor = tor;
-    return io;
-}
-
+/**
+***
+**/
 
 void
-tr_ioSync( tr_io_t * io )
+tr_ioClose( const tr_torrent * tor )
 {
-    if( io != NULL )
-    {
-        int i;
-        const tr_info_t * info = &io->tor->info;
+    int i;
+    const tr_info_t * info = &tor->info;
 
-        for( i=0; i<info->fileCount; ++i )
-            tr_fdFileClose( io->tor->destination, info->files[i].name );
-    }
-}
-
-void
-tr_ioClose( tr_io_t * io )
-{
-    if( io != NULL )
-    {
-        tr_ioSync( io );
-        tr_free( io );
-    }
+    for( i=0; i<info->fileCount; ++i )
+        tr_fdFileClose( tor->destination, info->files[i].name );
 }
 
 int
-tr_ioHash( tr_io_t * io, int pieceIndex )
+tr_ioHash( tr_io * io, int pieceIndex )
 {
     int ret;
     tr_torrent * tor = io->tor;
@@ -403,7 +349,7 @@ recheckThreadFunc( void * unused UNUSED )
             tor->uncheckedPieces = NULL;
         }
         stopCurrent = FALSE;
-        tor->fastResumeDirty = TRUE;
+        tr_fastResumeSave( tor );
         fireCheckDone( tor, currentNode.recheck_done_cb, currentNode.status_when_done );
     }
 

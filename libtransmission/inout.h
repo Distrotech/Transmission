@@ -27,11 +27,7 @@
 
 struct tr_torrent;
 
-typedef struct tr_io_s tr_io_t;
-
-void tr_ioCheckFiles  ( tr_torrent * );
-
-tr_io_t * tr_ioNew ( tr_torrent * );
+typedef struct tr_io tr_io;
 
 /***********************************************************************
  * tr_ioRead, tr_ioWrite
@@ -49,17 +45,10 @@ int tr_ioWrite ( struct tr_torrent *, int index, int begin, int len, uint8_t * )
  ***********************************************************************
  * Hashes the specified piece and updates the completion accordingly.
  **********************************************************************/
-int tr_ioHash ( tr_io_t *, int piece );
+int tr_ioHash ( tr_io *, int piece );
 
-/***********************************************************************
- * tr_ioSync
- ***********************************************************************
- * Flush all data on disc by closing all files, and update the cache
- * file.
- **********************************************************************/
-void tr_ioSync( tr_io_t * );
-
-void      tr_ioClose       ( tr_io_t * );
+/* close all the files associated with this torrent*/
+void tr_ioClose( const tr_torrent * );
 
 /**
 ***
