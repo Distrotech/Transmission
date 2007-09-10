@@ -34,6 +34,8 @@ void        tr_list_append         ( tr_list         ** list,
 void        tr_list_prepend        ( tr_list         ** list,
                                      void             * data );
 
+void*       tr_list_pop_front      ( tr_list         ** list );
+
 void*       tr_list_remove_data    ( tr_list         ** list,
                                      const void       * data );
 

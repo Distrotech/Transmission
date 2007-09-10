@@ -120,6 +120,18 @@ tr_list_remove_node ( tr_list ** list, tr_list * node )
 }
 
 void*
+tr_list_pop_front( tr_list ** list )
+{
+    void * ret = NULL;
+    if( *list != NULL )
+    {
+        ret = (*list)->data;
+        tr_list_remove_node( list, *list );
+    }
+    return ret;
+}
+
+void*
 tr_list_remove_data ( tr_list ** list, const void * data )
 {
     return tr_list_remove_node( list, tr_list_find_data( *list, data ) );

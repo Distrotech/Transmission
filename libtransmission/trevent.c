@@ -19,18 +19,12 @@
 #include <sys/queue.h> /* for evhttp */
 #include <sys/types.h> /* for evhttp */
 
-#ifdef WIN32
-  #include <fcntl.h>
-  #define pipe(f) _pipe(f, 1000, _O_BINARY)
-#else
-  #include <unistd.h>
-#endif
-
 #include <event.h>
 #include <evdns.h>
 #include <evhttp.h>
 
 #include "transmission.h"
+#include "list.h"
 #include "platform.h"
 #include "utils.h"
 
@@ -47,12 +41,13 @@
 
 typedef struct tr_event_handle
 {
-    int fds[2];
     tr_lock_t * lock;
     tr_handle_t * h;
     tr_thread_t * thread;
+    tr_list * commands;
     struct event_base * base;
-    struct event pipeEvent;
+    struct event pulse;
+    struct timeval pulseInterval;
 }
 tr_event_handle;
 
@@ -61,81 +56,91 @@ static int reads = 0;
 static int writes = 0;
 #endif
 
-
-void
-readFromPipe( int fd, short eventType UNUSED, void * unused UNUSED )
+enum mode
 {
-    char ch;
-    int ret;
+   TR_EV_EVENT_DEL,
+   TR_EV_EVENT_ADD,
+   TR_EV_EVHTTP_MAKE_REQUEST,
+   TR_EV_BUFFEREVENT_SET,
+   TR_EV_BUFFEREVENT_WRITE,
+   TR_EV_BUFFEREVENT_FREE
+};
+
+struct tr_event_command
+{
+    int mode;
+
     struct event * event;
     struct timeval interval;
+
     struct evhttp_connection * evcon;
     struct evhttp_request * req;
-    enum evhttp_cmd_type type;
+    enum evhttp_cmd_type evtype;
     char * uri;
+
+    struct bufferevent * bufev;
+    short enable;
+    short disable;
     char * buf;
     size_t buflen;
-    struct bufferevent * bufev;
-    short mode;
+};
 
-#ifdef DEBUG
-    fprintf( stderr, "reading...reads: [%d] writes: [%d]\n", ++reads, writes );
-#endif
+static void
+pumpList( int i UNUSED, short s UNUSED, void * veh )
+{
+    tr_event_handle * eh = veh;
 
-    ch = '\0';
-    do {
-        ret = read( fd, &ch, 1 );
-    } while ( ret<0 && errno==EAGAIN );
-
-    if( ret < 0 )
+    for( ;; )
     {
-        tr_err( "Couldn't read from libevent pipe: %s", strerror(errno) );
+        struct tr_event_command * cmd;
+
+        /* get the next command */
+        tr_lockLock( eh->lock );
+        cmd = tr_list_pop_front( &eh->commands );
+        tr_lockUnlock( eh->lock );
+        if( cmd == NULL )
+            break;
+
+        /* process the command */
+        switch( cmd->mode )
+        {
+            case TR_EV_EVENT_DEL:
+                event_del( cmd->event );
+                tr_free( cmd->event );
+                break;
+
+            case TR_EV_EVENT_ADD:
+                event_add( cmd->event, &cmd->interval );
+                break;
+
+            case TR_EV_EVHTTP_MAKE_REQUEST:
+                evhttp_make_request( cmd->evcon, cmd->req, cmd->evtype, cmd->uri );
+                tr_free( cmd->uri );
+                break;
+
+           case TR_EV_BUFFEREVENT_SET:
+                bufferevent_enable( cmd->bufev, cmd->enable );
+                bufferevent_disable( cmd->bufev, cmd->disable );
+                break;
+
+            case TR_EV_BUFFEREVENT_WRITE:
+                bufferevent_write( cmd->bufev, cmd->buf, cmd->buflen );
+                tr_free( cmd->buf );
+                break;
+
+            case TR_EV_BUFFEREVENT_FREE:
+                bufferevent_free( cmd->bufev );
+                break;
+
+            default:
+                assert( 0 && "unhandled command type!" );
+        }
+
+        /* cleanup */
+        tr_free( cmd );
     }
-    else switch( ch )
-    {
-        case 'd': /* event_del */
-            read( fd, &event, sizeof(struct event*) );
-            event_del( event );
-            tr_free( event );
-            break;
 
-        case 'e': /* event_add */
-            read( fd, &event, sizeof(struct event*) );
-            read( fd, &interval, sizeof(struct timeval) );
-            event_add( event, &interval );
-            break;
-
-        case 'h': /* http_make_request */
-            ret = read( fd, &evcon, sizeof(struct evhttp_connection*) );
-            read( fd, &req, sizeof(struct evhttp_request*) );
-            read( fd, &type, sizeof(enum evhttp_cmd_type) );
-            read( fd, &uri, sizeof(char*) );
-            evhttp_make_request( evcon, req, type, uri );
-            tr_free( uri );
-            break;
-
-        case 'm': /* set bufferevent mode */
-            read( fd, &bufev, sizeof(struct evhttp_request*) );
-            mode = 0;
-            read( fd, &mode, sizeof(short) );
-            bufferevent_enable( bufev, mode );
-            mode = 0;
-            read( fd, &mode, sizeof(short) );
-            bufferevent_disable( bufev, mode );
-fprintf( stderr, "after enable/disable, the mode is %hd\n", bufev->enabled );
-            break;
-
-        case 'w': /* bufferevent_write */
-            read( fd, &bufev, sizeof(struct bufferevent*) );
-            read( fd, &buf, sizeof(char*) );
-            read( fd, &buflen, sizeof(size_t) );
-            bufferevent_write( bufev, buf, buflen );
-            tr_free( buf );
-            break;
-
-        default:
-            assert( 0 && "unhandled event pipe condition!" );
-    }
+    timeout_add( &eh->pulse, &eh->pulseInterval );
 }
 
 static void
@@ -164,15 +169,12 @@ libeventThreadFunc( void * veh )
     eh->base = event_init( );
     event_set_log_callback( logFunc );
     evdns_init( );
-
-    /* listen to the pipe's read fd */
-    event_set( &eh->pipeEvent, eh->fds[0], EV_READ|EV_PERSIST, readFromPipe, NULL );
-    event_add( &eh->pipeEvent, NULL );
+    timeout_set( &eh->pulse, pumpList, veh );
+    timeout_add( &eh->pulse, &eh->pulseInterval );
 
     event_dispatch( );
 
     evdns_shutdown( FALSE );
-    event_del( &eh->pipeEvent );
     tr_lockFree( eh->lock );
     event_base_free( eh->base );
     tr_free( eh );
@@ -187,10 +189,11 @@ tr_eventInit( tr_handle_t * handle )
 
     eh = tr_new0( tr_event_handle, 1 );
     eh->lock = tr_lockNew( );
-    pipe( eh->fds );
     eh->h = handle;
-    handle->events = eh;
+    eh->pulseInterval = timevalMsec( 20 );
     eh->thread = tr_threadNew( libeventThreadFunc, eh, "libeventThreadFunc" );
+
+    handle->events = eh;
 }
 
 void
@@ -201,27 +204,31 @@ tr_eventClose( tr_handle_t * handle )
     event_base_loopexit( eh->base, NULL );
 }
 
+/**
+***
+**/
+
+static void
+pushList( struct tr_event_handle * eh, struct tr_event_command * command )
+{
+    tr_lockLock( eh->lock );
+    tr_list_append( &eh->commands, command );
+    tr_lockUnlock( eh->lock );
+}
+
 void
 tr_event_add( tr_handle_t    * handle,
               struct event   * event,
               struct timeval * interval )
 {
     if( tr_amInThread( handle->events->thread ) )
-    {
         event_add( event, interval );
-    }
-    else
-    {
-        const char ch = 'e';
-        int fd = handle->events->fds[1];
-        tr_lock_t * lock = handle->events->lock;
-
-        tr_lockLock( lock );
-        tr_dbg( "writing event to pipe: event.ev_arg is %p", event->ev_arg );
-        write( fd, &ch, 1 );
-        write( fd, &event, sizeof(struct event*) );
-        write( fd, interval, sizeof(struct timeval) );
-        tr_lockUnlock( lock );
+    else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_EVENT_ADD;
+        cmd->event = event;
+        cmd->interval = *interval;
+        pushList( handle->events, cmd );
     }
 }
 
@@ -229,22 +236,14 @@ void
 tr_event_del( tr_handle_t    * handle,
               struct event   * event )
 {
-    if( tr_amInThread( handle->events->thread ) )
-    {
+    if( tr_amInThread( handle->events->thread ) ) {
         event_del( event );
         tr_free( event );
-    }
-    else
-    {
-        const char ch = 'd';
-        int fd = handle->events->fds[1];
-        tr_lock_t * lock = handle->events->lock;
-
-        tr_lockLock( lock );
-        tr_dbg( "writing event to pipe: del event %p", event );
-        write( fd, &ch, 1 );
-        write( fd, &event, sizeof(struct event*) );
-        tr_lockUnlock( lock );
+    } else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_EVENT_DEL;
+        cmd->event = event;
+        pushList( handle->events, cmd );
     }
 }
 
@@ -255,25 +254,17 @@ tr_evhttp_make_request (tr_handle_t               * handle,
                         enum   evhttp_cmd_type      type,
                         char                      * uri)
 {
-    if( tr_amInThread( handle->events->thread ) )
-    {
+    if( tr_amInThread( handle->events->thread ) ) {
         evhttp_make_request( evcon, req, type, uri );
         tr_free( uri );
-    }
-    else
-    {
-        const char ch = 'h';
-        int fd = handle->events->fds[1];
-        tr_lock_t * lock = handle->events->lock;
-
-        tr_lockLock( lock );
-        tr_dbg( "writing HTTP req to pipe: req.cb_arg is %p", req->cb_arg );
-        write( fd, &ch, 1 );
-        write( fd, &evcon, sizeof(struct evhttp_connection*) );
-        write( fd, &req, sizeof(struct evhttp_request*) );
-        write( fd, &type, sizeof(enum evhttp_cmd_type) );
-        write( fd, &uri, sizeof(char*) );
-        tr_lockUnlock( lock );
+    } else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_EVHTTP_MAKE_REQUEST;
+        cmd->evcon = evcon;
+        cmd->req = req;
+        cmd->evtype = type;
+        cmd->uri = uri;
+        pushList( handle->events, cmd );
     }
 }
 
@@ -284,23 +275,14 @@ tr_bufferevent_write( tr_handle_t           * handle,
                       size_t                  buflen )
 {
     if( tr_amInThread( handle->events->thread ) )
-    {
         bufferevent_write( bufev, (void*)buf, buflen );
-    }
-    else
-    {
-        const char ch = 'w';
-        int fd = handle->events->fds[1];
-        tr_lock_t * lock = handle->events->lock;
-        char * local = tr_strndup( buf, buflen );
-
-        tr_lockLock( lock );
-        tr_dbg( "writing bufferevent_write pipe" );
-        write( fd, &ch, 1 );
-        write( fd, &bufev, sizeof(struct bufferevent*) );
-        write( fd, &local, sizeof(char*) );
-        write( fd, &buflen, sizeof(size_t) );
-        tr_lockUnlock( lock );
+    else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_BUFFEREVENT_WRITE;
+        cmd->bufev = bufev;
+        cmd->buf = tr_strndup( buf, buflen );
+        cmd->buflen = buflen;
+        pushList( handle->events, cmd );
     }
 }
 
@@ -310,22 +292,49 @@ tr_setBufferEventMode( struct tr_handle   * handle,
                        short                mode_enable,
                        short                mode_disable )
 {
-    if( tr_amInThread( handle->events->thread ) )
-    {
+    if( tr_amInThread( handle->events->thread ) ) {
         bufferevent_enable( bufev, mode_enable );
         bufferevent_disable( bufev, mode_disable );
-    }
-    else
-    {
-        const char ch = 'm';
-        int fd = handle->events->fds[1];
-        tr_lock_t * lock = handle->events->lock;
-
-        tr_lockLock( lock );
-        write( fd, &ch, 1 );
-        write( fd, &bufev, sizeof(struct bufferevent*) );
-        write( fd, &mode_enable, sizeof(short) );
-        write( fd, &mode_disable, sizeof(short) );
-        tr_lockUnlock( lock );
+    } else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_BUFFEREVENT_SET;
+        cmd->bufev = bufev;
+        cmd->enable = mode_enable;
+        cmd->disable = mode_disable;
+        pushList( handle->events, cmd );
     }
 }
+
+static int
+compareFunc( const void * va, const void * vb )
+{
+    const struct tr_event_command * a = va;
+    const struct bufferevent * b = vb;
+    return a->bufev == b ? 0 : 1;
+}
+
+void
+tr_bufferevent_free( struct tr_handle   * handle,
+                     struct bufferevent * bufev )
+{
+    void * v;
+    tr_event_handle * eh = handle->events;
+
+    /* purge pending commands from the list */
+    tr_lockLock( eh->lock );
+    while(( v = tr_list_remove( &eh->commands, bufev, compareFunc ) )) {
+        fprintf( stderr, "---> I AM PURGING A QUEUED COMMAND BECAUSE ITS BUFEV IS GOING AWAY <--\n" );
+        tr_free( v );
+    }
+    tr_lockUnlock( eh->lock );
+
+    if( tr_amInThread( handle->events->thread ) )
+        bufferevent_free( bufev );
+    else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_BUFFEREVENT_FREE;
+        cmd->bufev = bufev;
+        pushList( handle->events, cmd );
+    }
+}
+                 
