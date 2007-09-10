@@ -27,6 +27,7 @@
 #endif
 
 #include <event.h>
+#include <evdns.h>
 #include <evhttp.h>
 
 #include "transmission.h"
@@ -162,6 +163,7 @@ libeventThreadFunc( void * veh )
 
     eh->base = event_init( );
     event_set_log_callback( logFunc );
+    evdns_init( );
 
     /* listen to the pipe's read fd */
     event_set( &eh->pipeEvent, eh->fds[0], EV_READ|EV_PERSIST, readFromPipe, NULL );
@@ -169,6 +171,7 @@ libeventThreadFunc( void * veh )
 
     event_dispatch( );
 
+    evdns_shutdown( FALSE );
     event_del( &eh->pipeEvent );
     tr_lockFree( eh->lock );
     event_base_free( eh->base );

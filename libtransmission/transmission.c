@@ -102,7 +102,6 @@ tr_handle_t * tr_init( const char * tag )
 
     tr_eventInit( h );
     tr_netInit();
-    tr_netResolveThreadInit();
 
     h->tag = strdup( tag );
     if( !h->tag ) {
@@ -255,8 +254,6 @@ void tr_close( tr_handle_t * h )
     tr_eventClose( h );
     free( h->tag );
     free( h );
-
-    tr_netResolveThreadClose();
 }
 
 tr_torrent **
