@@ -48,6 +48,7 @@ typedef struct tr_event_handle
     struct event_base * base;
     struct event pulse;
     struct timeval pulseInterval;
+    uint8_t die;
 }
 tr_event_handle;
 
@@ -140,7 +141,8 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
         tr_free( cmd );
     }
 
-    timeout_add( &eh->pulse, &eh->pulseInterval );
+    if( !eh->die )
+        timeout_add( &eh->pulse, &eh->pulseInterval );
 }
 
 static void
@@ -200,7 +202,7 @@ void
 tr_eventClose( tr_handle_t * handle )
 {
     tr_event_handle * eh = handle->events;
-
+    eh->die = TRUE;
     event_base_loopexit( eh->base, NULL );
 }
 
@@ -337,4 +339,3 @@ tr_bufferevent_free( struct tr_handle   * handle,
         pushList( handle->events, cmd );
     }
 }
-                 

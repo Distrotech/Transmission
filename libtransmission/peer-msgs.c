@@ -605,18 +605,6 @@ gotBlock( tr_peermsgs * peer, int index, int offset, struct evbuffer * inbuf )
     const int block = _tr_block( tor, index, offset );
     struct peer_request key, *req;
 
-    /* sanity clause */
-    if( tr_cpBlockIsComplete( tor->completion, block ) ) {
-fprintf( stderr, "have this block already...\n" );
-        tr_dbg( "have this block already..." );
-        return;
-    }
-    if( (int)length != tr_torBlockCountBytes( tor, block ) ) {
-fprintf( stderr, "block is the wrong length... expected %d and got %d\n", (int)length, (int)tr_torBlockCountBytes(tor,block) );
-        tr_dbg( "block is the wrong length..." );
-        return;
-    }
-
     /* remove it from our `we asked for this' list */
     key.index = index;
     key.offset = offset;
@@ -630,6 +618,18 @@ fprintf( stderr, "we didn't ask for this message...\n" );
     }
     tr_free( req );
     fprintf( stderr, "peer %p now has %d block requests in its outbox\n", peer, tr_list_size(peer->clientAskedFor));
+
+    /* sanity clause */
+    if( tr_cpBlockIsComplete( tor->completion, block ) ) {
+fprintf( stderr, "have this block already...\n" );
+        tr_dbg( "have this block already..." );
+        return;
+    }
+    if( (int)length != tr_torBlockCountBytes( tor, block ) ) {
+fprintf( stderr, "block is the wrong length... expected %d and got %d\n", (int)length, (int)tr_torBlockCountBytes(tor,block) );
+        tr_dbg( "block is the wrong length..." );
+        return;
+    }
 
     {
         uint64_t block = index;

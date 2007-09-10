@@ -129,6 +129,8 @@ typedef struct
     struct tr_block * blocks;
     uint32_t blockCount;
 
+    unsigned int isRunning : 1;
+
     struct tr_peerMgr * manager;
 }
 Torrent;
@@ -209,16 +211,32 @@ fprintf( stderr, "getPeer: torrent %p now has %d peers\n", torrent, tr_ptrArrayS
 }
 
 static void
-freePeer( tr_peer * peer )
+disconnectPeer( tr_peer * peer )
 {
-    if( peer->msgs != NULL ) {
+    if( peer->msgs != NULL )
+    {
         tr_peerMsgsUnsubscribe( peer->msgs, peer->msgsTag );
         tr_peerMsgsFree( peer->msgs );
+        peer->msgs = NULL;
     }
+
     tr_bitfieldFree( peer->have );
+    peer->have = NULL;
+
     tr_bitfieldFree( peer->blame );
+    peer->blame = NULL;
+
     tr_bitfieldFree( peer->banned );
+    peer->banned = NULL;
+
     tr_peerIoFree( peer->io );
+    peer->io = NULL;
+}
+
+static void
+freePeer( tr_peer * peer )
+{
+    disconnectPeer( peer );
     tr_free( peer->client );
     tr_free( peer );
 }
@@ -294,50 +312,53 @@ refillPulse( void * vtorrent )
     tr_peer ** peers = getConnectedPeers( t, &size );
 fprintf( stderr, "in refill pulse for [%s]... sorting blocks by interest...", t->tor->info.name );
 
-    /* sort the blocks by interest */
-    qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByInterest );
-fprintf( stderr, " .done.\n" );
-
-    /* walk through all the most interesting blocks */
-    for( i=0; i<t->blockCount; ++i )
+    if( size > 0 )
     {
-        const uint32_t b = t->blocks[i].block;
-        const uint32_t index = tr_torBlockPiece( t->tor, b );
-        const uint32_t begin = ( b * t->tor->blockSize )-( index * t->tor->info.pieceSize );
-        const uint32_t length = tr_torBlockCountBytes( t->tor, (int)b );
-        int j;
+        /* sort the blocks by interest */
+        qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByInterest );
+    fprintf( stderr, " .done.\n" );
 
-        if( t->blocks[i].have || t->blocks[i].dnd )
-            continue;
-
-        if( !size ) { /* all peers full */
-            fprintf( stderr, "all peers full...\n" );
-            break;
-        }
-
-        /* find a peer who can ask for this block */
-        for( j=0; j<size; )
+        /* walk through all the most interesting blocks */
+        for( i=0; i<t->blockCount; ++i )
         {
-            const int val = tr_peerMsgsAddRequest( peers[j]->msgs, index, begin, length );
-//fprintf( stderr, " block %"PRIu64", peer %"PRIu64, (uint64_t)i,  (uint64_t)j );
-            if( val == TR_ADDREQ_FULL ) {
-fprintf( stderr, "peer %d of %d is full\n", (int)j, size );
-                peers[j] = peers[--size];
+            const uint32_t b = t->blocks[i].block;
+            const uint32_t index = tr_torBlockPiece( t->tor, b );
+            const uint32_t begin = ( b * t->tor->blockSize )-( index * t->tor->info.pieceSize );
+            const uint32_t length = tr_torBlockCountBytes( t->tor, (int)b );
+            int j;
+
+            if( t->blocks[i].have || t->blocks[i].dnd )
+                continue;
+
+            if( !size ) { /* all peers full */
+                fprintf( stderr, "all peers full...\n" );
+                break;
             }
-            else if( val == TR_ADDREQ_MISSING ) {
-//fprintf( stderr, "peer doesn't have it\n" );
-                ++j;
-            }
-            else if( val == TR_ADDREQ_OK ) {
-fprintf( stderr, "peer %d took the request for block %d\n", j, i );
-                incrementReqCount( &t->blocks[i] );
-                j = size;
+
+            /* find a peer who can ask for this block */
+            for( j=0; j<size; )
+            {
+                const int val = tr_peerMsgsAddRequest( peers[j]->msgs, index, begin, length );
+    //fprintf( stderr, " block %"PRIu64", peer %"PRIu64, (uint64_t)i,  (uint64_t)j );
+                if( val == TR_ADDREQ_FULL ) {
+    fprintf( stderr, "peer %d of %d is full\n", (int)j, size );
+                    peers[j] = peers[--size];
+                }
+                else if( val == TR_ADDREQ_MISSING ) {
+    //fprintf( stderr, "peer doesn't have it\n" );
+                    ++j;
+                }
+                else if( val == TR_ADDREQ_OK ) {
+    fprintf( stderr, "peer %d took the request for block %d\n", j, i );
+                    incrementReqCount( &t->blocks[i] );
+                    j = size;
+                }
             }
         }
-    }
 
-    /* put the blocks back by index */
-    qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByIndex );
+        /* put the blocks back by index */
+        qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByIndex );
+    }
 
     /* cleanup */
     tr_free( peers );
@@ -434,7 +455,7 @@ myHandshakeDoneCB( tr_peerIo * io, int isConnected, void * vmanager )
 
     hash = tr_peerIoGetTorrentHash( io );
     t = getExistingTorrent( manager, hash );
-    if( t == NULL )
+    if( !t )
     {
         tr_peerIoFree( io );
         --manager->connectionCount;
@@ -618,15 +639,22 @@ void
 tr_peerMgrStartTorrent( tr_peerMgr     * manager UNUSED,
                         const uint8_t  * torrentHash UNUSED)
 {
-    //fprintf( stderr, "FIXME\n" );
+    Torrent * t = getExistingTorrent( manager, torrentHash );
+    t->isRunning = TRUE;
 }
 
 void
 tr_peerMgrStopTorrent( tr_peerMgr     * manager,
                        const uint8_t  * torrentHash)
 {
+    int i, size;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-    freeTorrent( manager, t );
+    tr_peer ** peers = getConnectedPeers( t, &size );
+
+    t->isRunning = FALSE;
+
+    for( i=0; i<size; ++i )
+        disconnectPeer( peers[i] );
 }
 
 void

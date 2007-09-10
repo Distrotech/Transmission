@@ -1067,10 +1067,11 @@ tr_torrentHasStopped( tr_torrent * tor )
 {
     /* close the IO */
     tr_ioClose( tor );
-    saveFastResumeSoon( tor );
+    saveFastResumeNow( tor );
 
     /* free everything */
-    tr_torrentFree( tor );
+    if( tor->dieFlag )
+        tr_torrentFree( tor );
 }
 
 void
@@ -1092,8 +1093,8 @@ void tr_torrentClose( tr_torrent * tor )
 {
     tor->runStatusToSave = tor->runStatus;
     tor->runStatusToSaveIsSet = TRUE;
-    tr_torrentStop( tor );
     tor->dieFlag = TRUE;
+    tr_torrentStop( tor );
 }
 
 static void

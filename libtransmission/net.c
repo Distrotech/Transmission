@@ -287,12 +287,14 @@ int tr_netRecvFrom( int s, uint8_t * buf, int size, struct sockaddr_in * addr )
     return ret;
 }
 
-void tr_netClose( int s )
+void
+tr_netClose( int s )
 {
     tr_fdSocketClose( s );
 }
 
-void tr_netNtop( const struct in_addr * addr, char * buf, int len )
+void
+tr_netNtop( const struct in_addr * addr, char * buf, int len )
 {
     const uint8_t * cast;
 

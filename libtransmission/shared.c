@@ -95,8 +95,7 @@ void tr_sharedClose( tr_shared * s )
 {
     tr_timerFree( &s->pulseTag );
 
-    if( s->bindSocket > -1 )
-        tr_netClose( s->bindSocket );
+    tr_netClose( s->bindSocket );
     tr_lockFree( s->lock );
     tr_natpmpClose( s->natpmp );
     tr_upnpClose( s->upnp );

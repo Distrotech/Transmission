@@ -60,7 +60,7 @@ struct tr_thread
 {
     void          (* func ) ( void * );
     void           * arg;
-    char           * name;
+    const char     * name;
 
 #ifdef __BEOS__
     thread_id        thread;
@@ -83,7 +83,7 @@ static ThreadFuncReturnType
 ThreadFunc( void * _t )
 {
     tr_thread * t = _t;
-    char* name = tr_strdup( t->name );
+    const char * name = t->name;
 
 #ifdef __BEOS__
     /* This is required because on BeOS, SIGINT is sent to each thread,
@@ -94,8 +94,6 @@ ThreadFunc( void * _t )
     tr_dbg( "Thread '%s' started", name );
     t->func( t->arg );
     tr_dbg( "Thread '%s' exited", name );
-
-    tr_free( name );
 
 #ifdef WIN32
     _endthreadex( 0 );
@@ -111,7 +109,7 @@ tr_threadNew( void (*func)(void *),
     tr_thread * t = tr_new0( tr_thread, 1 );
     t->func = func;
     t->arg  = arg;
-    t->name = tr_strdup( name );
+    t->name = name;
 
 #ifdef __BEOS__
     t->thread = spawn_thread( (void*)ThreadFunc, name, B_NORMAL_PRIORITY, t );
@@ -153,7 +151,6 @@ tr_threadJoin( tr_thread * t )
 #endif
 
         tr_dbg( "Thread '%s' joined", t->name );
-        tr_free( t->name );
         t->name = NULL;
         t->func = NULL;
         tr_free( t );
