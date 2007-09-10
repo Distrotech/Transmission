@@ -37,24 +37,20 @@
 #include "peer-mgr.h"
 #include "platform.h"
 #include "shared.h"
+#include "timer.h"
 #include "upnp.h"
 #include "utils.h"
 
-/* Maximum number of peers that we keep in our local list */
-/* This is an arbitrary number, but it seems to work well */
-#define MAX_PEER_COUNT 128
-
 struct tr_shared
 {
-    tr_handle  * h;
-    volatile int   die;
-    tr_thread  * thread;
-    tr_lock    * lock;
+    tr_handle    * h;
+    tr_lock      * lock;
+    tr_timer_tag   pulseTag;
 
     /* Incoming connections */
-    int          publicPort;
-    int          bindPort;
-    int          bindSocket;
+    int publicPort;
+    int bindPort;
+    int bindSocket;
 
     /* NAT-PMP/UPnP */
     tr_natpmp_t  * natpmp;
@@ -64,7 +60,7 @@ struct tr_shared
 /***********************************************************************
  * Local prototypes
  **********************************************************************/
-static void SharedLoop( void * );
+static int SharedLoop( void * );
 static void SetPublicPort( tr_shared *, int );
 static void AcceptPeers( tr_shared * );
 
@@ -85,8 +81,7 @@ tr_shared * tr_sharedInit( tr_handle * h )
     s->bindSocket = -1;
     s->natpmp     = tr_natpmpInit();
     s->upnp       = tr_upnpInit();
-    s->die        = 0;
-    s->thread     = tr_threadNew( SharedLoop, s, "shared" );
+    s->pulseTag   = tr_timerNew( h, SharedLoop, s, NULL, 100 );
 
     return s;
 }
@@ -98,9 +93,7 @@ tr_shared * tr_sharedInit( tr_handle * h )
  **********************************************************************/
 void tr_sharedClose( tr_shared * s )
 {
-    /* Stop the thread */
-    s->die = 1;
-    tr_threadJoin( s->thread );
+    tr_timerFree( &s->pulseTag );
 
     if( s->bindSocket > -1 )
         tr_netClose( s->bindSocket );
@@ -110,11 +103,10 @@ void tr_sharedClose( tr_shared * s )
     free( s );
 }
 
-/***********************************************************************
- * tr_sharedLock, tr_sharedUnlock
- ***********************************************************************
- *
- **********************************************************************/
+/**
+***
+**/
+
 void tr_sharedLock( tr_shared * s )
 {
     tr_lockLock( s->lock );
@@ -180,11 +172,6 @@ void tr_sharedSetPort( tr_shared * s, int port )
     tr_sharedUnlock( s );
 }
 
-/***********************************************************************
- * tr_sharedGetPublicPort
- ***********************************************************************
- *
- **********************************************************************/
 int tr_sharedGetPublicPort( tr_shared * s )
 {
     return s->publicPort;
@@ -247,41 +234,27 @@ int tr_sharedTraversalStatus( tr_shared * s )
 /***********************************************************************
  * SharedLoop
  **********************************************************************/
-static void SharedLoop( void * _s )
+static int
+SharedLoop( void * vs )
 {
-    tr_shared * s = _s;
-    uint64_t      date1, date2;
-    int           newPort;
+    int newPort;
+    tr_shared * s = vs;
 
     tr_sharedLock( s );
 
-    while( !s->die )
-    {
-        date1 = tr_date();
+    /* NAT-PMP and UPnP pulses */
+    newPort = -1;
+    tr_natpmpPulse( s->natpmp, &newPort );
+    if( 0 < newPort && newPort != s->publicPort )
+        SetPublicPort( s, newPort );
+    tr_upnpPulse( s->upnp );
 
-        /* NAT-PMP and UPnP pulses */
-        newPort = -1;
-        tr_natpmpPulse( s->natpmp, &newPort );
-        if( 0 < newPort && newPort != s->publicPort )
-        {
-            SetPublicPort( s, newPort );
-        }
-        tr_upnpPulse( s->upnp );
-
-        /* Handle incoming connections */
-        AcceptPeers( s );
-
-        /* Wait up to 20 ms */
-        date2 = tr_date();
-        if( date2 < date1 + 20 )
-        {
-            tr_sharedUnlock( s );
-            tr_wait( date1 + 20 - date2 );
-            tr_sharedLock( s );
-        }
-    }
+    /* Handle incoming connections */
+    AcceptPeers( s );
 
     tr_sharedUnlock( s );
+
+    return TRUE;
 }
 
 /***********************************************************************
