@@ -211,6 +211,7 @@ fprintf( stderr, "getPeer: torrent %p now has %d peers\n", torrent, tr_ptrArrayS
 static void
 freePeer( tr_peer * peer )
 {
+    tr_peerMsgsUnsubscribe( peer->msgs, &peer->msgsTag );
     tr_peerMsgsFree( peer->msgs );
     tr_bitfieldFree( peer->have );
     tr_bitfieldFree( peer->blame );

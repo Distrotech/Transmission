@@ -66,7 +66,7 @@ tr_publisher_tag  tr_peerMsgsSubscribe   ( tr_peermsgs       * peer,
                                            void              * user );
 
 void              tr_peerMsgsUnsubscribe ( tr_peermsgs       * peer,
-                                          tr_publisher_tag     tag );
+                                           tr_publisher_tag    tag );
 
 
 
