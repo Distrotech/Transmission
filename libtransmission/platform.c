@@ -56,7 +56,7 @@
 ****  THREADS
 ***/
 
-struct tr_thread_s
+struct tr_thread
 {
     void          (* func ) ( void * );
     void           * arg;
@@ -82,7 +82,7 @@ struct tr_thread_s
 static ThreadFuncReturnType
 ThreadFunc( void * _t )
 {
-    tr_thread_t * t = _t;
+    tr_thread * t = _t;
     char* name = tr_strdup( t->name );
 
 #ifdef __BEOS__
@@ -103,12 +103,12 @@ ThreadFunc( void * _t )
 #endif
 }
 
-tr_thread_t *
+tr_thread *
 tr_threadNew( void (*func)(void *),
               void * arg,
               const char * name )
 {
-    tr_thread_t * t = tr_new0( tr_thread_t, 1 );
+    tr_thread * t = tr_new0( tr_thread, 1 );
     t->func = func;
     t->arg  = arg;
     t->name = tr_strdup( name );
@@ -126,7 +126,7 @@ tr_threadNew( void (*func)(void *),
 }
 
 int
-tr_amInThread ( const tr_thread_t * t )
+tr_amInThread ( const tr_thread * t )
 {
 #ifdef __BEOS__
     return find_thread(NULL) == t->thread;
@@ -138,7 +138,7 @@ tr_amInThread ( const tr_thread_t * t )
 }
     
 void
-tr_threadJoin( tr_thread_t * t )
+tr_threadJoin( tr_thread * t )
 {
     if( t != NULL )
     {
@@ -164,7 +164,7 @@ tr_threadJoin( tr_thread_t * t )
 ****  LOCKS
 ***/
 
-struct tr_lock_s
+struct tr_lock
 {
 #ifdef __BEOS__
     sem_id lock;
@@ -175,10 +175,10 @@ struct tr_lock_s
 #endif
 };
 
-tr_lock_t*
+tr_lock*
 tr_lockNew( void )
 {
-    tr_lock_t * l = tr_new0( tr_lock_t, 1 );
+    tr_lock * l = tr_new0( tr_lock, 1 );
 
 #ifdef __BEOS__
     l->lock = create_sem( 1, "" );
@@ -192,7 +192,7 @@ tr_lockNew( void )
 }
 
 void
-tr_lockFree( tr_lock_t * l )
+tr_lockFree( tr_lock * l )
 {
 #ifdef __BEOS__
     delete_sem( l->lock );
@@ -205,7 +205,7 @@ tr_lockFree( tr_lock_t * l )
 }
 
 int
-tr_lockTryLock( tr_lock_t * l ) /* success on zero! */
+tr_lockTryLock( tr_lock * l ) /* success on zero! */
 {
 #ifdef __BEOS__
     return acquire_sem_etc( l->lock, 1, B_RELATIVE_TIMEOUT, 0 );
@@ -217,7 +217,7 @@ tr_lockTryLock( tr_lock_t * l ) /* success on zero! */
 }
 
 void
-tr_lockLock( tr_lock_t * l )
+tr_lockLock( tr_lock * l )
 {
 #ifdef __BEOS__
     acquire_sem( l->lock );
@@ -229,7 +229,7 @@ tr_lockLock( tr_lock_t * l )
 }
 
 void
-tr_lockUnlock( tr_lock_t * l )
+tr_lockUnlock( tr_lock * l )
 {
 #ifdef __BEOS__
     release_sem( l->lock );
@@ -244,11 +244,11 @@ tr_lockUnlock( tr_lock_t * l )
 ****  RW LOCK
 ***/
 
-struct tr_rwlock_s
+struct tr_rwlock
 {
-    tr_lock_t * lock;
-    tr_cond_t * readCond;
-    tr_cond_t * writeCond;
+    tr_lock * lock;
+    tr_cond * readCond;
+    tr_cond * writeCond;
     size_t readCount;
     size_t wantToRead;
     size_t wantToWrite;
@@ -256,7 +256,7 @@ struct tr_rwlock_s
 };
 
 static void
-tr_rwSignal( tr_rwlock_t * rw )
+tr_rwSignal( tr_rwlock * rw )
 {
   if ( rw->wantToWrite )
     tr_condSignal( rw->writeCond );
@@ -264,10 +264,10 @@ tr_rwSignal( tr_rwlock_t * rw )
     tr_condBroadcast( rw->readCond );
 }
 
-tr_rwlock_t*
+tr_rwlock*
 tr_rwNew ( void )
 {
-    tr_rwlock_t * rw = tr_new0( tr_rwlock_t, 1 );
+    tr_rwlock * rw = tr_new0( tr_rwlock, 1 );
     rw->lock = tr_lockNew( );
     rw->readCond = tr_condNew( );
     rw->writeCond = tr_condNew( );
@@ -275,7 +275,7 @@ tr_rwNew ( void )
 }
 
 void
-tr_rwReaderLock( tr_rwlock_t * rw )
+tr_rwReaderLock( tr_rwlock * rw )
 {
     tr_lockLock( rw->lock );
     rw->wantToRead++;
@@ -287,7 +287,7 @@ tr_rwReaderLock( tr_rwlock_t * rw )
 }
 
 int
-tr_rwReaderTrylock( tr_rwlock_t * rw )
+tr_rwReaderTrylock( tr_rwlock * rw )
 {
     int ret = FALSE;
     tr_lockLock( rw->lock );
@@ -301,7 +301,7 @@ tr_rwReaderTrylock( tr_rwlock_t * rw )
 }
 
 void
-tr_rwReaderUnlock( tr_rwlock_t * rw )
+tr_rwReaderUnlock( tr_rwlock * rw )
 {
     tr_lockLock( rw->lock );
     --rw->readCount;
@@ -311,7 +311,7 @@ tr_rwReaderUnlock( tr_rwlock_t * rw )
 }
 
 void
-tr_rwWriterLock( tr_rwlock_t * rw )
+tr_rwWriterLock( tr_rwlock * rw )
 {
     tr_lockLock( rw->lock );
     rw->wantToWrite++;
@@ -323,7 +323,7 @@ tr_rwWriterLock( tr_rwlock_t * rw )
 }
 
 int
-tr_rwWriterTrylock( tr_rwlock_t * rw )
+tr_rwWriterTrylock( tr_rwlock * rw )
 {
     int ret = FALSE;
     tr_lockLock( rw->lock );
@@ -333,7 +333,7 @@ tr_rwWriterTrylock( tr_rwlock_t * rw )
     return ret;
 }
 void
-tr_rwWriterUnlock( tr_rwlock_t * rw )
+tr_rwWriterUnlock( tr_rwlock * rw )
 {
     tr_lockLock( rw->lock );
     rw->haveWriter = FALSE;
@@ -342,7 +342,7 @@ tr_rwWriterUnlock( tr_rwlock_t * rw )
 }
 
 void
-tr_rwFree( tr_rwlock_t * rw )
+tr_rwFree( tr_rwlock * rw )
 {
     tr_condFree( rw->writeCond );
     tr_condFree( rw->readCond );
@@ -354,7 +354,7 @@ tr_rwFree( tr_rwlock_t * rw )
 ****  COND
 ***/
 
-struct tr_cond_s
+struct tr_cond
 {
 #ifdef __BEOS__
     sem_id sem;
@@ -362,7 +362,7 @@ struct tr_cond_s
     int start, end;
 #elif defined(WIN32)
     tr_list * events;
-    tr_lock_t * lock;
+    tr_lock * lock;
 #else
     pthread_cond_t cond;
 #endif
@@ -381,10 +381,10 @@ static DWORD getContEventTLS( void )
 }
 #endif
 
-tr_cond_t*
+tr_cond*
 tr_condNew( void )
 {
-    tr_cond_t * c = tr_new0( tr_cond_t, 1 );
+    tr_cond * c = tr_new0( tr_cond, 1 );
 #ifdef __BEOS__
     c->sem = create_sem( 1, "" );
     c->start = 0;
@@ -399,7 +399,7 @@ tr_condNew( void )
 }
 
 void
-tr_condWait( tr_cond_t * c, tr_lock_t * l )
+tr_condWait( tr_cond * c, tr_lock * l )
 {
 #ifdef __BEOS__
 
@@ -447,7 +447,7 @@ tr_condWait( tr_cond_t * c, tr_lock_t * l )
 }
 
 #ifdef __BEOS__
-static int condTrySignal( tr_cond_t * c )
+static int condTrySignal( tr_cond * c )
 {
     if( c->start == c->end )
         return 1;
@@ -471,7 +471,7 @@ static int condTrySignal( tr_cond_t * c )
 }
 #endif
 void
-tr_condSignal( tr_cond_t * c )
+tr_condSignal( tr_cond * c )
 {
 #ifdef __BEOS__
 
@@ -494,7 +494,7 @@ tr_condSignal( tr_cond_t * c )
 }
 
 void
-tr_condBroadcast( tr_cond_t * c )
+tr_condBroadcast( tr_cond * c )
 {
 #ifdef __BEOS__
 
@@ -518,7 +518,7 @@ tr_condBroadcast( tr_cond_t * c )
 }
 
 void
-tr_condFree( tr_cond_t * c )
+tr_condFree( tr_cond * c )
 {
 #ifdef __BEOS__
     delete_sem( c->sem );

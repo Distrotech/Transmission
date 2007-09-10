@@ -48,8 +48,8 @@ struct tr_shared
 {
     tr_handle  * h;
     volatile int   die;
-    tr_thread_t  * thread;
-    tr_lock_t    * lock;
+    tr_thread  * thread;
+    tr_lock    * lock;
 
     /* Incoming connections */
     int          publicPort;

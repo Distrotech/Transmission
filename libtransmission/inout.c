@@ -299,7 +299,7 @@ struct recheck_node currentNode;
 
 static tr_list * recheckList = NULL;
 
-static tr_thread_t * recheckThread = NULL;
+static tr_thread * recheckThread = NULL;
 
 static int stopCurrent = FALSE;
 

@@ -83,13 +83,13 @@ tr_torrentFindFromObfuscatedHash( tr_handle      * handle,
 void
 tr_torrentReaderLock( const tr_torrent * tor )
 {
-    tr_rwReaderLock ( (tr_rwlock_t*)tor->lock );
+    tr_rwReaderLock ( (tr_rwlock*)tor->lock );
 }
 
 void
 tr_torrentReaderUnlock( const tr_torrent * tor )
 {
-    tr_rwReaderUnlock ( (tr_rwlock_t*)tor->lock );
+    tr_rwReaderUnlock ( (tr_rwlock*)tor->lock );
 }
 
 void

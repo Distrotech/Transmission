@@ -154,7 +154,7 @@ tr_peerIoNewOutgoing( struct tr_handle  * handle,
     assert( torrentHash != NULL );
 
     c = tr_peerIoNew( handle, in_addr, torrentHash, 0,
-                              tr_netOpenTCP( in_addr, port, 0 ) );
+                      tr_netOpenTCP( in_addr, port, 0 ) );
     c->port = port;
     return c;
 }
@@ -164,7 +164,7 @@ tr_peerIoFree( tr_peerIo * c )
 {
     if( c != NULL )
     {
-        bufferevent_free( c->bufev );
+        tr_bufferevent_free( c->handle, c->bufev );
 fprintf( stderr, "io %p destroying rate to client %p to peer %p\n", c, c->rateToClient, c->rateToPeer );
         tr_rcClose( c->rateToClient );
         tr_rcClose( c->rateToPeer );

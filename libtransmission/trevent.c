@@ -41,9 +41,9 @@
 
 typedef struct tr_event_handle
 {
-    tr_lock_t * lock;
+    tr_lock * lock;
     tr_handle_t * h;
-    tr_thread_t * thread;
+    tr_thread * thread;
     tr_list * commands;
     struct event_base * base;
     struct event pulse;

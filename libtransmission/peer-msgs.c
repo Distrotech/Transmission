@@ -993,11 +993,11 @@ tr_peerMsgsFree( tr_peermsgs* p )
     if( p != NULL )
     {
 fprintf( stderr, "peer %p destroying its pulse tag\n", p );
+        tr_timerFree( &p->pulseTag );
+        tr_timerFree( &p->pexTag );
         tr_list_free( &p->clientAskedFor );
         tr_list_free( &p->peerAskedFor );
         tr_publisherFree( &p->publisher );
-        tr_timerFree( &p->pulseTag );
-        tr_timerFree( &p->pexTag );
         evbuffer_free( p->outMessages );
         evbuffer_free( p->outBlock );
         evbuffer_free( p->inBlock );

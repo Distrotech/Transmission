@@ -63,8 +63,8 @@ tr_openFile_t;
 
 typedef struct tr_fd_s
 {
-    tr_lock_t     * lock;
-    tr_cond_t     * cond;
+    tr_lock       * lock;
+    tr_cond       * cond;
     
     int             reserved;
 

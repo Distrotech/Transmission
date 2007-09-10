@@ -148,7 +148,7 @@ struct tr_torrent
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;
     cp_status_t                cpStatus;
-    struct tr_rwlock_s       * lock;
+    struct tr_rwlock         * lock;
 
     struct tr_tracker        * tracker;
     struct tr_publisher_tag  * trackerSubscription;

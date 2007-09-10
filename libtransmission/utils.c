@@ -49,7 +49,7 @@
 
 #define SPRINTF_BUFSIZE         100
 
-static tr_lock_t      * messageLock = NULL;
+static tr_lock        * messageLock = NULL;
 static int              messageLevel = 0;
 static int              messageQueuing = FALSE;
 static tr_msg_list_t *  messageQueue = NULL;

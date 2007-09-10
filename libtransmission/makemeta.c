@@ -409,11 +409,11 @@ static void tr_realMakeMetaInfo ( tr_metainfo_builder_t * builder )
 
 static tr_metainfo_builder_t * queue = NULL;
 
-static tr_thread_t * workerThread = NULL;
+static tr_thread * workerThread = NULL;
 
-static tr_lock_t* getQueueLock( tr_handle_t * h )
+static tr_lock* getQueueLock( tr_handle_t * h )
 {
-    static tr_lock_t * lock = NULL;
+    static tr_lock * lock = NULL;
 
     tr_sharedLock( h->shared );
     if( !lock )
@@ -432,7 +432,7 @@ static void workerFunc( void * user_data )
         tr_metainfo_builder_t * builder = NULL;
 
         /* find the next builder to process */
-        tr_lock_t * lock = getQueueLock ( handle );
+        tr_lock * lock = getQueueLock ( handle );
         tr_lockLock( lock );
         if( queue != NULL ) {
             builder = queue;
@@ -457,7 +457,7 @@ tr_makeMetaInfo( tr_metainfo_builder_t  * builder,
                  const char             * comment,
                  int                      isPrivate )
 {
-    tr_lock_t * lock;
+    tr_lock * lock;
 
     builder->abortFlag = 0;
     builder->isDone = 0;
