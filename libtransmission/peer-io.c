@@ -98,6 +98,8 @@ gotErrorWrapper( struct bufferevent * e, short what, void * userData )
 ***
 **/
 
+//static int total_io = 0;
+
 static tr_peerIo*
 tr_peerIoNew( struct tr_handle  * handle,
               struct in_addr    * in_addr,
@@ -107,6 +109,7 @@ tr_peerIoNew( struct tr_handle  * handle,
 {
     tr_peerIo * c;
     c = tr_new0( tr_peerIo, 1 );
+//fprintf( stderr, "peer-io: created %p; count is now %d\n", c, ++total_io );
     c->crypto = tr_cryptoNew( torrentHash, isIncoming );
     c->handle = handle;
     c->in_addr = *in_addr;
@@ -164,13 +167,20 @@ tr_peerIoFree( tr_peerIo * c )
 {
     if( c != NULL )
     {
+        c->canRead = NULL;
+        c->didWrite = NULL;
+        c->gotError = NULL;
         tr_bufferevent_free( c->handle, c->bufev );
-fprintf( stderr, "io %p destroying rate to client %p to peer %p\n", c, c->rateToClient, c->rateToPeer );
+        tr_netClose( c->socket );
+
         tr_rcClose( c->rateToClient );
         tr_rcClose( c->rateToPeer );
-        tr_netClose( c->socket );
+
         tr_cryptoFree( c->crypto );
+
         tr_free( c );
+
+//fprintf( stderr, "peer-io: freeing %p; count is now %d\n", c, --total_io );
     }
 }
 

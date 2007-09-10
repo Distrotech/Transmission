@@ -212,7 +212,7 @@ static void
 freePeer( tr_peer * peer )
 {
     if( peer->msgs != NULL ) {
-        tr_peerMsgsUnsubscribe( peer->msgs, &peer->msgsTag );
+        tr_peerMsgsUnsubscribe( peer->msgs, peer->msgsTag );
         tr_peerMsgsFree( peer->msgs );
     }
     tr_bitfieldFree( peer->have );
