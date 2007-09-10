@@ -148,8 +148,6 @@ tr_torrentGetSpeedLimit( const tr_torrent  * tor,
 ****
 ***/
 
-static void tr_torrentHasStopped( tr_torrent * );
-
 static void
 onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
 {
@@ -179,8 +177,8 @@ onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
             break;
 
         case TR_TRACKER_STOPPED:
-            assert( tor->runStatus == TR_RUN_STOPPING_NET_WAIT );
-            tr_torrentHasStopped( tor );
+            assert( tor->runStatus == TR_RUN_STOPPING );
+            tor->runStatus = TR_RUN_STOPPED;
             break;
     }
 }
@@ -785,8 +783,7 @@ tr_torrentStat( tr_torrent * tor )
     switch( tor->runStatus ) {
         case TR_RUN_CHECKING_WAIT: s->status = TR_STATUS_CHECK_WAIT; break;
         case TR_RUN_CHECKING: s->status = TR_STATUS_CHECK; break;
-        case TR_RUN_STOPPING: /* fallthrough */
-        case TR_RUN_STOPPING_NET_WAIT: s->status = TR_STATUS_STOPPING; break;
+        case TR_RUN_STOPPING: s->status = TR_STATUS_STOPPING; break;
         case TR_RUN_STOPPED: s->status = TR_STATUS_STOPPED; break;
         case TR_RUN_RUNNING: switch( tor->cpStatus ) {
             case TR_CP_INCOMPLETE: s->status = TR_STATUS_DOWNLOAD; break;
@@ -1024,6 +1021,9 @@ tr_torrentFree( tr_torrent * tor )
     tr_handle_t * h = tor->handle;
     tr_info_t * inf = &tor->info;
 
+    assert( tor != NULL );
+    assert( tor->runStatus == TR_RUN_STOPPED );
+
     tr_sharedLock( h->shared );
 
     tr_rwFree( tor->lock );
@@ -1062,39 +1062,52 @@ tr_torrentFree( tr_torrent * tor )
     tr_sharedUnlock( h->shared );
 }
 
-static void
-tr_torrentHasStopped( tr_torrent * tor )
+static int
+freeWhenStopped( void * vtor )
 {
-    /* close the IO */
-    tr_ioClose( tor );
-    saveFastResumeNow( tor );
+    tr_torrent * tor = vtor;
 
-    /* free everything */
-    if( tor->dieFlag )
-        tr_torrentFree( tor );
+    if( tor->runStatus != TR_RUN_STOPPED ) /* keep waiting */
+        return TRUE;
+
+    tr_torrentFree( tor );
+    return FALSE;
 }
 
 void
 tr_torrentStop( tr_torrent * tor )
 {
-    if( tor->runStatus==TR_RUN_STOPPING || tor->runStatus==TR_RUN_STOPPED )
-        return;
+    switch( tor->runStatus )
+    {
+        case TR_RUN_CHECKING_WAIT:
+        case TR_RUN_CHECKING:
+            tr_ioRecheckRemove( tor );
+            tr_torrentStop( tor );
+            break;
 
-    /* close the peers */
-    tr_peerMgrStopTorrent( tor->handle->peerMgr, tor->info.hash );
+        case TR_RUN_RUNNING:
+            saveFastResumeNow( tor );
+            tr_peerMgrStopTorrent( tor->handle->peerMgr, tor->info.hash );
+            tor->runStatus = TR_RUN_STOPPING;
+            tor->stopDate = tr_date( );
+            tr_trackerStop( tor->tracker );
+            tr_ioClose( tor );
+            break;
 
-    /* tell the tracker we're stopping */
-    tor->runStatus = TR_RUN_STOPPING_NET_WAIT;
-    tor->stopDate = tr_date();
-    tr_trackerStop( tor->tracker );
+        case TR_RUN_STOPPING:
+        case TR_RUN_STOPPED:
+            break;
+    }
 }
 
-void tr_torrentClose( tr_torrent * tor )
+void
+tr_torrentClose( tr_torrent * tor )
 {
     tor->runStatusToSave = tor->runStatus;
     tor->runStatusToSaveIsSet = TRUE;
     tor->dieFlag = TRUE;
     tr_torrentStop( tor );
+    tr_timerNew( tor->handle, freeWhenStopped, tor, NULL, 100 );
 }
 
 static void
