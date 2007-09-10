@@ -213,6 +213,9 @@ fprintf( stderr, "getPeer: torrent %p now has %d peers\n", torrent, tr_ptrArrayS
 static void
 disconnectPeer( tr_peer * peer )
 {
+    tr_peerIoFree( peer->io );
+    peer->io = NULL;
+
     if( peer->msgs != NULL )
     {
         tr_peerMsgsUnsubscribe( peer->msgs, peer->msgsTag );
@@ -228,9 +231,6 @@ disconnectPeer( tr_peer * peer )
 
     tr_bitfieldFree( peer->banned );
     peer->banned = NULL;
-
-    tr_peerIoFree( peer->io );
-    peer->io = NULL;
 }
 
 static void
@@ -386,7 +386,7 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
     {
         case TR_PEERMSG_GOT_BITFIELD: {
             const uint32_t begin = 0;
-            const uint32_t end = begin + t->blockCount;
+            const uint32_t end = begin + t->tor->info.pieceCount;
             uint32_t i;
             for( i=begin; i<end; ++i ) {
                 if( !tr_bitfieldHas( e->bitfield, i ) )
