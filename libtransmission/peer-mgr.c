@@ -319,22 +319,57 @@ getConnectedPeers( Torrent * t, int * setmeCount )
     return ret;
 }
 
+static void
+populateBlockArray( Torrent * t )
+{
+    uint32_t i;
+    struct tr_block * b;
+    const tr_torrent * tor = t->tor;
+
+    t->blockCount = tor->blockCount;
+    t->blocks = b = tr_new( struct tr_block, t->blockCount );
+
+    for( i=0; i<t->blockCount; ++i, ++b )
+    {
+        const int index = tr_torBlockPiece( tor, i );
+        b->have = tr_cpBlockIsComplete( tor->completion, i ) ? 1 : 0;
+        b->dnd = tor->info.pieces[index].dnd ? 1 : 0;
+        b->low_priority = tor->info.pieces[index].priority == TR_PRI_LOW;
+        b->high_priority = tor->info.pieces[index].priority == TR_PRI_HIGH;
+        b->requestCount = 0;
+        b->scarcity = 0;
+        b->block = i;
+    }
+}
+
 static int
 refillPulse( void * vtorrent )
 {
     uint32_t i;
     int size;
     Torrent * t = (Torrent *) vtorrent;
-    tr_peer ** peers = getConnectedPeers( t, &size );
+    tr_peer ** peers;
     const int isSeeding = tr_cpGetStatus( t->tor->completion ) != TR_CP_INCOMPLETE;
+    const int wantToRefill = t->isRunning && !isSeeding;
 
-fprintf( stderr, "in refill pulse for [%s]... sorting blocks by interest...", t->tor->info.name );
+    if( !wantToRefill && t->blocks!=NULL ) /* torrent has stopped or switched to seeding */
+    {
+        tr_free( t->blocks );
+        t->blocks = NULL;
+        t->blockCount = 0;
+    }
+    else if( wantToRefill && t->blocks==NULL ) /* torrent has started or switched to leeching */
+    {
+        populateBlockArray( t );
+    }
 
-    if( t->isRunning && !isSeeding && size>0 )
+    peers = getConnectedPeers( t, &size );
+    if( size>0 )
     {
         /* sort the blocks by interest */
+        fprintf( stderr, "sorting [%s] blocks by interest...", t->tor->info.name );
         qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByInterest );
-    fprintf( stderr, " .done.\n" );
+        fprintf( stderr, "done\n" );
 
         /* walk through all the most interesting blocks */
         for( i=0; i<t->blockCount; ++i )
@@ -348,33 +383,30 @@ fprintf( stderr, "in refill pulse for [%s]... sorting blocks by interest...", t-
             if( t->blocks[i].have || t->blocks[i].dnd )
                 continue;
 
-            if( !size ) { /* all peers full */
-                fprintf( stderr, "all peers full...\n" );
+            if( !size ) /* all peers full */
                 break;
-            }
 
             /* find a peer who can ask for this block */
             for( j=0; j<size; )
             {
                 const int val = tr_peerMsgsAddRequest( peers[j]->msgs, index, begin, length );
-    //fprintf( stderr, " block %"PRIu64", peer %"PRIu64, (uint64_t)i,  (uint64_t)j );
                 if( val == TR_ADDREQ_FULL ) {
-    fprintf( stderr, "peer %d of %d is full\n", (int)j, size );
+                    fprintf( stderr, "peer %d of %d is full\n", (int)j, size );
                     peers[j] = peers[--size];
                 }
                 else if( val == TR_ADDREQ_MISSING ) {
-    //fprintf( stderr, "peer doesn't have it\n" );
+                    fprintf( stderr, "peer doesn't have it\n" );
                     ++j;
                 }
                 else if( val == TR_ADDREQ_OK ) {
-    fprintf( stderr, "peer %d took the request for block %d\n", j, i );
+                    fprintf( stderr, "peer %d took the request for block %d\n", j, i );
                     incrementReqCount( &t->blocks[i] );
                     j = size;
                 }
             }
         }
 
-        /* put the blocks back by index */
+        /* put the blocks back the way we found them */
         qsort( t->blocks, t->blockCount, sizeof(struct tr_block), compareBlockByIndex );
     }
 
@@ -407,7 +439,7 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
             const uint32_t begin = 0;
             const uint32_t end = begin + t->tor->info.pieceCount;
             uint32_t i;
-            for( i=begin; i<end; ++i ) {
+            for( i=begin; t->blocks!=NULL && i<end; ++i ) {
                 if( !tr_bitfieldHas( e->bitfield, i ) )
                     continue;
                 assert( t->blocks[i].block == i );
@@ -420,7 +452,7 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
             const uint32_t begin = tr_torPieceFirstBlock( t->tor, e->pieceIndex );
             const uint32_t end = begin + tr_torPieceCountBlocks( t->tor, (int)e->pieceIndex );
             uint32_t i;
-            for( i=begin; i<end; ++i ) {
+            for( i=begin; t->blocks!=NULL && i<end; ++i ) {
                 assert( t->blocks[i].block == i );
                 incrementScarcity( &t->blocks[i] );
             }
@@ -429,8 +461,10 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 
         case TR_PEERMSG_GOT_BLOCK: {
             uint32_t i = e->blockIndex;
-            assert( t->blocks[i].block == i );
-            t->blocks[i].have = 1;
+            if( t->blocks != NULL ) {
+                assert( t->blocks[i].block == i );
+                t->blocks[i].have = 1;
+            }
             break;
         }
 
@@ -689,7 +723,7 @@ tr_peerMgrUpdateCompletion( tr_peerMgr     * manager,
     uint32_t i;
     Torrent * t = getExistingTorrent( manager, torrentHash );
 
-    for( i=0; i<t->blockCount; ++i ) {
+    for( i=0; t->blocks!=NULL && i<t->blockCount; ++i ) {
         assert( t->blocks[i].block == i );
         t->blocks[i].have = tr_cpBlockIsComplete( t->tor->completion, i ) ? 1 : 0;
     }
@@ -700,7 +734,6 @@ tr_peerMgrAddTorrent( tr_peerMgr * manager,
                       tr_torrent * tor )
 {
     Torrent * t;
-    uint32_t i;
 
     assert( tor != NULL );
     assert( getExistingTorrent( manager, tor->info.hash ) == NULL );
@@ -711,20 +744,6 @@ tr_peerMgrAddTorrent( tr_peerMgr * manager,
     t->peers = tr_ptrArrayNew( );
     t->chokeTimer = tr_timerNew( manager->handle, chokePulse, t, RECHOKE_PERIOD_SECONDS );
 fprintf( stderr, "timer CHOKE %p is new\n", t->chokeTimer );
-
-    t->blockCount = tor->blockCount;
-    t->blocks = tr_new( struct tr_block, t->blockCount );
-    for( i=0; i<t->blockCount; ++i ) {
-        const int index = tr_torBlockPiece( tor, i );
-        t->blocks[i].have = tr_cpBlockIsComplete( t->tor->completion, i ) ? 1 : 0;
-if( tr_cpBlockIsComplete( t->tor->completion, i ) ) fprintf( stderr, "have block %d\n", (int)i );
-        t->blocks[i].dnd = tor->info.pieces[index].dnd;
-        t->blocks[i].low_priority = tor->info.pieces[index].priority == TR_PRI_LOW;
-        t->blocks[i].high_priority = tor->info.pieces[index].priority == TR_PRI_HIGH;
-        t->blocks[i].requestCount = 0;
-        t->blocks[i].scarcity = 0;
-        t->blocks[i].block = i;
-    }
 
     memcpy( t->hash, tor->info.hash, SHA_DIGEST_LENGTH );
     tr_ptrArrayInsertSorted( manager->torrents, t, torrentCompare );
