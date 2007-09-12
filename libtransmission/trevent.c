@@ -126,6 +126,7 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
         {
             case TR_EV_TIMER_ADD:
                 timeout_add( &cmd->timer->event, &cmd->timer->tv );
+                ++eh->timerCount;
                 break;
 
             case TR_EV_TIMER_DEL:
@@ -390,14 +391,14 @@ tr_timerNew( struct tr_handle * handle,
     timer->eh = handle->events;
     timeout_set( &timer->event, timerCallback, timer );
 
-    if( tr_amInThread( handle->events->thread ) )
+    if( tr_amInThread( handle->events->thread ) ) {
         timeout_add( &timer->event,  &timer->tv );
-    else {
+        ++handle->events->timerCount;
+    } else {
         struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
         cmd->mode = TR_EV_TIMER_ADD;
         cmd->timer = timer;
         pushList( handle->events, cmd );
-        ++handle->events->timerCount;
     }
 
     return timer;
