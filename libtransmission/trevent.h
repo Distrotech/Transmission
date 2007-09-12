@@ -30,13 +30,6 @@ struct evhttp_request;
 struct evhttp_connection;
 struct bufferevent;
 
-void  tr_event_add( struct tr_handle  * tr_handle,
-                    struct event      * event,
-                    struct timeval    * interval );
-
-void  tr_event_del( struct tr_handle  * tr_handle,
-                    struct event      * event );
-
 void tr_evhttp_make_request (struct tr_handle          * tr_handle,
                              struct evhttp_connection  * evcon,
                              struct evhttp_request     * req,
@@ -56,5 +49,30 @@ void tr_setBufferEventMode( struct tr_handle   * tr_handle,
                             struct bufferevent * bufferEvent,
                             short                mode_enable,
                             short                mode_disable );
+
+/**
+***
+**/
+
+typedef struct tr_timer  tr_timer;
+
+/**
+ * Calls timer_func(user_data) after the specified interval.
+ * The timer is freed if timer_func returns zero.
+ * Otherwise, it's called again after the same interval.
+ */
+tr_timer* tr_timerNew( struct tr_handle  * handle,
+                       int                 func( void * user_data ),
+                       void              * user_data,
+                       int                 timeout_milliseconds );
+
+/**
+ * Frees a timer and sets the timer pointer to NULL.
+ */
+void tr_timerFree( tr_timer ** timer );
+
+void tr_runInEventThread( struct tr_handle * handle,
+                          void               func( void* ),
+                          void             * user_data );
 
 #endif

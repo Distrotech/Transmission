@@ -37,7 +37,7 @@
 #include "peer-mgr.h"
 #include "platform.h"
 #include "shared.h"
-#include "timer.h"
+#include "trevent.h"
 #include "upnp.h"
 #include "utils.h"
 
@@ -45,7 +45,7 @@ struct tr_shared
 {
     tr_handle    * h;
     tr_lock      * lock;
-    tr_timer_tag   pulseTag;
+    tr_timer     * pulseTimer;
 
     /* Incoming connections */
     int publicPort;
@@ -81,7 +81,7 @@ tr_shared * tr_sharedInit( tr_handle * h )
     s->bindSocket = -1;
     s->natpmp     = tr_natpmpInit();
     s->upnp       = tr_upnpInit();
-    s->pulseTag   = tr_timerNew( h, SharedLoop, s, NULL, 100 );
+    s->pulseTimer   = tr_timerNew( h, SharedLoop, s, 20 );
 
     return s;
 }
@@ -93,7 +93,8 @@ tr_shared * tr_sharedInit( tr_handle * h )
  **********************************************************************/
 void tr_sharedClose( tr_shared * s )
 {
-    tr_timerFree( &s->pulseTag );
+fprintf( stderr, "deleting pulse tag\n" );
+    tr_timerFree( &s->pulseTimer );
 
     tr_netClose( s->bindSocket );
     tr_lockFree( s->lock );

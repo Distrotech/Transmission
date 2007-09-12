@@ -76,7 +76,7 @@ extern const char* getPeerId( void ) ;
 #define VC_LENGTH 8
 
 
-typedef struct tr_handshake
+struct tr_handshake
 {
     tr_peerIo * io;
     tr_crypto * crypto;
@@ -92,8 +92,7 @@ typedef struct tr_handshake
     uint8_t myReq1[SHA_DIGEST_LENGTH];
     handshakeDoneCB doneCB;
     void * doneUserData;
-}
-tr_handshake;
+};
 
 static void
 fireDoneCB( tr_handshake * handshake, int isConnected );
@@ -807,7 +806,6 @@ cccccccccccccccccccccccccccccccccc
 static void
 tr_handshakeFree( tr_handshake * handshake )
 {
-    /* FIXME */
     tr_free( handshake );
 }
 
@@ -815,7 +813,7 @@ static void
 fireDoneCB( tr_handshake * handshake, int isConnected )
 {
 fprintf( stderr, "handshake %p: firing done.  connected==%d\n", handshake, isConnected );
-    (*handshake->doneCB)(handshake->io, isConnected, handshake->doneUserData);
+    (*handshake->doneCB)(handshake, handshake->io, isConnected, handshake->doneUserData);
     tr_handshakeFree( handshake );
 }
 
@@ -844,7 +842,7 @@ fprintf( stderr, "handshake %p trying again in plaintext...\n", handshake );
 ***
 **/
 
-static tr_handshake*
+tr_handshake*
 tr_handshakeNew( tr_peerIo        * io,
                  int                encryptionPreference,
                  handshakeDoneCB    doneCB,
@@ -883,10 +881,8 @@ fprintf( stderr, "handshake %p: new handshake for io %p\n", handshake, io );
 }
 
 void
-tr_handshakeAdd( struct tr_peerIo * io,
-                 int                encryptionPreference,
-                 handshakeDoneCB    doneCB,   
-                 void             * doneUserData )
+tr_handshakeAbort( tr_handshake * handshake )
 {
-    tr_handshakeNew( io, encryptionPreference, doneCB, doneUserData );
+    tr_peerIoFree( handshake->io );
+    tr_handshakeFree( handshake );
 }

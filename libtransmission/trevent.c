@@ -26,6 +26,7 @@
 #include "transmission.h"
 #include "list.h"
 #include "platform.h"
+#include "trevent.h"
 #include "utils.h"
 
 /* #define DEBUG */
@@ -59,20 +60,32 @@ static int writes = 0;
 
 enum mode
 {
-   TR_EV_EVENT_DEL,
-   TR_EV_EVENT_ADD,
-   TR_EV_EVHTTP_MAKE_REQUEST,
-   TR_EV_BUFFEREVENT_SET,
-   TR_EV_BUFFEREVENT_WRITE,
-   TR_EV_BUFFEREVENT_FREE
+    TR_EV_EVHTTP_MAKE_REQUEST,
+    TR_EV_BUFFEREVENT_SET,
+    TR_EV_BUFFEREVENT_WRITE,
+    TR_EV_BUFFEREVENT_FREE,
+    TR_EV_TIMER_ADD,
+    TR_EV_TIMER_DEL,
+    TR_EV_EXEC
+};
+
+typedef int timer_func(void*);
+
+struct tr_timer
+{
+    struct event event;
+    struct timeval tv;
+    timer_func * func;
+    void * user_data;
+    struct tr_event_handle * eh;
+    uint8_t inCallback;
 };
 
 struct tr_event_command
 {
     int mode;
 
-    struct event * event;
-    struct timeval interval;
+    struct tr_timer * timer;
 
     struct evhttp_connection * evcon;
     struct evhttp_request * req;
@@ -84,6 +97,9 @@ struct tr_event_command
     short disable;
     char * buf;
     size_t buflen;
+
+    void (*func)( void* );
+    void * user_data;
 };
 
 static void
@@ -91,7 +107,7 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
 {
     tr_event_handle * eh = veh;
 
-    for( ;; )
+    while( !eh->die )
     {
         struct tr_event_command * cmd;
 
@@ -105,13 +121,14 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
         /* process the command */
         switch( cmd->mode )
         {
-            case TR_EV_EVENT_DEL:
-                event_del( cmd->event );
-                tr_free( cmd->event );
+            case TR_EV_TIMER_ADD:
+fprintf( stderr, "adding timer %p from queue \n", cmd->timer );
+                timeout_add( &cmd->timer->event, &cmd->timer->tv );
                 break;
 
-            case TR_EV_EVENT_ADD:
-                event_add( cmd->event, &cmd->interval );
+            case TR_EV_TIMER_DEL:
+                event_del( &cmd->timer->event );
+                tr_free( cmd->timer );
                 break;
 
             case TR_EV_EVHTTP_MAKE_REQUEST:
@@ -133,6 +150,10 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
                 bufferevent_free( cmd->bufev );
                 break;
 
+            case TR_EV_EXEC:
+                (cmd->func)( cmd->user_data );
+                break;
+
             default:
                 assert( 0 && "unhandled command type!" );
         }
@@ -143,6 +164,10 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
 
     if( !eh->die )
         timeout_add( &eh->pulse, &eh->pulseInterval );
+    else {
+        evdns_shutdown( FALSE );
+        event_del( &eh->pulse );
+    }
 }
 
 static void
@@ -169,18 +194,20 @@ libeventThreadFunc( void * veh )
     tr_dbg( "Starting libevent thread" );
 
     eh->base = event_init( );
-    event_set_log_callback( logFunc );
+    //event_set_log_callback( logFunc );
     evdns_init( );
     timeout_set( &eh->pulse, pumpList, veh );
     timeout_add( &eh->pulse, &eh->pulseInterval );
 
     event_dispatch( );
+fprintf( stderr, "w00t!!!!!!!!!!!!!!!!!!!\n" );
 
-    evdns_shutdown( FALSE );
     tr_lockFree( eh->lock );
     event_base_free( eh->base );
-    tr_free( eh );
 
+    eh->h->events = NULL;
+
+    tr_free( eh );
     tr_dbg( "Closing libevent thread" );
 }
 
@@ -202,8 +229,14 @@ void
 tr_eventClose( tr_handle_t * handle )
 {
     tr_event_handle * eh = handle->events;
+
+    tr_lockLock( eh->lock );
+    tr_list_foreach( eh->commands, tr_free );
+    tr_list_free( &eh->commands );
     eh->die = TRUE;
-    event_base_loopexit( eh->base, NULL );
+    tr_lockUnlock( eh->lock );
+
+    //event_base_loopexit( eh->base, NULL );
 }
 
 /**
@@ -216,37 +249,6 @@ pushList( struct tr_event_handle * eh, struct tr_event_command * command )
     tr_lockLock( eh->lock );
     tr_list_append( &eh->commands, command );
     tr_lockUnlock( eh->lock );
-}
-
-void
-tr_event_add( tr_handle_t    * handle,
-              struct event   * event,
-              struct timeval * interval )
-{
-    if( tr_amInThread( handle->events->thread ) )
-        event_add( event, interval );
-    else {
-        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
-        cmd->mode = TR_EV_EVENT_ADD;
-        cmd->event = event;
-        cmd->interval = *interval;
-        pushList( handle->events, cmd );
-    }
-}
-
-void
-tr_event_del( tr_handle_t    * handle,
-              struct event   * event )
-{
-    if( tr_amInThread( handle->events->thread ) ) {
-        event_del( event );
-        tr_free( event );
-    } else {
-        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
-        cmd->mode = TR_EV_EVENT_DEL;
-        cmd->event = event;
-        pushList( handle->events, cmd );
-    }
 }
 
 void
@@ -307,8 +309,114 @@ tr_setBufferEventMode( struct tr_handle   * handle,
     }
 }
 
+/**
+***
+**/
+
 static int
-compareFunc( const void * va, const void * vb )
+timerCompareFunc( const void * va, const void * vb )
+{
+    const struct tr_event_command * a = va;
+    const struct tr_timer * b = vb;
+    return a->timer == b ? 0 : 1;
+}
+
+static void
+timerCallback( int fd UNUSED, short event UNUSED, void * vtimer )
+{
+    int more;
+    struct tr_timer * timer = vtimer;
+    void * del;
+
+    del = tr_list_remove( &timer->eh->commands, timer, timerCompareFunc );
+
+    if( del != NULL ) /* there's a TIMER_DEL command queued for this timer... */
+        more = FALSE;
+    else {
+        timer->inCallback = 1;
+        more = (*timer->func)( timer->user_data );
+        timer->inCallback = 0;
+    }
+
+    if( more )
+        timeout_add( &timer->event, &timer->tv );
+    else
+        tr_timerFree( &timer );
+}
+
+void
+tr_timerFree( tr_timer ** ptimer )
+{
+    tr_timer * timer;
+
+    /* zero out the argument passed in */
+    assert( ptimer );
+    timer = *ptimer;
+    *ptimer = NULL;
+
+    /* destroy the timer directly or via the command queue */
+    if( timer!=NULL && !timer->inCallback ) {
+        if( tr_amInThread( timer->eh->thread ) ) {
+            event_del( &timer->event );
+            tr_free( timer );
+        } else {
+            struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+            cmd->mode = TR_EV_TIMER_DEL;
+            cmd->timer = timer;
+            pushList( timer->eh, cmd );
+        }
+    }
+}
+
+tr_timer*
+tr_timerNew( struct tr_handle * handle,
+             timer_func         func,
+             void             * user_data,
+             int                timeout_milliseconds )
+{
+    tr_timer * timer = tr_new0( tr_timer, 1 );
+    timer->tv = timevalMsec( timeout_milliseconds );
+    timer->func = func;
+    timer->user_data = user_data;
+    timer->eh = handle->events;
+    timeout_set( &timer->event, timerCallback, timer );
+
+    if( tr_amInThread( handle->events->thread ) )
+        timeout_add( &timer->event,  &timer->tv );
+    else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_TIMER_ADD;
+        cmd->timer = timer;
+fprintf( stderr, "queueing timer %p\n", cmd->timer );
+        pushList( handle->events, cmd );
+    }
+
+    return timer;
+}
+
+void
+tr_runInEventThread( struct tr_handle * handle,
+                     void               func( void* ),
+                     void             * user_data )
+{
+    if( tr_amInThread( handle->events->thread ) )
+        (func)( user_data );
+    else {
+        struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
+        cmd->mode = TR_EV_EXEC;
+        cmd->func = func;
+        cmd->user_data = user_data;
+        pushList( handle->events, cmd );
+    }
+}
+
+
+/**
+***
+**/
+
+static int
+bufCompareFunc( const void * va, const void * vb )
 {
     const struct tr_event_command * a = va;
     const struct bufferevent * b = vb;
@@ -324,7 +432,7 @@ tr_bufferevent_free( struct tr_handle   * handle,
 
     /* purge pending commands from the list */
     tr_lockLock( eh->lock );
-    while(( v = tr_list_remove( &eh->commands, bufev, compareFunc ) )) {
+    while(( v = tr_list_remove( &eh->commands, bufev, bufCompareFunc ) )) {
         fprintf( stderr, "---> I AM PURGING A QUEUED COMMAND BECAUSE ITS BUFEV IS GOING AWAY <--\n" );
         tr_free( v );
     }

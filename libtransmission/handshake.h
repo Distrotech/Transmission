@@ -22,11 +22,18 @@ enum EncryptionPreference
 };
 
 struct tr_peerIo;
-typedef void (*handshakeDoneCB)(struct tr_peerIo*, int isConnected, void*);
+typedef struct tr_handshake tr_handshake;
 
-void tr_handshakeAdd( struct tr_peerIo * io,
-                      int                encryptionPreference,
-                      handshakeDoneCB    doneCB,
-                      void             * doneUserData );
+typedef void (*handshakeDoneCB)(struct tr_handshake * handshake,
+                                struct tr_peerIo    * io,
+                                int                   isConnected,
+                                void                * userData );
+
+tr_handshake *  tr_handshakeNew( struct tr_peerIo * io,
+                                 int                encryptionPreference,
+                                 handshakeDoneCB    doneCB,
+                                 void             * doneUserData );
+
+void tr_handshakeAbort( tr_handshake * );
 
 #endif

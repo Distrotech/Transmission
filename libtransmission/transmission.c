@@ -243,15 +243,42 @@ void tr_torrentIterate( tr_handle_t * h, tr_callback_t func, void * d )
     }
 }
 
-void tr_close( tr_handle_t * h )
+static void
+tr_closeImpl( void * vh )
 {
+    tr_handle_t * h = vh;
+fprintf( stderr, "in tr_closeImpl\n" );
+    tr_peerMgrFree( h->peerMgr );
+fprintf( stderr, "calling mgr free\n" );
+
     tr_rcClose( h->upload );
     tr_rcClose( h->download );
 
-    tr_peerMgrFree( h->peerMgr );
+fprintf( stderr, "calling shared close\n" );
     tr_sharedClose( h->shared );
+fprintf( stderr, "calling fd close\n" );
     tr_fdClose();
+
+fprintf( stderr, "setting h->closed to TRUE\n" );
+    h->isClosed = TRUE;
+}
+void
+tr_close( tr_handle_t * h )
+{
+    fprintf( stderr, "torrentCount is %d\n", h->torrentCount );
+    assert( tr_torrentCount( h ) == 0 );
+
+fprintf( stderr, "here I am in tr_close...\n" );
+    tr_runInEventThread( h, tr_closeImpl, h );
+    while( !h->isClosed )
+        tr_wait( 200 );
+
     tr_eventClose( h );
+    while( h->events != NULL ) {
+        fprintf( stderr, "waiting for libevent thread to close...\n" );
+        tr_wait( 200 );
+    }
+
     free( h->tag );
     free( h );
 }

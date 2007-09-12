@@ -90,8 +90,8 @@ static void
 gotErrorWrapper( struct bufferevent * e, short what, void * userData )
 {
     tr_peerIo * c = (tr_peerIo *) userData;
-    assert( c->gotError != NULL );
-    (*c->gotError)( e, what, c->userData );
+    if( c->gotError != NULL )
+        (*c->gotError)( e, what, c->userData );
 }
 
 /**

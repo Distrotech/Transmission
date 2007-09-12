@@ -31,7 +31,7 @@
 #include "peer-mgr-private.h"
 #include "peer-msgs.h"
 #include "ratecontrol.h"
-#include "timer.h"
+#include "trevent.h"
 #include "utils.h"
 
 /**
@@ -107,8 +107,8 @@ struct tr_peermsgs
     tr_list * peerAskedFor;
     tr_list * clientAskedFor;
 
-    tr_timer_tag pulseTag;
-    tr_timer_tag pexTag;
+    tr_timer * pulseTimer;
+    tr_timer * pexTimer;
 
     unsigned int  notListening        : 1;
 
@@ -353,7 +353,7 @@ for( i=0; i<sub->val.s.i; ++i ) { fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i
     sub = tr_bencDictFind( &val, "p" );
     if( tr_bencIsInt( sub ) ) {
         peer->listeningPort = htons( (uint16_t)sub->val.i );
-        fprintf( stderr, "peer->port is now %hd\n", peer->listeningPort );
+        fprintf( stderr, "peer->port is now %hu\n", peer->listeningPort );
     }
 
     tr_bencFree( &val );
@@ -972,9 +972,9 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     peer->info->clientIsInterested = 0;
     peer->info->peerIsInterested = 0;
     peer->info->have = tr_bitfieldNew( torrent->info.pieceCount );
-    peer->pulseTag = tr_timerNew( peer->handle, pulse, peer, NULL, 500 );
-fprintf( stderr, "peer %p pulseTag %p\n", peer, peer->pulseTag );
-    peer->pexTag = tr_timerNew( peer->handle, pexPulse, peer, NULL, PEX_INTERVAL );
+    peer->pulseTimer = tr_timerNew( peer->handle, pulse, peer, 500 );
+fprintf( stderr, "peer %p pulseTimer %p\n", peer, peer->pulseTimer );
+    peer->pexTimer = tr_timerNew( peer->handle, pexPulse, peer, PEX_INTERVAL );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );
     peer->inBlock = evbuffer_new( );
@@ -993,8 +993,8 @@ tr_peerMsgsFree( tr_peermsgs* p )
     if( p != NULL )
     {
 fprintf( stderr, "peer %p destroying its pulse tag\n", p );
-        tr_timerFree( &p->pulseTag );
-        tr_timerFree( &p->pexTag );
+        tr_timerFree( &p->pulseTimer );
+        tr_timerFree( &p->pexTimer );
         tr_publisherFree( &p->publisher );
         tr_list_foreach( p->clientAskedFor, tr_free );
         tr_list_free( &p->clientAskedFor );

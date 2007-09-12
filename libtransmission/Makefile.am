@@ -34,7 +34,6 @@ libtransmission_a_SOURCES = \
     shared.c \
     strlcat.c \
     strlcpy.c \
-    timer.c \
     torrent.c \
     tracker.c \
     transmission.c \
@@ -71,7 +70,6 @@ noinst_HEADERS = \
     publish.h \
     ratecontrol.h \
     shared.h \
-    timer.h \
     tracker.h \
     transmission.h \
     trcompat.h \

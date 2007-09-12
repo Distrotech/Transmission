@@ -44,6 +44,7 @@
 #include "shared.h"
 #include "tracker.h"
 #include "trcompat.h" /* for strlcpy */
+#include "trevent.h"
 #include "utils.h"
 
 /***
@@ -642,7 +643,7 @@ saveFastResumeNow( void * vtor )
     tr_fastResumeSave( tor );
     recheckCpState( tor );
 
-    tr_timerFree( &tor->saveTag );
+    tr_timerFree( &tor->saveTimer );
     return FALSE;
 }
 
@@ -651,8 +652,8 @@ saveFastResumeSoon( void * vtor )
 {
     tr_torrent * tor = (tr_torrent *) vtor;
 
-    if( tor->saveTag == NULL )
-        tor->saveTag = tr_timerNew( tor->handle, saveFastResumeNow, tor, NULL, 1000 );
+    if( tor->saveTimer == NULL )
+        tor->saveTimer = tr_timerNew( tor->handle, saveFastResumeNow, tor, 1000 );
 }
 
 /**
@@ -1020,6 +1021,7 @@ tr_torrentFree( tr_torrent * tor )
     tr_torrent * t;
     tr_handle_t * h = tor->handle;
     tr_info_t * inf = &tor->info;
+fprintf( stderr, "closing torrent %s\n", tor->info.name );
 
     assert( tor != NULL );
     assert( tor->runStatus == TR_RUN_STOPPED );
@@ -1039,8 +1041,6 @@ tr_torrentFree( tr_torrent * tor )
 
     tr_free( tor->destination );
 
-    tr_metainfoFree( inf );
-
     if( tor == h->torrentList )
         h->torrentList = tor->next;
     else for( t=h->torrentList; t!=NULL; t=t->next ) {
@@ -1050,6 +1050,7 @@ tr_torrentFree( tr_torrent * tor )
         }
     }
 
+    assert( h->torrentCount >= 1 );
     h->torrentCount--;
 
     tr_inf( "closing torrent %s... %d torrents left",
@@ -1057,6 +1058,7 @@ tr_torrentFree( tr_torrent * tor )
 
     tr_peerMgrRemoveTorrent( h->peerMgr, tor->info.hash );
 
+    tr_metainfoFree( inf );
     tr_free( tor );
 
     tr_sharedUnlock( h->shared );
@@ -1074,9 +1076,11 @@ freeWhenStopped( void * vtor )
     return FALSE;
 }
 
-void
-tr_torrentStop( tr_torrent * tor )
+static void
+tr_torrentStopImpl( void * vtor )
 {
+    tr_torrent * tor = vtor;
+
     switch( tor->runStatus )
     {
         case TR_RUN_CHECKING_WAIT:
@@ -1101,13 +1105,19 @@ tr_torrentStop( tr_torrent * tor )
 }
 
 void
+tr_torrentStop( tr_torrent * tor )
+{
+    tr_runInEventThread( tor->handle, tr_torrentStopImpl, tor );
+}
+
+void
 tr_torrentClose( tr_torrent * tor )
 {
     tor->runStatusToSave = tor->runStatus;
     tor->runStatusToSaveIsSet = TRUE;
     tor->dieFlag = TRUE;
     tr_torrentStop( tor );
-    tr_timerNew( tor->handle, freeWhenStopped, tor, NULL, 100 );
+    tr_timerNew( tor->handle, freeWhenStopped, tor, 250 );
 }
 
 static void

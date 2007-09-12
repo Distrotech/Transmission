@@ -45,8 +45,6 @@ typedef enum { TR_NET_OK, TR_NET_ERROR, TR_NET_WAIT } tr_tristate_t;
 #define FALSE 0
 #endif
 
-#include "timer.h"
-
 int tr_trackerInfoInit( struct tr_tracker_info_s  * info,
                         const char                * address,
                         int                         address_len );
@@ -96,10 +94,8 @@ typedef enum
     TR_RUN_CHECKING_WAIT      = (1<<0), /* waiting to be checked */
     TR_RUN_CHECKING           = (1<<1), /* checking files' checksums */
     TR_RUN_RUNNING            = (1<<2), /* seeding or leeching */
-    TR_RUN_STOPPING           = (1<<3), /* stopping */
-    TR_RUN_STOPPING_NET_WAIT  = (1<<4), /* waiting on network -- we're
-                                           telling tracker we've stopped */
-    TR_RUN_STOPPED            = (1<<5)  /* stopped */
+    TR_RUN_STOPPING           = (1<<3), /* waiting for acknowledgment from tracker */
+    TR_RUN_STOPPED            = (1<<4)  /* stopped */
 }
 run_status_t;
 
@@ -116,7 +112,7 @@ struct tr_torrent
     struct tr_ratecontrol     * download;
     struct tr_ratecontrol     * swarmspeed;
 
-    tr_timer_tag                saveTag;
+    struct tr_timer           * saveTimer;
 
     int                        error;
     char                       errorString[128];
@@ -192,6 +188,8 @@ struct tr_handle
 
     tr_handle_status           stats[2];
     int                        statCur;
+
+    uint8_t                    isClosed;
 
 #define TR_AZ_ID_LEN 20
     uint8_t                    azId[TR_AZ_ID_LEN];
