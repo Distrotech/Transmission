@@ -101,6 +101,9 @@ tr_handle_t * tr_init( const char * tag )
         return NULL;
 
     tr_eventInit( h );
+    while( !h->events )
+        tr_wait( 50 );
+
     tr_netInit();
 
     h->tag = strdup( tag );

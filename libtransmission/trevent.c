@@ -16,6 +16,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <signal.h>
 #include <sys/queue.h> /* for evhttp */
 #include <sys/types.h> /* for evhttp */
 
@@ -50,6 +51,8 @@ typedef struct tr_event_handle
     struct event pulse;
     struct timeval pulseInterval;
     uint8_t die;
+
+    int timerCount; 
 }
 tr_event_handle;
 
@@ -122,13 +125,13 @@ pumpList( int i UNUSED, short s UNUSED, void * veh )
         switch( cmd->mode )
         {
             case TR_EV_TIMER_ADD:
-fprintf( stderr, "adding timer %p from queue \n", cmd->timer );
                 timeout_add( &cmd->timer->event, &cmd->timer->tv );
                 break;
 
             case TR_EV_TIMER_DEL:
                 event_del( &cmd->timer->event );
                 tr_free( cmd->timer );
+                --eh->timerCount;
                 break;
 
             case TR_EV_EVHTTP_MAKE_REQUEST:
@@ -165,6 +168,7 @@ fprintf( stderr, "adding timer %p from queue \n", cmd->timer );
     if( !eh->die )
         timeout_add( &eh->pulse, &eh->pulseInterval );
     else {
+        assert( eh->timerCount ==  0 );
         evdns_shutdown( FALSE );
         event_del( &eh->pulse );
     }
@@ -193,11 +197,17 @@ libeventThreadFunc( void * veh )
     tr_event_handle * eh = (tr_event_handle *) veh;
     tr_dbg( "Starting libevent thread" );
 
+#ifndef WIN32
+    /* Don't exit when writing on a broken socket */
+    signal( SIGPIPE, SIG_IGN );
+#endif
+
     eh->base = event_init( );
     //event_set_log_callback( logFunc );
     evdns_init( );
     timeout_set( &eh->pulse, pumpList, veh );
     timeout_add( &eh->pulse, &eh->pulseInterval );
+    eh->h->events = eh;
 
     event_dispatch( );
 fprintf( stderr, "w00t!!!!!!!!!!!!!!!!!!!\n" );
@@ -221,8 +231,6 @@ tr_eventInit( tr_handle_t * handle )
     eh->h = handle;
     eh->pulseInterval = timevalMsec( 20 );
     eh->thread = tr_threadNew( libeventThreadFunc, eh, "libeventThreadFunc" );
-
-    handle->events = eh;
 }
 
 void
@@ -357,6 +365,7 @@ tr_timerFree( tr_timer ** ptimer )
     /* destroy the timer directly or via the command queue */
     if( timer!=NULL && !timer->inCallback ) {
         if( tr_amInThread( timer->eh->thread ) ) {
+            --timer->eh->timerCount;
             event_del( &timer->event );
             tr_free( timer );
         } else {
@@ -387,8 +396,8 @@ tr_timerNew( struct tr_handle * handle,
         struct tr_event_command * cmd = tr_new0( struct tr_event_command, 1 );
         cmd->mode = TR_EV_TIMER_ADD;
         cmd->timer = timer;
-fprintf( stderr, "queueing timer %p\n", cmd->timer );
         pushList( handle->events, cmd );
+        ++handle->events->timerCount;
     }
 
     return timer;
@@ -432,10 +441,8 @@ tr_bufferevent_free( struct tr_handle   * handle,
 
     /* purge pending commands from the list */
     tr_lockLock( eh->lock );
-    while(( v = tr_list_remove( &eh->commands, bufev, bufCompareFunc ) )) {
-        fprintf( stderr, "---> I AM PURGING A QUEUED COMMAND BECAUSE ITS BUFEV IS GOING AWAY <--\n" );
+    while(( v = tr_list_remove( &eh->commands, bufev, bufCompareFunc ) ))
         tr_free( v );
-    }
     tr_lockUnlock( eh->lock );
 
     if( tr_amInThread( handle->events->thread ) )
