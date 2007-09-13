@@ -823,7 +823,6 @@ gotError( struct bufferevent * evbuf UNUSED, short what, void * arg )
     tr_handshake * handshake = (tr_handshake *) arg;
 fprintf( stderr, "handshake %p: got error [%s]; what==%hd... state was [%s]\n", handshake, strerror(errno), what, getStateName(handshake->state) );
 
-
     /* if the error happened while we were sending a public key, we might
      * have encountered a peer that doesn't do encryption... reconnect and
      * try a plaintext handshake */
@@ -835,7 +834,11 @@ fprintf( stderr, "handshake %p trying again in plaintext...\n", handshake );
         handshake->encryptionPreference = HANDSHAKE_PLAINTEXT_REQUIRED;
         sendPlaintextHandshake( handshake );
     }
-    else fireDoneCB( handshake, FALSE );
+    else
+    {
+        tr_peerIoSetIOFuncs( handshake->io, NULL, NULL, NULL, NULL );
+        fireDoneCB( handshake, FALSE );
+    }
 }
 
 /**
