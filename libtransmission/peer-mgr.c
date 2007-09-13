@@ -192,6 +192,10 @@ peerCompareToAddr( const void * va, const void * vb )
 static tr_peer*
 getExistingPeer( Torrent * torrent, const struct in_addr * in_addr )
 {
+    assert( torrent != NULL );
+    assert( torrent->peers != NULL );
+    assert( in_addr != NULL );
+
     return (tr_peer*) tr_ptrArrayFindSorted( torrent->peers,
                                              in_addr,
                                              peerCompareToAddr );
@@ -201,6 +205,7 @@ static tr_peer*
 getPeer( Torrent * torrent, const struct in_addr * in_addr )
 {
     tr_peer * peer = getExistingPeer( torrent, in_addr );
+
     if( peer == NULL )
     {
         peer = tr_new0( tr_peer, 1 );
@@ -250,23 +255,30 @@ freeTorrent( tr_peerMgr * manager, Torrent * t )
 {
     int i, size;
     tr_peer ** peers;
+    uint8_t hash[SHA_DIGEST_LENGTH];
+
 fprintf( stderr, "timer freeTorrent %p\n", t );
 
     assert( manager != NULL );
     assert( t != NULL );
     assert( t->peers != NULL );
+    assert( getExistingTorrent( manager, t->hash ) != NULL );
+
+    memcpy( hash, t->hash, SHA_DIGEST_LENGTH );
+
+    tr_timerFree( &t->chokeTimer );
+    tr_timerFree( &t->refillTimer );
 
     peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
-fprintf( stderr, "timer CHOKE %p being freed\n", t->chokeTimer );
-    tr_timerFree( &t->chokeTimer );
-fprintf( stderr, "timer REFILL %p being freed\n", t->refillTimer );
-    tr_timerFree( &t->refillTimer );
     for( i=0; i<size; ++i )
         freePeer( peers[i] );
+
     tr_ptrArrayFree( t->peers );
     tr_ptrArrayRemoveSorted( manager->torrents, t, torrentCompare );
     tr_free( t->blocks );
     tr_free( t );
+
+    assert( getExistingTorrent( manager, hash ) == NULL );
 }
 
 /**
@@ -494,10 +506,14 @@ myHandshakeDoneCB( tr_handshake * handshake, tr_peerIo * io, int isConnected, vo
     tr_peerMgr * manager = (tr_peerMgr*) vmanager;
     const uint8_t * hash = NULL;
     Torrent * t;
+    tr_handshake * ours;
 
     assert( io != NULL );
 
-    tr_ptrArrayRemoveSorted( manager->handshakes, handshake, tr_comparePointers );
+    ours = tr_ptrArrayRemoveSorted( manager->handshakes,
+                                    handshake,
+                                    tr_comparePointers );
+    assert( handshake == ours );
 
     in_addr = tr_peerIoGetAddress( io, &port );
 
@@ -510,7 +526,7 @@ myHandshakeDoneCB( tr_handshake * handshake, tr_peerIo * io, int isConnected, vo
 
     hash = tr_peerIoGetTorrentHash( io );
     t = getExistingTorrent( manager, hash );
-    if( !t )
+    if( !t || !t->isRunning )
     {
         tr_peerIoFree( io );
         --manager->connectionCount;
@@ -524,35 +540,41 @@ myHandshakeDoneCB( tr_handshake * handshake, tr_peerIo * io, int isConnected, vo
     if( !ok ) {
         tr_peer * peer = getExistingPeer( t, in_addr );
         fprintf( stderr, "peer-mgr: torrent [%s] got a bad one, and you know what? fuck them.\n", t->tor->info.name );
+        tr_peerIoFree( io );
+        --manager->connectionCount;
         if( peer ) {
             tr_ptrArrayRemoveSorted( t->peers, peer, peerCompare );
             freePeer( peer );
-        } else  {
-            tr_peerIoFree( io );
         }
-        --manager->connectionCount;
         return;
     }
-
-#if 0
-    /* ONLY DO THIS TEST FOR INCOMING CONNECTIONS */
-    /* check for duplicates */
-    if( getExistingPeer( t, in_addr ) ) {
-        tr_dbg( "dropping a duplicate connection... dropping." );
-        tr_peerIoFree( io );
-        return;
-    }
-#endif
 
     if( 1 ) {
         tr_peer * peer = getPeer( t, in_addr );
-        peer->port = port;
-        peer->io = io;
-        peer->msgs = tr_peerMsgsNew( t->tor, peer );
-fprintf( stderr, "PUB sub peer %p to msgs %p\n", peer, peer->msgs );
-        peer->msgsTag = tr_peerMsgsSubscribe( peer->msgs, msgsCallbackFunc, t );
-        chokePulse( t );
+        if( peer->msgs != NULL ) { /* we alerady have this peer */
+            tr_peerIoFree( io );
+            --manager->connectionCount;
+        } else {
+            peer->port = port;
+            peer->io = io;
+            peer->msgs = tr_peerMsgsNew( t->tor, peer );
+            fprintf( stderr, "PUB sub peer %p to msgs %p\n", peer, peer->msgs );
+            peer->msgsTag = tr_peerMsgsSubscribe( peer->msgs, msgsCallbackFunc, t );
+            chokePulse( t );
+        }
     }
+}
+
+static void
+initiateHandshake( tr_peerMgr * manager, tr_peerIo * io )
+{
+    tr_handshake * handshake = tr_handshakeNew( io,
+                                                HANDSHAKE_ENCRYPTION_PREFERRED,
+                                                myHandshakeDoneCB,
+                                                manager );
+    ++manager->connectionCount;
+
+    tr_ptrArrayInsertSorted( manager->handshakes, handshake, tr_comparePointers );
 }
 
 void
@@ -560,37 +582,35 @@ tr_peerMgrAddIncoming( tr_peerMgr      * manager,
                        struct in_addr  * addr,
                        int               socket )
 {
-    tr_handshake * handshake;
-
-    ++manager->connectionCount;
-
-    handshake = tr_handshakeNew( tr_peerIoNewIncoming( manager->handle, addr, socket ),
-                                 HANDSHAKE_ENCRYPTION_PREFERRED,
-                                 myHandshakeDoneCB,
-                                 manager );
-
-    tr_ptrArrayInsertSorted( manager->handshakes, handshake, tr_comparePointers );
+    tr_peerIo * io = tr_peerIoNewIncoming( manager->handle, addr, socket );
+    initiateHandshake( manager, io );
 }
 
 static void
 maybeConnect( tr_peerMgr * manager, Torrent * t, tr_peer * peer )
 {
-    if( tr_peerMgrIsAcceptingConnections( manager ) )
-    {
-        fprintf( stderr, "peer-mgr: torrent [%s] is handshaking with a new peer %08x:%04x\n",
-                 t->tor->info.name,
-                 (uint32_t) peer->in_addr.s_addr, peer->port );
+    tr_peerIo * io;
 
-        ++manager->connectionCount;
+    assert( manager != NULL );
+    assert( t != NULL );
+    assert( peer != NULL );
 
-        peer->io = tr_peerIoNewOutgoing( manager->handle,
-                                         &peer->in_addr,
-                                         peer->port,
-                                         t->hash );
-
-        tr_handshakeNew( peer->io, HANDSHAKE_ENCRYPTION_PREFERRED,
-                         myHandshakeDoneCB, manager );
+    if( peer->io != NULL ) { /* already connected */
+        fprintf( stderr, "not connecting because we already have an IO for that address\n" );
+        return;
     }
+    if( !t->isRunning ) { /* torrent's not running */
+        fprintf( stderr, "OUTGOING connection not being made because t [%s] is not running\n", t->tor->info.name );
+        return;
+    }
+
+fprintf( stderr, "OUTGOING OUTGOING OUTGOING OUTGOING connection trying to connect to the peer...\n" );
+
+    io = tr_peerIoNewOutgoing( manager->handle,
+                               &peer->in_addr,
+                               peer->port,
+                               t->hash );
+    initiateHandshake( manager, io );
 }
 
 void
@@ -695,25 +715,31 @@ tr_peerMgrGetPeers( tr_peerMgr      * manager,
 }
 
 void
-tr_peerMgrStartTorrent( tr_peerMgr     * manager UNUSED,
-                        const uint8_t  * torrentHash UNUSED)
+tr_peerMgrStartTorrent( tr_peerMgr     * manager,
+                        const uint8_t  * torrentHash )
 {
+    int i, peerCount;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-    t->isRunning = TRUE;
+
+    t->isRunning = 1;
+
+    peerCount = tr_ptrArraySize( t->peers );
+    for( i=0; i<peerCount; ++i )
+        maybeConnect( manager, t, tr_ptrArrayNth( t->peers, i ) );
 }
 
 void
 tr_peerMgrStopTorrent( tr_peerMgr     * manager,
                        const uint8_t  * torrentHash)
 {
-    int i, size;
+    int i, peerCount;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-    tr_peer ** peers = getConnectedPeers( t, &size );
 
-    t->isRunning = FALSE;
+    t->isRunning = 0;
 
-    for( i=0; i<size; ++i )
-        disconnectPeer( peers[i] );
+    peerCount = tr_ptrArraySize( t->peers );
+    for( i=0; i<peerCount; ++i )
+        disconnectPeer( tr_ptrArrayNth( t->peers, i ) );
 }
 
 void

@@ -272,6 +272,7 @@ tr_torrentStartImpl( tr_torrent * tor )
     recheckCpState( tor );
     tor->startDate = tr_date();
     tr_trackerStart( tor->tracker );
+    tr_peerMgrStartTorrent( tor->handle->peerMgr, tor->info.hash );
 }
 
 static void
