@@ -364,7 +364,7 @@ refillPulse( void * vtorrent )
     }
 
     peers = getConnectedPeers( t, &size );
-    if( size>0 )
+    if( wantToRefill && size>0 )
     {
         /* sort the blocks by interest */
         fprintf( stderr, "sorting [%s] blocks by interest...", t->tor->info.name );
