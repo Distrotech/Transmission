@@ -981,8 +981,10 @@ chokePulse( void * vtorrent )
 
 fprintf( stderr, "[%s] rechoking torrent %p, with %d peers\n", ctime(&now), t, size );
 
-    if( size < 1 )
+    if( size < 1 ) {
+        tr_free( peers );
         return TRUE;
+    }
 
     data = tr_new( ChokeData, size );
     for( i=0; i<size; ++i ) {
