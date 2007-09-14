@@ -79,9 +79,8 @@ canReadWrapper( struct bufferevent * e, void * userData )
         const int ret = (*c->canRead)( e, c->userData );
         switch( ret ) {
             case READ_AGAIN: if( EVBUFFER_LENGTH( e->input ) ) continue; /* note fall-through */
-            case READ_MORE: //fprintf( stderr, "waiting for bytes from peer...\n" );
-                            tr_peerIoSetIOMode( c, EV_READ, 0 ); return; break;
-            case READ_DONE: return; fprintf( stderr, "READ_DONE\n"); break;
+            case READ_MORE: tr_peerIoSetIOMode( c, EV_READ, 0 ); return; break;
+            case READ_DONE: return;
         }
     }
 }
@@ -109,7 +108,6 @@ tr_peerIoNew( struct tr_handle  * handle,
 {
     tr_peerIo * c;
     c = tr_new0( tr_peerIo, 1 );
-//fprintf( stderr, "peer-io: created %p; count is now %d\n", c, ++total_io );
     c->crypto = tr_cryptoNew( torrentHash, isIncoming );
     c->handle = handle;
     c->in_addr = *in_addr;
@@ -117,7 +115,6 @@ tr_peerIoNew( struct tr_handle  * handle,
     c->rateToPeer = tr_rcInit( );
     c->rateToClient = tr_rcInit( );
     c->isIncoming = isIncoming ? 1 : 0;
-fprintf( stderr, "io %p rates: peer %p client %p\n", c, c->rateToPeer, c->rateToClient );
     c->bufev = bufferevent_new( c->socket,
                                 canReadWrapper,
                                 didWriteWrapper,
@@ -179,8 +176,6 @@ tr_peerIoFree( tr_peerIo * c )
         tr_cryptoFree( c->crypto );
 
         tr_free( c );
-
-//fprintf( stderr, "peer-io: freeing %p; count is now %d\n", c, --total_io );
     }
 }
 
@@ -237,14 +232,10 @@ tr_peerIoReconnect( tr_peerIo * io )
 {
     assert( !tr_peerIoIsIncoming( io ) );
 
-fprintf( stderr, "tr_peerIoReconnect: io %p\n", io );
-
     if( io->socket >= 0 )
         tr_netClose( io->socket );
 
     io->socket = tr_netOpenTCP( &io->in_addr, io->port, 0 );
-
-fprintf( stderr, "tr_peerIoReconnect: io->socket is %d\n", io->socket );
   
     if( io->socket >= 0 )
     {
@@ -400,12 +391,12 @@ tr_peerIoWriteBytes( tr_peerIo        * io,
     switch( io->encryptionMode )
     {
         case PEER_ENCRYPTION_PLAINTEXT:
-            fprintf( stderr, "writing %d plaintext bytes to outbuf...\n", byteCount );
+            /*fprintf( stderr, "writing %d plaintext bytes to outbuf...\n", byteCount );*/
             evbuffer_add( outbuf, bytes, byteCount );
             break;
 
         case PEER_ENCRYPTION_RC4:
-            fprintf( stderr, "encrypting and writing %d bytes to outbuf...\n", byteCount );
+            /*fprintf( stderr, "encrypting and writing %d bytes to outbuf...\n", byteCount );*/
             tmp = tr_new( uint8_t, byteCount );
             tr_cryptoEncrypt( io->crypto, byteCount, bytes, tmp );
             tr_bufferevent_write( io->handle, io->bufev, tmp, byteCount );
@@ -446,13 +437,13 @@ tr_peerIoReadBytes( tr_peerIo        * io,
     switch( io->encryptionMode )
     {
         case PEER_ENCRYPTION_PLAINTEXT:
-            fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );
+            /*fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );*/
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_rcTransferred( io->rateToClient, byteCount );
             break;
 
         case PEER_ENCRYPTION_RC4:
-            fprintf( stderr, "reading AND DECRYPTING %d bytes from inbuf...\n", byteCount );
+            /*fprintf( stderr, "reading AND DECRYPTING %d bytes from inbuf...\n", byteCount );*/
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_cryptoDecrypt( io->crypto, byteCount, bytes, bytes );
             tr_rcTransferred( io->rateToClient, byteCount );

@@ -135,7 +135,6 @@ tr_ptrArrayLowerBound( const tr_ptrArray * t,
                        int                 compare( const void *,const void * ),
                        int               * exact_match )
 {
-    int c = -1;
     int len = t->n_items;
     int first = 0;
 
@@ -143,7 +142,7 @@ tr_ptrArrayLowerBound( const tr_ptrArray * t,
     {
         int half = len / 2;
         int middle = first + half;
-        c = compare( t->items[middle], ptr );
+        const int c = compare( t->items[middle], ptr );
         if( c < 0 ) {
             first = middle + 1;
             len = len - half - 1;

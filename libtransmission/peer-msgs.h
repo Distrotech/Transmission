@@ -27,10 +27,23 @@ tr_peermsgs* tr_peerMsgsNew( struct tr_torrent  * torrent,
 
 void         tr_peerMsgsSetChoke( tr_peermsgs *, int doChoke );
 
+void         tr_peerMsgsHave( tr_peermsgs * msgs,
+                              uint32_t      pieceIndex );
+
+void         tr_peerMsgsCancel( tr_peermsgs * msgs,
+                                uint32_t      pieceIndex,
+                                uint32_t      offset,
+                                uint32_t      length );
+
 void         tr_peerMsgsFree( tr_peermsgs* );
 
 
-enum { TR_ADDREQ_OK=0, TR_ADDREQ_FULL, TR_ADDREQ_MISSING };
+enum {
+    TR_ADDREQ_OK=0,
+    TR_ADDREQ_FULL,
+    TR_ADDREQ_MISSING,
+    TR_ADDREQ_CLIENT_CHOKED
+};
 
 int          tr_peerMsgsAddRequest( tr_peermsgs * peer,
                                     uint32_t      index,
@@ -55,8 +68,9 @@ PeerMsgsEventType;
 typedef struct
 {
     PeerMsgsEventType eventType;
-    uint32_t pieceIndex; /* for TR_PEERMSG_GOT_HAVE */
-    uint32_t blockIndex; /* For TR_PEERMSG_GOT_BLOCK */
+    uint32_t pieceIndex; /* for TR_PEERMSG_GOT_BLOCK, TR_PEERMSG_GOT_HAVE */
+    uint32_t offset;     /* for TR_PEERMSG_GOT_BLOCK */
+    uint32_t length;     /* for TR_PEERMSG_GOT_BLOCK */
     const struct tr_bitfield * bitfield; /* for TR_PEERMSG_GOT_BITFIELD */
 }
 tr_peermsgs_event;

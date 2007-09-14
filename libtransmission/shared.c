@@ -81,7 +81,7 @@ tr_shared * tr_sharedInit( tr_handle * h )
     s->bindSocket = -1;
     s->natpmp     = tr_natpmpInit();
     s->upnp       = tr_upnpInit();
-    s->pulseTimer   = tr_timerNew( h, SharedLoop, s, 20 );
+    s->pulseTimer   = tr_timerNew( h, SharedLoop, s, 200 );
 
     return s;
 }

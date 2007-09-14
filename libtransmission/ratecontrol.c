@@ -38,7 +38,7 @@
 typedef struct
 {
     uint64_t date;
-    int      size;
+    uint64_t size;
 }
 tr_transfer_t;
 
@@ -133,7 +133,7 @@ tr_rcRate( const tr_ratecontrol * r )
 ***/
 
 void
-tr_rcTransferred( tr_ratecontrol * r, int size )
+tr_rcTransferred( tr_ratecontrol * r, size_t size )
 {
     uint64_t now;
 

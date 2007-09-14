@@ -90,6 +90,8 @@ struct tr_handshake
     int ia_len;
     int crypto_select;
     uint8_t myReq1[SHA_DIGEST_LENGTH];
+    uint8_t peer_id[20];
+    int have_peer_id;
     handshakeDoneCB doneCB;
     void * doneUserData;
 };
@@ -635,7 +637,6 @@ readHandshake( tr_handshake * handshake, struct evbuffer * inbuf )
     uint8_t * pstr;
     uint8_t reserved[8];
     uint8_t hash[SHA_DIGEST_LENGTH];
-    uint8_t peer_id[20];
     int bytesRead = 0;
 
 fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (int)EVBUFFER_LENGTH(inbuf) );
@@ -646,6 +647,11 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     /* pstrlen */
     pstrlen = EVBUFFER_DATA(inbuf)[0];
     fprintf( stderr, "pstrlen 1 is %d [%c]\n", (int)pstrlen, pstrlen );
+    fprintf( stderr, "the buf is [%c][%c][%c][%c]",
+        EVBUFFER_DATA(inbuf)[0], 
+        EVBUFFER_DATA(inbuf)[1], 
+        EVBUFFER_DATA(inbuf)[2], 
+        EVBUFFER_DATA(inbuf)[3] );
     isEncrypted = pstrlen != 19;
     tr_peerIoSetEncryption( handshake->io, isEncrypted
         ? PEER_ENCRYPTION_RC4
@@ -691,12 +697,10 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     }
 
     /* peer id */
-    tr_peerIoReadBytes( handshake->io, inbuf, peer_id, sizeof(peer_id) );
-//    fprintf( stderr, "peer_id: " );
-//    for( i=0; i<20; ++i ) fprintf( stderr, "[%c]", peer_id[i] );
-//    fprintf( stderr, "\n" );
-    tr_peerIoSetPeersId( handshake->io, peer_id );
-    bytesRead += sizeof(peer_id);
+    tr_peerIoReadBytes( handshake->io, inbuf, handshake->peer_id, sizeof(handshake->peer_id) );
+    tr_peerIoSetPeersId( handshake->io, handshake->peer_id );
+    bytesRead += sizeof(handshake->peer_id);
+    handshake->have_peer_id = TRUE;
 
     assert( bytesRead == HANDSHAKE_SIZE );
 
@@ -774,36 +778,6 @@ canRead( struct bufferevent * evin, void * arg )
 }
 
 static void
-didWrite( struct bufferevent * evin UNUSED, void * arg )
-{
-    tr_handshake * handshake = (tr_handshake *) arg;
-    fprintf( stderr, "handshake %p, with a state of %s, got a didWrite event\n", handshake, getStateName(handshake->state) );
-#if 0
-    abort ( );
-
-    if( handshake->state == SENDING_LTEP_HANDHAKE )
-    {
-        fireDoneCB( handshake, TRUE );
-    }
-    else
-    {
-cccccccccccccccccccccccccccccccccc
-        int state = -1;
-        switch( handshake->state )
-        {
-            //case SENDING_YA:                   state = AWAITING_YB; break;
-            //case SENDING_YB:                   state = AWAITING_PAD_A; break;
-            //case SENDING_CRYPTO_PROVIDE:       state = AWAITING_VC; break;
-            //case SENDING_PLAINTEXT_HANDSHAKE:  state = AWAITING_HANDSHAKE; break;
-        }
-        assert( state != -1 );
-        setState( handshake, state );
-        tr_peerIoReadOrWait( handshake->io );
-    }
-#endif
-}
-
-static void
 tr_handshakeFree( tr_handshake * handshake )
 {
     tr_free( handshake );
@@ -812,8 +786,11 @@ tr_handshakeFree( tr_handshake * handshake )
 static void
 fireDoneCB( tr_handshake * handshake, int isConnected )
 {
+    const uint8_t * peer_id = isConnected && handshake->have_peer_id
+        ? handshake->peer_id
+        : NULL;
 fprintf( stderr, "handshake %p: firing done.  connected==%d\n", handshake, isConnected );
-    (*handshake->doneCB)(handshake, handshake->io, isConnected, handshake->doneUserData);
+    (*handshake->doneCB)(handshake, handshake->io, isConnected, peer_id, handshake->doneUserData);
     tr_handshakeFree( handshake );
 }
 
@@ -866,7 +843,7 @@ tr_handshakeNew( tr_peerIo        * io,
     handshake->handle = tr_peerIoGetHandle( io );
 
     tr_peerIoSetIOMode( io, EV_READ|EV_WRITE, 0 );
-    tr_peerIoSetIOFuncs( io, canRead, didWrite, gotError, handshake );
+    tr_peerIoSetIOFuncs( io, canRead, NULL, gotError, handshake );
 
 fprintf( stderr, "handshake %p: new handshake for io %p\n", handshake, io );
 
@@ -876,7 +853,6 @@ fprintf( stderr, "handshake %p: new handshake for io %p\n", handshake, io );
     }
     else
     {
-        //handshake->encryptionPreference = HANDSHAKE_PLAINTEXT_PREFERRED; /* this line is just for testing */
         sendHandshake( handshake );
     }
 

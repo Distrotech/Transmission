@@ -43,11 +43,13 @@
 /* pex attempts are made this frequently */
 #define PEX_INTERVAL (MINUTES_TO_MSEC(1))
 
+#define PEER_PULSE_INTERVAL_MSEC 50
+
 /* the most requests we'll batch up for this peer */
-#define OUT_REQUESTS_MAX 6
+#define OUT_REQUESTS_MAX 5
 
 /* when we get down to this many requests, we ask the manager for more */
-#define OUT_REQUESTS_LOW 2
+#define OUT_REQUESTS_LOW 3
 
 enum
 {
@@ -131,7 +133,7 @@ struct tr_peermsgs
 ***  EVENTS
 **/
 
-static const tr_peermsgs_event blankEvent = { 0, 0, 0, NULL };
+static const tr_peermsgs_event blankEvent = { 0, 0, 0, 0, NULL };
 
 static void
 publishEvent( tr_peermsgs * peer, int eventType )
@@ -166,11 +168,13 @@ fireGotHave( tr_peermsgs * peer, uint32_t pieceIndex )
 }
 
 static void
-fireGotBlock( tr_peermsgs * peer, uint32_t blockIndex )
+fireGotBlock( tr_peermsgs * peer, uint32_t pieceIndex, uint32_t offset, uint32_t length )
 {
     tr_peermsgs_event e = blankEvent;
     e.eventType = TR_PEERMSG_GOT_BLOCK;
-    e.pieceIndex = blockIndex;
+    e.pieceIndex = pieceIndex;
+    e.offset = offset;
+    e.length = length;
     tr_publisherPublish( peer->publisher, peer, &e );
 }
 
@@ -262,10 +266,64 @@ tr_peerMsgsSetChoke( tr_peermsgs * peer, int choke )
             tr_list_free( &peer->peerAskedFor );
         }
 
-        fprintf( stderr, "peer %p: enqueuing a %s message\n", peer, (choke ? "choke" : "unchoke") );
+        fprintf( stderr, "peer %p: sending a %s message\n", peer, (choke ? "CHOKE" : "UNCHOKE") );
         tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
         tr_peerIoWriteBytes( peer->io, peer->outMessages, &bt_msgid, 1 );
     }
+}
+
+/**
+***
+**/
+
+void
+tr_peerMsgsCancel( tr_peermsgs * msgs,
+                   uint32_t      pieceIndex,
+                   uint32_t      offset,
+                   uint32_t      length )
+{
+    tr_list * node;
+    struct peer_request tmp;
+
+    assert( msgs != NULL );
+    assert( length > 0 );
+
+    tmp.index = pieceIndex;
+    tmp.offset = offset;
+    tmp.length = length;
+
+    node = tr_list_find( msgs->clientAskedFor, &tmp, peer_request_compare );
+    if( node != NULL )
+    {
+        /* cancel the request */
+        const uint8_t bt_msgid = BT_CANCEL;
+        const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
+        fprintf( stderr, "w00t peer %p: cancelling req for piece %u, offset %u\n", msgs, (unsigned)pieceIndex, (unsigned)offset );
+        tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
+        tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
+        tr_peerIoWriteUint32( msgs->io, msgs->outMessages, pieceIndex );
+        tr_peerIoWriteUint32( msgs->io, msgs->outMessages, offset );
+        tr_peerIoWriteUint32( msgs->io, msgs->outMessages, length );
+
+        /* remove it from our "requested" list */
+        tr_list_remove_data( &msgs->peerAskedFor, node->data );
+    }
+}
+
+/**
+***
+**/
+
+void
+tr_peerMsgsHave( tr_peermsgs * msgs,
+                 uint32_t      pieceIndex )
+{
+    const uint8_t bt_msgid = BT_HAVE;
+    const uint32_t len = sizeof(uint8_t) + sizeof(uint32_t);
+    fprintf( stderr, "peer %p: telling them we HAVE piece #%d\n", msgs, pieceIndex );
+    tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
+    tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
+    tr_peerIoWriteUint32( msgs->io, msgs->outMessages, pieceIndex );
 }
 
 /**
@@ -282,11 +340,14 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
     const uint32_t len = sizeof(uint8_t) + 3 * sizeof(uint32_t);
     struct peer_request * req;
 
-    if( tr_list_size(peer->clientAskedFor) >= OUT_REQUESTS_MAX )
-        return TR_ADDREQ_FULL;
+    if( peer->info->clientIsChoked )
+        return TR_ADDREQ_CLIENT_CHOKED;
 
     if( !tr_bitfieldHas( peer->info->have, index ) )
         return TR_ADDREQ_MISSING;
+
+    if( tr_list_size( peer->clientAskedFor) >= OUT_REQUESTS_MAX )
+        return TR_ADDREQ_FULL;
 
     /* queue the request */
     tr_peerIoWriteUint32( peer->io, peer->outMessages, len );
@@ -294,7 +355,7 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
     tr_peerIoWriteUint32( peer->io, peer->outMessages, index );
     tr_peerIoWriteUint32( peer->io, peer->outMessages, offset );
     tr_peerIoWriteUint32( peer->io, peer->outMessages, length );
-    fprintf( stderr, "peer %p: requesting a block from piece %u, offset %u, length %u\n",
+    fprintf( stderr, "w00t peer %p: requesting a block from piece %u, offset %u, length %u\n",
              peer, (unsigned int)index, (unsigned int)offset, (unsigned int)length );
 
     /* add it to our `requests sent' list */
@@ -302,8 +363,8 @@ tr_peerMsgsAddRequest( tr_peermsgs * peer,
     req->index = index;
     req->offset = offset;
     req->length = length;
-    tr_list_prepend( &peer->clientAskedFor, req );
-    fprintf( stderr, "added a request; peer %p's clientAskedFor.size() is now %d\n", peer, tr_list_size(peer->clientAskedFor));
+    tr_list_append( &peer->clientAskedFor, req );
+    fprintf( stderr, "w00t added a request; peer %p's clientAskedFor.size() is now %d\n", peer, tr_list_size(peer->clientAskedFor));
 
     return TR_ADDREQ_OK;
 }
@@ -496,8 +557,9 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             tr_peerIoReadUint32( peer->io, inbuf, &ui32 );
             tr_bitfieldAdd( peer->info->have, ui32 );
             peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
-            fireGotHave( peer, ui32 );
+            fprintf( stderr, "after the HAVE message, peer progress is %f\n", peer->info->progress );
             updateInterest( peer );
+            fireGotHave( peer, ui32 );
             break;
 
         case BT_BITFIELD:
@@ -505,7 +567,7 @@ readBtMessage( tr_peermsgs * peer, struct evbuffer * inbuf )
             fprintf( stderr, "got a BT_BITFIELD\n" );
             tr_peerIoReadBytes( peer->io, inbuf, peer->info->have->bits, msglen );
             peer->info->progress = tr_bitfieldCountTrueBits( peer->info->have ) / (float)peer->torrent->info.pieceCount;
-            fprintf( stderr, "peer progress is %f\n", peer->info->progress );
+            fprintf( stderr, "after the BITFIELD peer progress is %f\n", peer->info->progress );
             fireGotBitfield( peer, peer->info->have );
             updateInterest( peer );
             /* FIXME: maybe unchoke */
@@ -578,21 +640,17 @@ fprintf( stderr, "left to read is [%"PRIu64"]\n", (uint64_t)peer->blockToUs.leng
 }
 
 static int
-canDownload( const tr_peermsgs * peer )
+canDownload( const tr_peermsgs * peer UNUSED )
 {
-    tr_torrent * tor = peer->torrent;
-
 #if 0
-    /* FIXME: was swift worth it?  did anyone notice a difference? */
-    if( SWIFT_ENABLED && !isSeeding && (peer->credit<0) )
-        return FALSE;
-#endif
+    tr_torrent * tor = peer->torrent;
 
     if( tor->downloadLimitMode == TR_SPEEDLIMIT_GLOBAL )
         return !tor->handle->useDownloadLimit || tr_rcCanTransfer( tor->handle->download );
 
     if( tor->downloadLimitMode == TR_SPEEDLIMIT_SINGLE )
         return tr_rcCanTransfer( tor->download );
+#endif
 
     return TRUE;
 }
@@ -631,13 +689,7 @@ fprintf( stderr, "block is the wrong length... expected %d and got %d\n", (int)l
         return;
     }
 
-    {
-        uint64_t block = index;
-        block *= tor->info.pieceSize;
-        block += offset;
-        block /= tor->blockSize;
-        fireGotBlock( peer, (uint32_t)block );
-    }
+    fireGotBlock( peer, index, offset, length );
 
     /* write to disk */
     if( tr_ioWrite( tor, index, offset, length, EVBUFFER_DATA( inbuf )))
@@ -681,7 +733,7 @@ fprintf( stderr, "got %"PRIu64"; left to read is [%"PRIu64"]\n", (uint64_t)len, 
 
         if( !peer->blockToUs.length )
         {
-fprintf( stderr, "w00t\n" );
+fprintf( stderr, "w00t -- index %u, offset %u\n", peer->blockToUs.index, peer->blockToUs.offset );
             gotBlock( peer, peer->blockToUs.index,
                             peer->blockToUs.offset,
                             peer->inBlock );
@@ -729,57 +781,58 @@ canUpload( const tr_peermsgs * peer )
 }
 
 static int
-pulse( void * vpeer )
+pulse( void * vmsgs )
 {
-    tr_peermsgs * peer = (tr_peermsgs *) vpeer;
+    tr_peermsgs * msgs = (tr_peermsgs *) vmsgs;
     size_t len;
 
     /* if we froze out a downloaded block because of speed limits,
        start listening to the peer again */
-    if( peer->notListening )
+    if( msgs->notListening )
     {
-        fprintf( stderr, "peer %p thawing out...\n", peer );
-        peer->notListening = 0;
-        tr_peerIoSetIOMode ( peer->io, EV_READ, 0 );
+        fprintf( stderr, "msgs %p thawing out...\n", msgs );
+        msgs->notListening = 0;
+        tr_peerIoSetIOMode ( msgs->io, EV_READ, 0 );
     }
 
-    if(( len = EVBUFFER_LENGTH( peer->outBlock ) ))
-    {
-        if( canUpload( peer ) )
-        {
-            const size_t outlen = MIN( len, 4096 );
-            tr_peerIoWrite( peer->io, EVBUFFER_DATA(peer->outBlock), outlen );
-            evbuffer_drain( peer->outBlock, outlen );
+    /* if we're running low on requests, ask for ones */
+    if( tr_list_size(msgs->clientAskedFor) <= OUT_REQUESTS_LOW )
+        fireBlocksRunningLow( msgs );
 
-            peer->torrent->uploadedCur += outlen;
-            tr_rcTransferred( peer->torrent->upload, outlen );
-            tr_rcTransferred( peer->handle->upload, outlen );
+    if(( len = EVBUFFER_LENGTH( msgs->outBlock ) ))
+    {
+        while ( len && canUpload( msgs ) )
+        {
+            const size_t outlen = MIN( len, 1024 );
+            tr_peerIoWrite( msgs->io, EVBUFFER_DATA(msgs->outBlock), outlen );
+            evbuffer_drain( msgs->outBlock, outlen );
+
+            msgs->torrent->uploadedCur += outlen;
+            tr_rcTransferred( msgs->torrent->upload, outlen );
+            tr_rcTransferred( msgs->handle->upload, outlen );
+
+            len -= outlen;
         }
     }
-    else if(( len = EVBUFFER_LENGTH( peer->outMessages ) ))
+    else if(( len = EVBUFFER_LENGTH( msgs->outMessages ) ))
     {
-        fprintf( stderr, "peer %p pulse is writing %d bytes worth of messages...\n", peer, (int)len );
-        tr_peerIoWriteBuf( peer->io, peer->outMessages );
-        evbuffer_drain( peer->outMessages, ~0 );
+        tr_peerIoWriteBuf( msgs->io, msgs->outMessages );
+        evbuffer_drain( msgs->outMessages, ~0 );
     }
-    else if(( peer->peerAskedFor ))
+    else if(( msgs->peerAskedFor ))
     {
-        struct peer_request * req = (struct peer_request*) peer->peerAskedFor->data;
+        struct peer_request * req = (struct peer_request*) msgs->peerAskedFor->data;
         uint8_t * tmp = tr_new( uint8_t, req->length );
         const uint8_t msgid = BT_PIECE;
         const uint32_t msglen = sizeof(uint8_t) + sizeof(uint32_t)*2 + req->length;
-fprintf( stderr, "peer %p starting to upload a block...\n", peer );
-        tr_ioRead( peer->torrent, req->index, req->offset, req->length, tmp );
-        tr_peerIoWriteUint32( peer->io, peer->outBlock, msglen );
-        tr_peerIoWriteBytes ( peer->io, peer->outBlock, &msgid, 1 );
-        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->index );
-        tr_peerIoWriteUint32( peer->io, peer->outBlock, req->offset );
-        tr_peerIoWriteBytes ( peer->io, peer->outBlock, tmp, req->length );
+        tr_ioRead( msgs->torrent, req->index, req->offset, req->length, tmp );
+        tr_peerIoWriteUint32( msgs->io, msgs->outBlock, msglen );
+        tr_peerIoWriteBytes ( msgs->io, msgs->outBlock, &msgid, 1 );
+        tr_peerIoWriteUint32( msgs->io, msgs->outBlock, req->index );
+        tr_peerIoWriteUint32( msgs->io, msgs->outBlock, req->offset );
+        tr_peerIoWriteBytes ( msgs->io, msgs->outBlock, tmp, req->length );
         tr_free( tmp );
     }
-
-    if( tr_list_size(peer->clientAskedFor) <= OUT_REQUESTS_LOW )
-        fireBlocksRunningLow( peer );
 
     return TRUE; /* loop forever */
 }
@@ -898,7 +951,6 @@ pexPulse( void * vpeer )
         peer->pex = diffs.elements;
         peer->pexCount = diffs.elementCount;
 
-       
         /* build the pex payload */
         tr_bencInit( &val, TYPE_DICT );
         tr_bencDictReserve( &val, 3 );
@@ -972,8 +1024,7 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     peer->info->clientIsInterested = 0;
     peer->info->peerIsInterested = 0;
     peer->info->have = tr_bitfieldNew( torrent->info.pieceCount );
-    peer->pulseTimer = tr_timerNew( peer->handle, pulse, peer, 500 );
-fprintf( stderr, "peer %p pulseTimer %p\n", peer, peer->pulseTimer );
+    peer->pulseTimer = tr_timerNew( peer->handle, pulse, peer, PEER_PULSE_INTERVAL_MSEC );
     peer->pexTimer = tr_timerNew( peer->handle, pexPulse, peer, PEX_INTERVAL );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );
@@ -992,7 +1043,6 @@ tr_peerMsgsFree( tr_peermsgs* p )
 {
     if( p != NULL )
     {
-fprintf( stderr, "peer %p destroying its pulse tag\n", p );
         tr_timerFree( &p->pulseTimer );
         tr_timerFree( &p->pexTimer );
         tr_publisherFree( &p->publisher );

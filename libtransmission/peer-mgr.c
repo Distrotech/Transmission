@@ -16,8 +16,9 @@
 #include <stdio.h> /* printf */
 
 #include "transmission.h"
-#include "handshake.h"
+#include "clients.h"
 #include "completion.h"
+#include "handshake.h"
 #include "net.h"
 #include "peer-io.h"
 #include "peer-mgr.h"
@@ -27,17 +28,12 @@
 #include "trevent.h"
 #include "utils.h"
 
-#define MINUTES_TO_MSEC(N) ((N) * 60 * 1000)
-
 /* how frequently to change which peers are choked */
-#define RECHOKE_PERIOD_SECONDS (MINUTES_TO_MSEC(10))
+#define RECHOKE_PERIOD_SECONDS (15 * 1000)
 
 /* how many downloaders to unchoke per-torrent.
  * http://wiki.theory.org/BitTorrentSpecification#Choking_and_Optimistic_Unchoking */
-#define NUM_DOWNLOADERS_TO_UNCHOKE 4
-
-/* across all torrents, how many peers maximum do we want connected? */
-#define MAX_CONNECTED_PEERS 80
+#define NUM_DOWNLOADERS_TO_UNCHOKE 6
 
 /**
 ***
@@ -402,16 +398,15 @@ refillPulse( void * vtorrent )
             for( j=0; j<size; )
             {
                 const int val = tr_peerMsgsAddRequest( peers[j]->msgs, index, begin, length );
-                if( val == TR_ADDREQ_FULL ) {
-                    fprintf( stderr, "peer %d of %d is full\n", (int)j, size );
+                if( val==TR_ADDREQ_FULL || val==TR_ADDREQ_CLIENT_CHOKED ) {
+                    fprintf( stderr, "peer %p (of %d) is full\n", peers[j]->msgs, size );
                     peers[j] = peers[--size];
                 }
                 else if( val == TR_ADDREQ_MISSING ) {
-                    fprintf( stderr, "peer doesn't have it\n" );
                     ++j;
                 }
                 else if( val == TR_ADDREQ_OK ) {
-                    fprintf( stderr, "peer %d took the request for block %d\n", j, i );
+                    fprintf( stderr, "peer %p took the request for block %d\n", peers[j]->msgs, b );
                     incrementReqCount( &t->blocks[i] );
                     j = size;
                 }
@@ -440,6 +435,26 @@ ensureRefillTag( Torrent * t )
 }
 
 static void
+broadcastHave( Torrent * t, uint32_t index )
+{
+    int i, size;
+    tr_peer ** peers = getConnectedPeers( t, &size );
+    for( i=0; i<size; ++i )
+        tr_peerMsgsHave( peers[i]->msgs, index );
+    tr_free( peers );
+}
+
+static void
+broadcastGotBlock( Torrent * t, uint32_t index, uint32_t offset, uint32_t length )
+{
+    int i, size;
+    tr_peer ** peers = getConnectedPeers( t, &size );
+    for( i=0; i<size; ++i )
+        tr_peerMsgsCancel( peers[i]->msgs, index, offset, length );
+    tr_free( peers );
+}
+
+static void
 msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 {
     Torrent * t = (Torrent *) vt;
@@ -448,14 +463,17 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
     switch( e->eventType )
     {
         case TR_PEERMSG_GOT_BITFIELD: {
-            const uint32_t begin = 0;
-            const uint32_t end = begin + t->tor->info.pieceCount;
-            uint32_t i;
-            for( i=begin; t->blocks!=NULL && i<end; ++i ) {
-                if( !tr_bitfieldHas( e->bitfield, i ) )
-                    continue;
-                assert( t->blocks[i].block == i );
-                incrementScarcity( &t->blocks[i] );
+            if( t->blocks!=NULL ) {
+                int i;
+                for( i=0; i<t->tor->info.pieceCount; ++i ) {
+                    const uint32_t begin = tr_torPieceFirstBlock( t->tor, i );
+                    const uint32_t end = begin + tr_torPieceCountBlocks( t->tor, i );
+                    uint32_t j;
+                    for( j=begin; t->blocks!=NULL && j<end; ++j ) {
+                        assert( t->blocks[j].block == j );
+                        incrementScarcity( &t->blocks[j] );
+                    }
+                }
             }
             break;
         }
@@ -468,15 +486,17 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
                 assert( t->blocks[i].block == i );
                 incrementScarcity( &t->blocks[i] );
             }
+            broadcastHave( t, e->pieceIndex );
             break;
         }
 
         case TR_PEERMSG_GOT_BLOCK: {
-            uint32_t i = e->blockIndex;
             if( t->blocks != NULL ) {
+                const uint32_t i = _tr_block( t->tor, e->pieceIndex, e->offset );
                 assert( t->blocks[i].block == i );
                 t->blocks[i].have = 1;
             }
+            broadcastGotBlock( t, e->pieceIndex, e->offset, e->length );
             break;
         }
 
@@ -498,7 +518,11 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 }
 
 static void
-myHandshakeDoneCB( tr_handshake * handshake, tr_peerIo * io, int isConnected, void * vmanager )
+myHandshakeDoneCB( tr_handshake    * handshake,
+                   tr_peerIo       * io,
+                   int               isConnected,
+                   const uint8_t   * peer_id,
+                   void            * vmanager )
 {
     int ok = isConnected;
     uint16_t port;
@@ -558,9 +582,9 @@ myHandshakeDoneCB( tr_handshake * handshake, tr_peerIo * io, int isConnected, vo
             peer->port = port;
             peer->io = io;
             peer->msgs = tr_peerMsgsNew( t->tor, peer );
+            peer->client = peer_id ? tr_clientForId( peer_id ) : NULL;
             fprintf( stderr, "PUB sub peer %p to msgs %p\n", peer, peer->msgs );
             peer->msgsTag = tr_peerMsgsSubscribe( peer->msgs, msgsCallbackFunc, t );
-            chokePulse( t );
         }
     }
 }
@@ -642,7 +666,7 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
     int i;
     const uint8_t * walk = peerCompact;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-    for( i=0; i<peerCount; ++i )
+    for( i=0; t!=NULL && i<peerCount; ++i )
     {
         tr_peer * peer;
         struct in_addr addr;
@@ -661,9 +685,9 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
 **/
 
 int
-tr_peerMgrIsAcceptingConnections( const tr_peerMgr * manager )
+tr_peerMgrIsAcceptingConnections( const tr_peerMgr * manager UNUSED )
 {
-    return manager->connectionCount < MAX_CONNECTED_PEERS;
+    return TRUE; /* manager->connectionCount < MAX_CONNECTED_PEERS; */
 }
 
 void
@@ -953,8 +977,9 @@ chokePulse( void * vtorrent )
     float bestDownloaderRate;
     ChokeData * data;
     tr_peer ** peers = getConnectedPeers( t, &size );
+    const time_t now = time( NULL );
 
-fprintf( stderr, "rechoking torrent %p, with %d peers\n", t, size );
+fprintf( stderr, "[%s] rechoking torrent %p, with %d peers\n", ctime(&now), t, size );
 
     if( size < 1 )
         return TRUE;
