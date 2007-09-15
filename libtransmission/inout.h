@@ -40,12 +40,8 @@ typedef struct tr_io tr_io;
 int tr_ioRead  ( struct tr_torrent*, int index, int begin, int len, uint8_t * );
 int tr_ioWrite ( struct tr_torrent *, int index, int begin, int len, uint8_t * );
 
-/***********************************************************************
- * tr_ioHash
- ***********************************************************************
- * Hashes the specified piece and updates the completion accordingly.
- **********************************************************************/
-int tr_ioHash ( tr_io *, int piece );
+/* hashes the specified piece and updates the completion accordingly. */
+int tr_ioHash ( tr_torrent*, int piece );
 
 /* close all the files associated with this torrent*/
 void tr_ioClose( const tr_torrent * );

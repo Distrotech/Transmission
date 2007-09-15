@@ -251,10 +251,9 @@ tr_ioClose( const tr_torrent * tor )
 }
 
 int
-tr_ioHash( tr_io * io, int pieceIndex )
+tr_ioHash( tr_torrent * tor, int pieceIndex )
 {
     int ret;
-    tr_torrent * tor = io->tor;
     const int success = !checkPiece( tor, pieceIndex );
 
     if( success )

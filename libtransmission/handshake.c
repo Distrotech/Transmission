@@ -625,6 +625,9 @@ fprintf( stderr, "pad d: need %d, got %d\n", (int)needlen, (int)EVBUFFER_LENGTH(
     return READ_AGAIN;
 }
 
+static void
+gotError( struct bufferevent * evbuf UNUSED, short what UNUSED, void * arg );
+
 /*ccc*/
 static int
 readHandshake( tr_handshake * handshake, struct evbuffer * inbuf )
@@ -675,7 +678,12 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     pstr[pstrlen] = '\0';
     fprintf( stderr, "pstrlen is [%s]\n", pstr );
     bytesRead += pstrlen;
-    assert( !strcmp( (char*)pstr, "BitTorrent protocol" ) );
+    fprintf( stderr, "%*.*s", pstrlen, pstrlen, (char*)pstr );
+    if( strcmp( (char*)pstr, "BitTorrent protocol" ) ) {
+        tr_free( pstr );
+        gotError( NULL, 0, handshake );
+        return READ_DONE;
+    }
     tr_free( pstr );
 
     /* reserved bytes */
@@ -795,10 +803,9 @@ fprintf( stderr, "handshake %p: firing done.  connected==%d\n", handshake, isCon
 }
 
 static void
-gotError( struct bufferevent * evbuf UNUSED, short what, void * arg )
+gotError( struct bufferevent * evbuf UNUSED, short what UNUSED, void * arg )
 {
     tr_handshake * handshake = (tr_handshake *) arg;
-fprintf( stderr, "handshake %p: got error [%s]; what==%hd... state was [%s]\n", handshake, strerror(errno), what, getStateName(handshake->state) );
 
     /* if the error happened while we were sending a public key, we might
      * have encountered a peer that doesn't do encryption... reconnect and
