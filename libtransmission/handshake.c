@@ -77,6 +77,7 @@ extern const char* getPeerId( void ) ;
 struct tr_handshake
 {
     unsigned int peerSupportsEncryption : 1;
+    unsigned int havePeerID             : 1;
     tr_peerIo * io;
     tr_crypto * crypto;
     struct tr_handle * handle;
@@ -86,11 +87,10 @@ struct tr_handshake
     uint8_t encryptionPreference;
     uint16_t pad_c_len;
     uint16_t pad_d_len;
-    int ia_len;
-    int crypto_select;
+    uint16_t  ia_len;
+    uint32_t crypto_select;
     uint8_t myReq1[SHA_DIGEST_LENGTH];
     uint8_t peer_id[20];
-    int have_peer_id;
     handshakeDoneCB doneCB;
     void * doneUserData;
 };
@@ -709,7 +709,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
     tr_peerIoReadBytes( handshake->io, inbuf, handshake->peer_id, sizeof(handshake->peer_id) );
     tr_peerIoSetPeersId( handshake->io, handshake->peer_id );
     bytesRead += sizeof(handshake->peer_id);
-    handshake->have_peer_id = TRUE;
+    handshake->havePeerID = TRUE;
 
     assert( bytesRead == HANDSHAKE_SIZE );
 
@@ -795,7 +795,7 @@ tr_handshakeFree( tr_handshake * handshake )
 static void
 fireDoneCB( tr_handshake * handshake, int isConnected )
 {
-    const uint8_t * peer_id = isConnected && handshake->have_peer_id
+    const uint8_t * peer_id = isConnected && handshake->havePeerID
         ? handshake->peer_id
         : NULL;
     (*handshake->doneCB)( handshake,
