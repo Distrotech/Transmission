@@ -23,6 +23,12 @@ struct tr_peermsgs;
 
 typedef struct tr_peer
 {
+    unsigned int  pexEnabled : 1;
+    unsigned int  peerIsChoked : 1;
+    unsigned int  peerIsInterested : 1;
+    unsigned int  clientIsChoked : 1;
+    unsigned int  clientIsInterested : 1;
+
     struct in_addr in_addr;
     uint16_t port;
     struct tr_peerIo * io;
@@ -36,13 +42,7 @@ typedef struct tr_peer
     /* the client name from the `v' string in LTEP's handshake dictionary */
     char * client;
 
-    uint64_t lastPexTime;
-
-    unsigned int  pexEnabled : 1;
-    unsigned int  peerIsChoked : 1;
-    unsigned int  peerIsInterested : 1;
-    unsigned int  clientIsChoked : 1;
-    unsigned int  clientIsInterested : 1;
+    time_t peerSentDataAt;
 
     struct tr_peermsgs * msgs;
     tr_publisher_tag msgsTag;

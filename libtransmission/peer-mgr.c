@@ -31,8 +31,10 @@
 /* how frequently to change which peers are choked */
 #define RECHOKE_PERIOD_SECONDS (15 * 1000)
 
+#define REFILL_PERIOD_MSEC 1000
+
 /* how many peers to unchoke per-torrent. */
-/* FIXME: make this user-configurable */
+/* FIXME: make this user-configurable? */
 #define NUM_UNCHOKED_PEERS_PER_TORRENT 8
 
 /**
@@ -398,17 +400,22 @@ refillPulse( void * vtorrent )
             for( j=0; j<size; )
             {
                 const int val = tr_peerMsgsAddRequest( peers[j]->msgs, index, begin, length );
-                if( val==TR_ADDREQ_FULL || val==TR_ADDREQ_CLIENT_CHOKED ) {
-                    fprintf( stderr, "peer %p (of %d) is full or is choking us\n", peers[j]->msgs, size );
-                    peers[j] = peers[--size];
-                }
-                else if( val == TR_ADDREQ_MISSING ) {
-                    ++j;
-                }
-                else if( val == TR_ADDREQ_OK ) {
-                    fprintf( stderr, "peer %p took the request for block %d\n", peers[j]->msgs, b );
-                    incrementReqCount( &t->blocks[i] );
-                    break;
+                switch( val )
+                {
+                    case TR_ADDREQ_FULL: 
+                    case TR_ADDREQ_CLIENT_CHOKED: 
+                        peers[j] = peers[--size];
+                        break;
+
+                    case TR_ADDREQ_MISSING: 
+                        ++j;
+                        break;
+
+                    case TR_ADDREQ_OK:
+                        fprintf( stderr, "peer %p took the request for block %d\n", peers[j]->msgs, b );
+                        incrementReqCount( &t->blocks[i] );
+                        j = size;
+                        break;
                 }
             }
         }
@@ -420,18 +427,7 @@ refillPulse( void * vtorrent )
     /* cleanup */
     tr_free( peers );
 
-    /* let the timer expire */
-    t->refillTimer = NULL;
-    return FALSE;
-}
-
-static void
-ensureRefillTag( Torrent * t )
-{
-    if( t->refillTimer == NULL ) {
-        t->refillTimer = tr_timerNew( t->manager->handle, refillPulse, t, 250 );
-        fprintf( stderr, "timer REFILL %p is new\n", t->refillTimer );
-    }
+    return TRUE;
 }
 
 static void
@@ -511,10 +507,6 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 
         case TR_PEERMSG_GOT_ERROR:
             /* FIXME */
-            break;
-
-        case TR_PEERMSG_BLOCKS_RUNNING_LOW:
-            ensureRefillTag( t );
             break;
 
         default:
@@ -632,8 +624,6 @@ maybeConnect( tr_peerMgr * manager, Torrent * t, tr_peer * peer )
         fprintf( stderr, "OUTGOING connection not being made because t [%s] is not running\n", t->tor->info.name );
         return;
     }
-
-fprintf( stderr, "OUTGOING OUTGOING OUTGOING OUTGOING connection trying to connect to the peer...\n" );
 
     io = tr_peerIoNewOutgoing( manager->handle,
                                &peer->in_addr,
@@ -798,7 +788,7 @@ tr_peerMgrAddTorrent( tr_peerMgr * manager,
     t->tor = tor;
     t->peers = tr_ptrArrayNew( );
     t->chokeTimer = tr_timerNew( manager->handle, chokePulse, t, RECHOKE_PERIOD_SECONDS );
-fprintf( stderr, "timer CHOKE %p is new\n", t->chokeTimer );
+    t->refillTimer = tr_timerNew( t->manager->handle, refillPulse, t, REFILL_PERIOD_MSEC );
 
     memcpy( t->hash, tor->info.hash, SHA_DIGEST_LENGTH );
     tr_ptrArrayInsertSorted( manager->torrents, t, torrentCompare );
@@ -928,10 +918,8 @@ tr_peerMgrDisablePex( tr_peerMgr    * manager,
     {
         int i, size;
         tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
-        for( i=0; i<size; ++i ) {
+        for( i=0; i<size; ++i )
             peers[i]->pexEnabled = disable ? 0 : 1;
-            peers[i]->lastPexTime = 0;
-        }
 
         tor->pexDisabled = disable;
     }
@@ -946,6 +934,8 @@ typedef struct
     tr_peer * peer;
     float rate;
     int randomKey;
+    int preferred;
+    int doUnchoke;
 }
 ChokeData;
 
@@ -954,59 +944,89 @@ compareChoke( const void * va, const void * vb )
 {
     const ChokeData * a = ( const ChokeData * ) va;
     const ChokeData * b = ( const ChokeData * ) vb;
-    if( a->rate > b->rate ) return -1;
-    if( a->rate < b->rate ) return 1;
-    return a->randomKey - b->randomKey;
+
+    if( a->preferred != b->preferred )
+        return a->preferred ? -1 : 1;
+
+    if( a->preferred )
+    {
+        if( a->rate > b->rate ) return -1;
+        if( a->rate < b->rate ) return 1;
+        return 0;
+    }
+    else
+    {
+        return a->randomKey - b->randomKey;
+    }
+}
+
+static int
+clientIsSnubbedBy( const tr_peer * peer )
+{
+    assert( peer != NULL );
+
+    return peer->peerSentDataAt < (time(NULL) - 30);
+}
+
+static void
+rechokeLeech( Torrent * t )
+{
+    int i, size, unchoked=0;
+    tr_peer ** peers = getConnectedPeers( t, &size );
+    ChokeData * choke = tr_new0( ChokeData, size );
+
+    /* sort the peers by preference and rate */
+    for( i=0; i<size; ++i ) {
+        tr_peer * peer = peers[i];
+        ChokeData * node = &choke[i];
+        node->peer = peer;
+        node->preferred = peer->peerIsInterested && !clientIsSnubbedBy(peer);
+        node->randomKey = tr_rand( INT_MAX );
+        node->rate = tr_peerIoGetRateToClient( peer->io );
+    }
+    qsort( choke, size, sizeof(ChokeData), compareChoke );
+
+    for( i=0; i<size && i<NUM_UNCHOKED_PEERS_PER_TORRENT; ++i ) {
+        choke[i].doUnchoke = 1;
+        ++unchoked;
+    }
+
+    for( ; i<size; ++i ) {
+        choke[i].doUnchoke = 1;
+        ++unchoked;
+        if( choke[i].peer->peerIsInterested )
+            break;
+    }
+
+    for( i=0; i<size; ++i )
+        tr_peerMsgsSetChoke( choke[i].peer->msgs, !choke[i].doUnchoke );
+
+    /* cleanup */
+    tr_free( choke );
+    tr_free( peers );
+}
+
+static void
+rechokeSeed( Torrent * t )
+{
+    int i, size;
+    tr_peer ** peers = getConnectedPeers( t, &size );
+
+    /* FIXME */
+    for( i=0; i<size; ++i )
+        tr_peerMsgsSetChoke( peers[i]->msgs, FALSE );
+
+    tr_free( peers );
 }
 
 static int
 chokePulse( void * vtorrent )
 {
-    Torrent * t = (Torrent *) vtorrent;
-    int i, size, unchoked;
+    Torrent * t = vtorrent;
     const int done = tr_cpGetStatus( t->tor->completion ) != TR_CP_INCOMPLETE;
-    ChokeData * data;
-    tr_peer ** peers = getConnectedPeers( t, &size );
-    const time_t now = time( NULL );
-    int optimistic = FALSE;
-
-fprintf( stderr, "[%s] rechoking torrent %p, with %d peers\n", ctime(&now), t, size );
-
-    if( size < 1 ) {
-        tr_free( peers );
-        return TRUE;
-    }
-
-    data = tr_new( ChokeData, size );
-    for( i=0; i<size; ++i ) {
-        data[i].peer = peers[i];
-        data[i].randomKey = tr_rand( INT_MAX );
-        data[i].rate = done ? tr_peerIoGetRateToPeer( peers[i]->io )
-                            : tr_peerIoGetRateToClient( peers[i]->io );
-    }
-
-    /* find the best peers and unchoke them */
-    qsort( data, size, sizeof(ChokeData), compareChoke );
-    for( i=unchoked=0; i<size && unchoked<NUM_UNCHOKED_PEERS_PER_TORRENT; ++i ) {
-        tr_peerMsgsSetChoke( data[i].peer->msgs, FALSE );
-        ++unchoked;
-    }
-    memmove( data, data+i, sizeof(ChokeData)*(size-i) );
-    size -= i;
-
-    /* of those remaining, optimistically the first interested one
-       (the were randomized in qsort already) and choke the rest */
-    for( i=0; i<size; ++i ) {
-        if( optimistic || !data[i].peer->peerIsInterested )
-            tr_peerMsgsSetChoke( data[i].peer->msgs, TRUE );
-        else {
-            optimistic = TRUE;
-            tr_peerMsgsSetChoke( data[i].peer->msgs, FALSE );
-        }
-    }
-
-    /* cleanup */
-    tr_free( data );
-    tr_free( peers );
+    if( done )
+        rechokeLeech( vtorrent );
+    else
+        rechokeSeed( vtorrent );
     return TRUE;
 }

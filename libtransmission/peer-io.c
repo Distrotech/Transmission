@@ -348,10 +348,11 @@ tr_peerIoWrite( tr_peerIo   * io,
 }
 
 void
-tr_peerIoWriteBuf( tr_peerIo             * io,
-                   const struct evbuffer * buf )
+tr_peerIoWriteBuf( tr_peerIo       * io,
+                   struct evbuffer * buf )
 {
     tr_peerIoWrite( io, EVBUFFER_DATA(buf), EVBUFFER_LENGTH(buf) );
+    evbuffer_drain( buf, ~0 );
 }
 
 /**
