@@ -72,9 +72,7 @@
 extern const char* getPeerId( void ) ;
 
 #define KEY_LEN 96
-#define PRIME_LEN 96
 #define VC_LENGTH 8
-
 
 struct tr_handshake
 {
