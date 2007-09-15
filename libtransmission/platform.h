@@ -48,23 +48,6 @@ void         tr_condSignal    ( tr_cond * );
 void         tr_condBroadcast ( tr_cond * );
 void         tr_condWait      ( tr_cond *, tr_lock * );
 
-/***
-**** RW lock:
-**** The lock can be had by one writer or any number of readers.
-***/
-
-typedef struct tr_rwlock tr_rwlock;
-
-tr_rwlock*    tr_rwNew           ( void );
-void          tr_rwFree          ( tr_rwlock * );
-void          tr_rwReaderLock    ( tr_rwlock * );
-int           tr_rwReaderTrylock ( tr_rwlock * );
-void          tr_rwReaderUnlock  ( tr_rwlock * );
-void          tr_rwWriterLock    ( tr_rwlock * );
-int           tr_rwWriterTrylock ( tr_rwlock * );
-void          tr_rwWriterUnlock  ( tr_rwlock * );
-
-
 struct in_addr; /* forward declaration to calm gcc down */
 int
 tr_getDefaultRoute( struct in_addr * addr );

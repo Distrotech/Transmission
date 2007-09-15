@@ -815,6 +815,8 @@ tr_peerMgrTorrentAvailability( const tr_peerMgr * manager,
     const tr_torrent * tor = t->tor;
     const float interval = tor->info.pieceCount / (float)tabCount;
 
+    memset( tab, 0, tabCount );
+
     for( i=0; i<tabCount; ++i )
     {
         const int piece = i * interval;

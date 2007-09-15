@@ -57,10 +57,8 @@ void tr_torrentResetTransferStats( tr_torrent * );
 
 void tr_torrentSetHasPiece( tr_torrent * tor, int pieceIndex, int has );
 
-void tr_torrentReaderLock    ( const tr_torrent * );
-void tr_torrentReaderUnlock  ( const tr_torrent * );
-void tr_torrentWriterLock    ( tr_torrent * );
-void tr_torrentWriterUnlock  ( tr_torrent * );
+void tr_torrentLock    ( const tr_torrent * );
+void tr_torrentUnlock  ( const tr_torrent * );
 
 void tr_torrentChangeMyPort  ( tr_torrent *, int port );
 
@@ -144,7 +142,7 @@ struct tr_torrent
     run_status_t               runStatusToSave;
     char                       runStatusToSaveIsSet;
     cp_status_t                cpStatus;
-    struct tr_rwlock         * lock;
+    struct tr_lock           * lock;
 
     struct tr_tracker        * tracker;
     struct tr_publisher_tag  * trackerSubscription;

@@ -82,27 +82,15 @@ tr_torrentFindFromObfuscatedHash( tr_handle      * handle,
 ***/
 
 void
-tr_torrentReaderLock( const tr_torrent * tor )
+tr_torrentLock( const tr_torrent * tor )
 {
-    tr_rwReaderLock ( (tr_rwlock*)tor->lock );
+    tr_lockLock ( (tr_lock*)tor->lock );
 }
 
 void
-tr_torrentReaderUnlock( const tr_torrent * tor )
+tr_torrentUnlock( const tr_torrent * tor )
 {
-    tr_rwReaderUnlock ( (tr_rwlock*)tor->lock );
-}
-
-void
-tr_torrentWriterLock( tr_torrent * tor )
-{
-    tr_rwWriterLock ( tor->lock );
-}
-
-void
-tr_torrentWriterUnlock( tr_torrent * tor )
-{
-    tr_rwWriterUnlock ( tor->lock );
+    tr_lockUnlock ( (tr_lock*)tor->lock );
 }
 
 /***
@@ -358,7 +346,7 @@ torrentRealInit( tr_handle_t * h,
 
     tr_torrentInitFilePieces( tor );
 
-    tor->lock = tr_rwNew( );
+    tor->lock = tr_lockNew( );
 
     tor->upload         = tr_rcInit();
     tor->download       = tr_rcInit();
@@ -678,14 +666,14 @@ tr_torrentGetFolder( const tr_torrent * tor )
 void
 tr_torrentChangeMyPort( tr_torrent * tor, int port )
 {
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     tor->publicPort = port;
 
     if( tor->tracker )
         tr_trackerChangeMyPort( tor->tracker );
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 /***********************************************************************
@@ -696,7 +684,7 @@ tr_torrentChangeMyPort( tr_torrent * tor, int port )
 
 void tr_torrentDisablePex( tr_torrent * tor, int disable )
 {
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     if( ! ( TR_FLAG_PRIVATE & tor->info.flags ) )
     {
@@ -709,17 +697,17 @@ void tr_torrentDisablePex( tr_torrent * tor, int disable )
         }
     }
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 static int tr_didStateChangeTo ( tr_torrent * tor, int status )
 {
     int ret;
 
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
     if (( ret = tor->hasChangedState == status ))
         tor->hasChangedState = -1;
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 
     return ret;
 }
@@ -757,7 +745,7 @@ tr_torrentStat( tr_torrent * tor )
     tr_stat_t * s;
     struct tr_tracker * tc;
 
-    tr_torrentReaderLock( tor );
+    tr_torrentLock( tor );
 
     tor->statCur = ( tor->statCur + 1 ) % 2;
     s = &tor->stats[tor->statCur];
@@ -832,7 +820,7 @@ tr_torrentStat( tr_torrent * tor )
       ? (float)s->uploaded / (float)MAX(s->downloaded, s->downloadedValid)
       : TR_RATIO_NA; 
     
-    tr_torrentReaderUnlock( tor );
+    tr_torrentUnlock( tor );
 
     return s;
 }
@@ -951,7 +939,7 @@ void tr_torrentAmountFinished( const tr_torrent * tor, float * tab, int size )
 {
     int i;
     float interval;
-    tr_torrentReaderLock( tor );
+    tr_torrentLock( tor );
 
     interval = (float)tor->info.pieceCount / (float)size;
     for( i = 0; i < size; i++ )
@@ -960,13 +948,13 @@ void tr_torrentAmountFinished( const tr_torrent * tor, float * tab, int size )
         tab[i] = tr_cpPercentBlocksInPiece( tor->completion, piece );
     }
 
-    tr_torrentReaderUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 void
 tr_torrentResetTransferStats( tr_torrent * tor )
 {
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     tor->downloadedPrev += tor->downloadedCur;
     tor->downloadedCur   = 0;
@@ -975,21 +963,21 @@ tr_torrentResetTransferStats( tr_torrent * tor )
     tor->corruptPrev    += tor->corruptCur;
     tor->corruptCur      = 0;
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 
 void
 tr_torrentSetHasPiece( tr_torrent * tor, int pieceIndex, int has )
 {
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     if( has )
         tr_cpPieceAdd( tor->completion, pieceIndex );
     else
         tr_cpPieceRem( tor->completion, pieceIndex );
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 void tr_torrentRemoveSaved( tr_torrent * tor )
@@ -1029,7 +1017,7 @@ fprintf( stderr, "closing torrent %s\n", tor->info.name );
 
     tr_sharedLock( h->shared );
 
-    tr_rwFree( tor->lock );
+    tr_lockFree( tor->lock );
     tr_cpClose( tor->completion );
 
     tr_rcClose( tor->upload );
@@ -1126,7 +1114,7 @@ recheckCpState( tr_torrent * tor )
 {
     cp_status_t cpStatus;
 
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     cpStatus = tr_cpGetStatus( tor->completion );
     if( cpStatus != tor->cpStatus ) {
@@ -1139,7 +1127,7 @@ recheckCpState( tr_torrent * tor )
         tr_ioClose( tor );
         saveFastResumeSoon( tor );
     }
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 /**
@@ -1154,7 +1142,7 @@ tr_torrentSetFilePriority( tr_torrent   * tor,
     int i;
     tr_file_t * file;
 
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     assert( tor != NULL );
     assert( 0<=fileIndex && fileIndex<tor->info.fileCount );
@@ -1171,7 +1159,7 @@ tr_torrentSetFilePriority( tr_torrent   * tor,
 
     saveFastResumeSoon( tor );
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 void
@@ -1190,11 +1178,11 @@ tr_torrentGetFilePriority( const tr_torrent *  tor, int file )
 {
     tr_priority_t ret;
 
-    tr_torrentReaderLock( tor );
+    tr_torrentLock( tor );
     assert( tor != NULL );
     assert( 0<=file && file<tor->info.fileCount );
     ret = tor->info.files[file].priority;
-    tr_torrentReaderUnlock( tor );
+    tr_torrentUnlock( tor );
 
     return ret;
 }
@@ -1206,11 +1194,11 @@ tr_torrentGetFilePriorities( const tr_torrent * tor )
     int i;
     tr_priority_t * p;
 
-    tr_torrentReaderLock( tor );
+    tr_torrentLock( tor );
     p = tr_new0( tr_priority_t, tor->info.fileCount );
     for( i=0; i<tor->info.fileCount; ++i )
         p[i] = tor->info.files[i].priority;
-    tr_torrentReaderUnlock( tor );
+    tr_torrentUnlock( tor );
 
     return p;
 }
@@ -1224,12 +1212,12 @@ tr_torrentGetFileDL( const tr_torrent * tor,
                      int                file )
 {
     int doDownload;
-    tr_torrentReaderLock( tor );
+    tr_torrentLock( tor );
 
     assert( 0<=file && file<tor->info.fileCount );
     doDownload = !tor->info.files[file].dnd;
 
-    tr_torrentReaderUnlock( tor );
+    tr_torrentUnlock( tor );
     return doDownload != 0;
 }
 
@@ -1244,7 +1232,7 @@ tr_torrentSetFileDL( tr_torrent  * tor,
     int lastPiece, lastPieceDND;
     int i;
 
-    tr_torrentWriterLock( tor );
+    tr_torrentLock( tor );
 
     file = &tor->info.files[fileIndex];
     file->dnd = dnd;
@@ -1285,7 +1273,7 @@ tr_torrentSetFileDL( tr_torrent  * tor,
 
     saveFastResumeSoon( tor );
 
-    tr_torrentWriterUnlock( tor );
+    tr_torrentUnlock( tor );
 }
 
 void
