@@ -199,18 +199,19 @@ tr_set_compare( const void * va, size_t aCount,
                 tr_set_func in_both_cb,
                 void * userData )
 {
-    size_t ai, bi;
     const uint8_t * a = (const uint8_t *) va;
     const uint8_t * b = (const uint8_t *) vb;
+    const uint8_t * aend = a + elementSize*aCount;
+    const uint8_t * bend = b + elementSize*bCount;
 
-    for( ai=bi=0; ai<aCount && bi<bCount; )
+    while( a!=aend || b!=bend )
     {
-        if( ai==aCount )
+        if( a==aend )
         {
             (*in_b_cb)( (void*)b, userData );
             b += elementSize;
         }
-        else if ( bi==bCount )
+        else if ( b==bend )
         {
             (*in_a_cb)( (void*)a, userData );
             a += elementSize;

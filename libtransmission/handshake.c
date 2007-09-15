@@ -78,6 +78,7 @@ extern const char* getPeerId( void ) ;
 
 struct tr_handshake
 {
+    unsigned int peerSupportsEncryption : 1;
     tr_peerIo * io;
     tr_crypto * crypto;
     struct tr_handle * handle;
@@ -450,6 +451,7 @@ fprintf( stderr, "%*.*s\n", HANDSHAKE_NAME_LEN, HANDSHAKE_NAME_LEN, EVBUFFER_DAT
     }
 
     fprintf( stderr, "got a %s handshake\n", (isEncrypted ? "encrypted" : "plaintext") );
+    handshake->peerSupportsEncryption = isEncrypted;
     tr_peerIoSetEncryption( handshake->io, isEncrypted
         ? PEER_ENCRYPTION_RC4
         : PEER_ENCRYPTION_PLAINTEXT );
@@ -656,6 +658,7 @@ fprintf( stderr, "handshake payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (i
         EVBUFFER_DATA(inbuf)[2], 
         EVBUFFER_DATA(inbuf)[3] );
     isEncrypted = pstrlen != 19;
+    handshake->peerSupportsEncryption = isEncrypted;
     tr_peerIoSetEncryption( handshake->io, isEncrypted
         ? PEER_ENCRYPTION_RC4
         : PEER_ENCRYPTION_PLAINTEXT );
@@ -797,8 +800,12 @@ fireDoneCB( tr_handshake * handshake, int isConnected )
     const uint8_t * peer_id = isConnected && handshake->have_peer_id
         ? handshake->peer_id
         : NULL;
-fprintf( stderr, "handshake %p: firing done.  connected==%d\n", handshake, isConnected );
-    (*handshake->doneCB)(handshake, handshake->io, isConnected, peer_id, handshake->doneUserData);
+    (*handshake->doneCB)( handshake,
+                          handshake->io,
+                          isConnected,
+                          peer_id,
+                          handshake->peerSupportsEncryption,
+                          handshake->doneUserData );
     tr_handshakeFree( handshake );
 }
 

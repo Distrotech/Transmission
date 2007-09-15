@@ -38,12 +38,9 @@
 ***
 **/
 
-#define MINUTES_TO_MSEC(N) ((N) * 60 * 1000)
+#define PEX_INTERVAL (60 * 1000)
 
-/* pex attempts are made this frequently */
-#define PEX_INTERVAL (MINUTES_TO_MSEC(1))
-
-#define PEER_PULSE_INTERVAL_MSEC 50
+#define PEER_PULSE_INTERVAL (50)
 
 enum
 {
@@ -90,8 +87,6 @@ peer_request_compare( const void * va, const void * vb )
 
 struct tr_peermsgs
 {
-    uint8_t state;
-
     tr_peer * info;
 
     tr_handle * handle;
@@ -109,19 +104,23 @@ struct tr_peermsgs
     tr_timer * pulseTimer;
     tr_timer * pexTimer;
 
-    unsigned int  notListening        : 1;
+    unsigned int notListening    : 1;
+    unsigned int peerSupportsPex : 1;
 
     struct peer_request blockToUs; /* the block currntly being sent to us */
 
-    uint32_t incomingMessageLength;
-
     time_t gotKeepAliveTime;
     time_t clientSentPexAt;
+
+    uint8_t state;
 
     uint8_t ut_pex_id;
     uint16_t listeningPort;
 
     uint16_t pexCount;
+
+    uint32_t incomingMessageLength;
+
     tr_pex * pex;
 };
 
@@ -268,8 +267,9 @@ tr_peerMsgsSetChoke( tr_peermsgs * msgs, int choke )
 {
     assert( msgs != NULL );
     assert( msgs->info != NULL );
+    assert( choke==0 || choke==1 );
 
-    if( msgs->info->peerIsChoked != !!choke )
+    if( msgs->info->peerIsChoked != choke )
     {
         const uint32_t len = sizeof(uint8_t);
         const uint8_t bt_msgid = choke ? BT_CHOKE : BT_UNCHOKE;
@@ -410,11 +410,13 @@ parseLtepHandshake( tr_peermsgs * peer, int len, struct evbuffer * inbuf )
     if( tr_bencIsDict( sub ) ) {
         sub = tr_bencDictFind( sub, "ut_pex" );
         if( tr_bencIsInt( sub ) ) {
+            peer->peerSupportsPex = 1;
             peer->ut_pex_id = (uint8_t) sub->val.i;
             fprintf( stderr, "peer->ut_pex is %d\n", (int)peer->ut_pex_id );
         }
     }
 
+#if 0
     /* get peer's client name */
     sub = tr_bencDictFind( &val, "v" );
     if( tr_bencIsStr( sub ) ) {
@@ -426,6 +428,7 @@ for( i=0; i<sub->val.s.i; ++i ) { fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i
                                   if( (int)peer->info->client[i]==-75 ) peer->info->client[i]='u'; }
         fprintf( stderr, "peer->client is now [%s]\n", peer->info->client );
     }
+#endif
 
     /* get peer's listening port */
     sub = tr_bencDictFind( &val, "p" );
@@ -439,12 +442,12 @@ for( i=0; i<sub->val.s.i; ++i ) { fprintf( stderr, "[%c] (%d)\n", sub->val.s.s[i
 }
 
 static void
-parseUtPex( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
+parseUtPex( tr_peermsgs * msgs, int msglen, struct evbuffer * inbuf )
 {
     benc_val_t val, * sub;
     uint8_t * tmp;
 
-    if( !peer->info->pexEnabled ) /* no sharing! */
+    if( msgs->torrent->pexDisabled ) /* no sharing! */
         return;
 
     tmp = tr_new( uint8_t, msglen );
@@ -460,13 +463,13 @@ parseUtPex( tr_peermsgs * peer, int msglen, struct evbuffer * inbuf )
     if( tr_bencIsStr(sub) && ((sub->val.s.i % 6) == 0)) {
         const int n = sub->val.s.i / 6 ;
         fprintf( stderr, "got %d peers from uT pex\n", n );
-        tr_peerMgrAddPeers( peer->handle->peerMgr,
-                            peer->torrent->info.hash,
+        tr_peerMgrAddPeers( msgs->handle->peerMgr,
+                            msgs->torrent->info.hash,
                             TR_PEER_FROM_PEX,
                             (uint8_t*)sub->val.s.s, n );
     }
 
-    fireGotPex( peer );
+    fireGotPex( msgs );
 
     tr_bencFree( &val );
     tr_free( tmp );
@@ -491,9 +494,8 @@ parseLtep( tr_peermsgs * msgs, int msglen, struct evbuffer * inbuf )
     else if( ltep_msgid == msgs->ut_pex_id )
     {
         fprintf( stderr, "got ut pex\n" );
-        msgs->info->pexEnabled = 1;
+        msgs->peerSupportsPex = 1;
         parseUtPex( msgs, msglen, inbuf );
-        //sendPex( msgs );
     }
     else
     {
@@ -979,7 +981,8 @@ typedef struct
 }
 PexDiffs;
 
-static void pexAddedCb( void * vpex, void * userData )
+static void
+pexAddedCb( void * vpex, void * userData )
 {
     PexDiffs * diffs = (PexDiffs *) userData;
     tr_pex * pex = (tr_pex *) vpex;
@@ -991,7 +994,8 @@ static void pexAddedCb( void * vpex, void * userData )
     }
 }
 
-static void pexRemovedCb( void * vpex, void * userData )
+static void
+pexRemovedCb( void * vpex, void * userData )
 {
     PexDiffs * diffs = (PexDiffs *) userData;
     tr_pex * pex = (tr_pex *) vpex;
@@ -1002,7 +1006,8 @@ static void pexRemovedCb( void * vpex, void * userData )
     }
 }
 
-static void pexElementCb( void * vpex, void * userData )
+static void
+pexElementCb( void * vpex, void * userData )
 {
     PexDiffs * diffs = (PexDiffs *) userData;
     tr_pex * pex = (tr_pex *) vpex;
@@ -1016,7 +1021,7 @@ static void pexElementCb( void * vpex, void * userData )
 static void
 sendPex( tr_peermsgs * msgs )
 {
-    if( msgs->info->pexEnabled )
+    if( msgs->peerSupportsPex && !msgs->torrent->pexDisabled )
     {
         int i;
         tr_pex * newPex = NULL;
@@ -1065,8 +1070,10 @@ sendPex( tr_peermsgs * msgs )
         /* "added.f" */
         flags = tr_bencDictAdd( &val, "added.f" );
         tmp = walk = tr_new( uint8_t, diffs.addedCount );
-        for( i=0; i<diffs.addedCount; ++i )
+        for( i=0; i<diffs.addedCount; ++i ) {
+            fprintf( stderr, "PEX -->> -->> flag is %d\n", (int)diffs.added[i].flags );
             *walk++ = diffs.added[i].flags;
+        }
         assert( ( walk - tmp ) == diffs.addedCount );
         tr_bencInitStr( flags, tmp, walk-tmp, FALSE );
 
@@ -1128,7 +1135,7 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     peer->info->clientIsInterested = 0;
     peer->info->peerIsInterested = 0;
     peer->info->have = tr_bitfieldNew( torrent->info.pieceCount );
-    peer->pulseTimer = tr_timerNew( peer->handle, pulse, peer, PEER_PULSE_INTERVAL_MSEC );
+    peer->pulseTimer = tr_timerNew( peer->handle, pulse, peer, PEER_PULSE_INTERVAL );
     peer->pexTimer = tr_timerNew( peer->handle, pexPulse, peer, PEX_INTERVAL );
     peer->outMessages = evbuffer_new( );
     peer->outBlock = evbuffer_new( );

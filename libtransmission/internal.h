@@ -148,7 +148,6 @@ struct tr_torrent
     struct tr_publisher_tag  * trackerSubscription;
     uint64_t                   startDate;
     uint64_t                   stopDate;
-    char                       ioLoaded;
 
     uint64_t                   downloadedCur;
     uint64_t                   downloadedPrev;

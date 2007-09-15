@@ -23,16 +23,16 @@ struct tr_peermsgs;
 
 typedef struct tr_peer
 {
-    unsigned int  pexEnabled : 1;
     unsigned int  peerIsChoked : 1;
     unsigned int  peerIsInterested : 1;
     unsigned int  clientIsChoked : 1;
     unsigned int  clientIsInterested : 1;
+    unsigned int  peerSupportsEncryption : 1;
 
     struct in_addr in_addr;
     uint16_t port;
     struct tr_peerIo * io;
-    int from;
+    uint8_t from;
 
     struct tr_bitfield * banned;
     struct tr_bitfield * blame;
@@ -46,9 +46,6 @@ typedef struct tr_peer
 
     struct tr_peermsgs * msgs;
     tr_publisher_tag msgsTag;
-
-    struct tr_pex * lastPex;
-    int lastPexCount;
 }
 tr_peer;
 

@@ -519,6 +519,7 @@ myHandshakeDoneCB( tr_handshake    * handshake,
                    tr_peerIo       * io,
                    int               isConnected,
                    const uint8_t   * peer_id,
+                   int               peerSupportsEncryption,
                    void            * vmanager )
 {
     int ok = isConnected;
@@ -530,6 +531,8 @@ myHandshakeDoneCB( tr_handshake    * handshake,
     tr_handshake * ours;
 
     assert( io != NULL );
+    assert( isConnected==0 || isConnected==1 );
+    assert( peerSupportsEncryption==0 || peerSupportsEncryption==1 );
 
     ours = tr_ptrArrayRemoveSorted( manager->handshakes,
                                     handshake,
@@ -580,6 +583,7 @@ myHandshakeDoneCB( tr_handshake    * handshake,
             peer->io = io;
             peer->msgs = tr_peerMsgsNew( t->tor, peer );
             peer->client = peer_id ? tr_clientForId( peer_id ) : NULL;
+            peer->peerSupportsEncryption = peerSupportsEncryption ? 1 : 0;
             fprintf( stderr, "PUB sub peer %p to msgs %p\n", peer, peer->msgs );
             peer->msgsTag = tr_peerMsgsSubscribe( peer->msgs, msgsCallbackFunc, t );
         }
@@ -722,9 +726,15 @@ tr_peerMgrGetPeers( tr_peerMgr      * manager,
 
     for( i=0; i<peerCount; ++i, ++walk )
     {
-        walk->in_addr = peers[i]->in_addr;
-        walk->port = peers[i]->port;
-        walk->flags = '\0'; /* FIXME */
+        const tr_peer * peer = peers[i];
+
+        walk->in_addr = peer->in_addr;
+
+        walk->port = peer->port;
+
+        walk->flags = 0;
+        if( peer->peerSupportsEncryption ) walk->flags |= 1;
+        if( peer->progress >= 1.0 )        walk->flags |= 2;
     }
 
     assert( ( walk - pex ) == peerCount );
@@ -906,25 +916,6 @@ tr_peerMgrPeerStats( const tr_peerMgr  * manager,
 
     *setmeCount = size;
     return ret;
-}
-
-void
-tr_peerMgrDisablePex( tr_peerMgr    * manager,
-                      const uint8_t * torrentHash,
-                      int             disable)
-{
-    Torrent * t = getExistingTorrent( manager, torrentHash );
-    tr_torrent * tor = t->tor;
-
-    if( ( tor->pexDisabled != disable ) && ! ( TR_FLAG_PRIVATE & tor->info.flags ) )
-    {
-        int i, size;
-        tr_peer ** peers = (tr_peer **) tr_ptrArrayPeek( t->peers, &size );
-        for( i=0; i<size; ++i )
-            peers[i]->pexEnabled = disable ? 0 : 1;
-
-        tor->pexDisabled = disable;
-    }
 }
 
 /**

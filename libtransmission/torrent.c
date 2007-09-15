@@ -676,28 +676,19 @@ tr_torrentChangeMyPort( tr_torrent * tor, int port )
     tr_torrentUnlock( tor );
 }
 
-/***********************************************************************
- * torrentReallyStop
- ***********************************************************************
- * Joins the download thread and frees/closes everything related to it.
- **********************************************************************/
 
-void tr_torrentDisablePex( tr_torrent * tor, int disable )
+void
+tr_torrentDisablePex( tr_torrent * tor, int disable )
 {
-    tr_torrentLock( tor );
+    assert( tor != NULL );
+    assert( disable==0 || disable==1 );
+    //assert( tor->runStatus != TR_RUN_RUNNING );
 
-    if( ! ( TR_FLAG_PRIVATE & tor->info.flags ) )
-    {
-        if( tor->pexDisabled != disable )
-        {
-            tor->pexDisabled = disable;
-            tr_peerMgrDisablePex( tor->handle->peerMgr,
-                                  tor->info.hash,
-                                  tor->pexDisabled );
-        }
-    }
+    /* pex is ALWAYS disabled for private torrents */
+    if( tor->info.flags & TR_FLAG_PRIVATE )
+        disable = TRUE;
 
-    tr_torrentUnlock( tor );
+    tor->pexDisabled = disable;
 }
 
 static int tr_didStateChangeTo ( tr_torrent * tor, int status )

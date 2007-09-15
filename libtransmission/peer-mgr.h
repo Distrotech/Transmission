@@ -79,10 +79,6 @@ void tr_peerMgrUpdateCompletion( tr_peerMgr     * manager,
 void tr_peerMgrRemoveTorrent( tr_peerMgr     * manager,
                                const uint8_t  * torrentHash );
 
-void tr_peerMgrDisablePex( tr_peerMgr    * manager, 
-                           const uint8_t * torrentHash,
-                           int             disable );
-
 void tr_peerMgrTorrentAvailability( const tr_peerMgr * manager,
                                     const uint8_t    * torrentHash,
                                     int8_t           * tab,
