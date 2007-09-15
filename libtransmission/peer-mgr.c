@@ -14,6 +14,7 @@
 #include <string.h> /* memcpy, memcmp */
 #include <stdlib.h> /* qsort */
 #include <stdio.h> /* printf */
+#include <limits.h> /* INT_MAX */
 
 #include "transmission.h"
 #include "clients.h"
