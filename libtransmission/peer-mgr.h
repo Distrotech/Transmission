@@ -72,10 +72,6 @@ void tr_peerMgrStopTorrent( tr_peerMgr     * manager,
 void tr_peerMgrAddTorrent( tr_peerMgr         * manager,
                            struct tr_torrent  * tor );
 
-void tr_peerMgrUpdateCompletion( tr_peerMgr     * manager,
-                                 const uint8_t  * torrentHash );
-
-
 void tr_peerMgrRemoveTorrent( tr_peerMgr     * manager,
                                const uint8_t  * torrentHash );
 

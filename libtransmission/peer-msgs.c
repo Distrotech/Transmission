@@ -128,7 +128,7 @@ struct tr_peermsgs
 ***  EVENTS
 **/
 
-static const tr_peermsgs_event blankEvent = { 0, 0, 0, 0, NULL };
+static const tr_peermsgs_event blankEvent = { 0, 0, 0, 0 };
 
 static void
 publishEvent( tr_peermsgs * peer, int eventType )
@@ -145,33 +145,20 @@ fireGotPex( tr_peermsgs * peer )
 }
 
 static void
-fireGotBitfield( tr_peermsgs * peer, const tr_bitfield * bitfield )
+fireNeedReq( tr_peermsgs * msgs )
 {
     tr_peermsgs_event e = blankEvent;
-    e.eventType = TR_PEERMSG_PEER_BITFIELD;
-    e.bitfield = bitfield;
-    tr_publisherPublish( peer->publisher, peer, &e );
-}
-
-static void
-fireHave( tr_peermsgs * msgs, int isClient, uint32_t pieceIndex )
-{
-    tr_peermsgs_event e = blankEvent;
-    e.eventType = isClient ? TR_PEERMSG_CLIENT_HAVE : TR_PEERMSG_PEER_HAVE;
-    e.pieceIndex = pieceIndex;
+    e.eventType = TR_PEERMSG_NEED_REQ;
     tr_publisherPublish( msgs->publisher, msgs, &e );
 }
 
 static void
 fireClientHave( tr_peermsgs * msgs, uint32_t pieceIndex )
 {
-    fireHave( msgs, TRUE, pieceIndex );
-}
-
-static void
-firePeerHave( tr_peermsgs * msgs, uint32_t pieceIndex )
-{
-    fireHave( msgs, FALSE, pieceIndex );
+    tr_peermsgs_event e = blankEvent;
+    e.eventType = TR_PEERMSG_CLIENT_HAVE;
+    e.pieceIndex = pieceIndex;
+    tr_publisherPublish( msgs->publisher, msgs, &e );
 }
 
 static void
@@ -260,6 +247,8 @@ updateInterest( tr_peermsgs * msgs )
     const int i = isPeerInteresting( msgs );
     if( i != msgs->info->clientIsInterested )
         sendInterest( msgs, i );
+    if( i )
+        fireNeedReq( msgs );
 }
 
 void
@@ -548,7 +537,6 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
             msgs->info->clientIsChoked = 1;
             tr_list_foreach( msgs->peerAskedFor, tr_free );
             tr_list_free( &msgs->peerAskedFor );
-            /* FIXME: maybe choke them */
             /* FIXME: unmark anything we'd requested from them... */
             break;
 
@@ -556,22 +544,19 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
             assert( msglen == 0 );
             fprintf( stderr, "peer-msgs %p sent us a BT_UNCHOKE\n", msgs );
             msgs->info->clientIsChoked = 0;
-            /* FIXME: maybe unchoke them */
-            /* FIXME: maybe send them requests */
+            fireNeedReq( msgs );
             break;
 
         case BT_INTERESTED:
             assert( msglen == 0 );
             fprintf( stderr, "peer-msgs %p sent us a BT_INTERESTED\n", msgs );
             msgs->info->peerIsInterested = 1;
-            /* FIXME: maybe unchoke them */
             break;
 
         case BT_NOT_INTERESTED:
             assert( msglen == 0 );
             fprintf( stderr, "peer-msgs %p sent us a BT_NOT_INTERESTED\n", msgs );
             msgs->info->peerIsInterested = 0;
-            /* FIXME: maybe choke them */
             break;
 
         case BT_HAVE:
@@ -582,7 +567,6 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
             msgs->info->progress = tr_bitfieldCountTrueBits( msgs->info->have ) / (float)msgs->torrent->info.pieceCount;
             fprintf( stderr, "after the HAVE message, peer progress is %f\n", msgs->info->progress );
             updateInterest( msgs );
-            firePeerHave( msgs, ui32 );
             break;
 
         case BT_BITFIELD:
@@ -591,7 +575,6 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
             tr_peerIoReadBytes( msgs->io, inbuf, msgs->info->have->bits, msglen );
             msgs->info->progress = tr_bitfieldCountTrueBits( msgs->info->have ) / (float)msgs->torrent->info.pieceCount;
             fprintf( stderr, "after the BITFIELD peer progress is %f\n", msgs->info->progress );
-            fireGotBitfield( msgs, msgs->info->have );
             updateInterest( msgs );
             /* FIXME: maybe unchoke */
             break;
@@ -677,7 +660,7 @@ peerGotBytes( tr_peermsgs * msgs, uint32_t byteCount )
     tr_torrent * tor = msgs->torrent;
     tor->uploadedCur += byteCount;
     tr_rcTransferred( tor->upload, byteCount );
-    tr_rcTransferred( tor->upload, byteCount );
+    tr_rcTransferred( tor->handle->upload, byteCount );
 }
 
 static int
@@ -796,6 +779,7 @@ gotBlock( tr_peermsgs      * msgs,
     addUsToBlamefield( msgs, index );
 
     fireGotBlock( msgs, index, offset, length );
+    fireNeedReq( msgs );
 
     /**
     ***  Handle if this was the last block in the piece
@@ -875,9 +859,13 @@ canRead( struct bufferevent * evin, void * vpeer )
 **/
 
 static int
-canUpload( const tr_peermsgs * peer )
+canUpload( const tr_peermsgs * msgs )
 {
-    const tr_torrent * tor = peer->torrent;
+    const tr_torrent * tor = msgs->torrent;
+
+    /* don't let our outbuffer get too large */
+    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 1024 )
+        return FALSE;
 
     if( tor->uploadLimitMode == TR_SPEEDLIMIT_GLOBAL )
         return !tor->handle->useUploadLimit || tr_rcCanTransfer( tor->handle->upload );
@@ -1145,6 +1133,7 @@ tr_peerMsgsNew( struct tr_torrent * torrent, struct tr_peer * info )
     tr_peerIoSetIOMode( peer->io, EV_READ|EV_WRITE, 0 );
 
     sendBitfield( peer );
+    fireNeedReq( peer );
 
     return peer;
 }

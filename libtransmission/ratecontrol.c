@@ -55,11 +55,11 @@ static float
 rateForInterval( const tr_ratecontrol * r, int interval_msec )
 {
     uint64_t bytes = 0;
-    const uint64_t now = tr_date ();
+    const uint64_t cutoff = tr_date () - interval_msec;
     int i = r->newest;
     for( ;; )
     {
-        if( r->transfers[i].date + interval_msec < now )
+        if( r->transfers[i].date < cutoff )
             break;
 
         bytes += r->transfers[i].size;

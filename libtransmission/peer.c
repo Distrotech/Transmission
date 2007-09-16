@@ -574,7 +574,7 @@ int tr_peerPulse( tr_peer_t * peer )
     if( PEER_STATUS_CONNECTING == peer->status )
     {
         uint8_t buf[HANDSHAKE_SIZE];
-        const tr_info_t * inf;
+        const tr_info * inf;
 
         inf = tr_torrentInfo( tor );
         assert( 68 == HANDSHAKE_SIZE );

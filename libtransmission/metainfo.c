@@ -44,7 +44,7 @@
 /***********************************************************************
  * Local prototypes
  **********************************************************************/
-static int realparse( tr_info_t * inf, const uint8_t * buf, size_t len );
+static int realparse( tr_info * inf, const uint8_t * buf, size_t len );
 static void savedname( char * name, size_t len, const char * hash,
                        const char * tag );
 static uint8_t * readtorrent( const char * path, size_t * len );
@@ -52,9 +52,9 @@ static int savetorrent( const char * hash, const char * tag,
                         const uint8_t * buf, size_t buflen );
 static int getfile( char * buf, int size,
                     const char * prefix, benc_val_t * name );
-static int getannounce( tr_info_t * inf, benc_val_t * meta );
+static int getannounce( tr_info * inf, benc_val_t * meta );
 static char * announceToScrape( const char * announce );
-static int parseFiles( tr_info_t * inf, benc_val_t * name,
+static int parseFiles( tr_info * inf, benc_val_t * name,
                        benc_val_t * files, benc_val_t * length );
 
 /***********************************************************************
@@ -63,7 +63,7 @@ static int parseFiles( tr_info_t * inf, benc_val_t * name,
  *
  **********************************************************************/
 int
-tr_metainfoParseFile( tr_info_t * inf, const char * tag,
+tr_metainfoParseFile( tr_info * inf, const char * tag,
                       const char * path, int save )
 {
     uint8_t * buf;
@@ -102,7 +102,7 @@ tr_metainfoParseFile( tr_info_t * inf, const char * tag,
 }
 
 int
-tr_metainfoParseData( tr_info_t * inf, const char * tag,
+tr_metainfoParseData( tr_info * inf, const char * tag,
                       const uint8_t * data, size_t size, int save )
 {
     if( realparse( inf, data, size ) )
@@ -123,7 +123,7 @@ tr_metainfoParseData( tr_info_t * inf, const char * tag,
 }
 
 int
-tr_metainfoParseHash( tr_info_t * inf, const char * tag, const char * hash )
+tr_metainfoParseHash( tr_info * inf, const char * tag, const char * hash )
 {
     struct stat sb;
     uint8_t   * buf;
@@ -172,7 +172,7 @@ tr_metainfoParseHash( tr_info_t * inf, const char * tag, const char * hash )
 }
 
 static int
-realparse( tr_info_t * inf, const uint8_t * buf, size_t size )
+realparse( tr_info * inf, const uint8_t * buf, size_t size )
 {
     benc_val_t   meta, * beInfo, * val, * val2;
     int          i;
@@ -308,7 +308,7 @@ realparse( tr_info_t * inf, const uint8_t * buf, size_t size )
     return TR_EINVALID;
 }
 
-void tr_metainfoFree( tr_info_t * inf )
+void tr_metainfoFree( tr_info * inf )
 {
     int i, j;
 
@@ -323,7 +323,7 @@ void tr_metainfoFree( tr_info_t * inf )
     }
     tr_free( inf->trackerList );
 
-    memset( inf, '\0', sizeof(tr_info_t) );
+    memset( inf, '\0', sizeof(tr_info) );
 }
 
 static int getfile( char * buf, int size,
@@ -382,7 +382,7 @@ static int getfile( char * buf, int size,
     return TR_OK;
 }
 
-static int getannounce( tr_info_t * inf, benc_val_t * meta )
+static int getannounce( tr_info * inf, benc_val_t * meta )
 {
     benc_val_t        * val, * subval, * urlval;
     char              * address, * announce;
@@ -691,7 +691,7 @@ savetorrent( const char * hash, const char * tag,
 }
 
 static int
-parseFiles( tr_info_t * inf, benc_val_t * name,
+parseFiles( tr_info * inf, benc_val_t * name,
             benc_val_t * files, benc_val_t * length )
 {
     benc_val_t * item, * path;

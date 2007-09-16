@@ -294,7 +294,7 @@ static void sendBitfield( tr_torrent * tor, tr_peer_t * peer )
  **********************************************************************/
 static void sendRequest( tr_torrent * tor, tr_peer_t * peer, int block )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     tr_request_t * r;
     uint8_t * p;
 

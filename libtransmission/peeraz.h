@@ -494,7 +494,7 @@ parseAZHandshake( tr_peer_t * peer, uint8_t * buf, int len )
 static int
 parseAZPex( tr_torrent * tor, tr_peer_t * peer, uint8_t * buf, int len )
 {
-    tr_info_t * info = &tor->info;
+    tr_info * info = &tor->info;
     benc_val_t  val, * list, * pair;
     int         ii, used;
 

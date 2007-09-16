@@ -228,7 +228,7 @@ static int* getPreferredPieces( const tr_torrent  * tor,
                                 int               * pieceCount,
                                 int               * isEndgame )
 {
-    const tr_info_t * inf = &tor->info;
+    const tr_info * inf = &tor->info;
 
     int i;
     int poolSize = 0;

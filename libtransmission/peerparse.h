@@ -104,7 +104,7 @@ static int parseInterested( tr_peer_t * peer, int len,
 static int parseHave( tr_torrent * tor, tr_peer_t * peer,
                       uint8_t * p, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     uint32_t piece;
 
     if( len != 4 )
@@ -142,7 +142,7 @@ static int parseHave( tr_torrent * tor, tr_peer_t * peer,
 static int parseBitfield( tr_torrent * tor, tr_peer_t * peer,
                           uint8_t * p, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     int bitfieldSize;
     int i;
 
@@ -197,7 +197,7 @@ static int parseBitfield( tr_torrent * tor, tr_peer_t * peer,
 static int parseRequest( tr_torrent * tor, tr_peer_t * peer,
                          uint8_t * p, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     int index, begin, length;
     tr_request_t * r;
 
@@ -284,7 +284,7 @@ static void updateRequests( tr_peer_t * peer, int index, int begin )
 static int parsePiece( tr_torrent * tor, tr_peer_t * peer,
                        uint8_t * p, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     int index, begin, block, i, ret;
 
     if( 8 > len )
@@ -382,7 +382,7 @@ static int reqCompare( const void * va, const void * vb )
 static int parseCancel( tr_torrent * tor, tr_peer_t * peer,
                         uint8_t * p, int len )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     int index, begin, length;
     tr_request_t req;
     tr_list * l;
@@ -599,7 +599,7 @@ static const uint8_t * parseBufHash( const tr_peer_t * peer )
 
 static int parseHandshake( tr_torrent * tor, tr_peer_t * peer )
 {
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
     int         ii, extmsgs, azproto;
     char      * dbgsup, * dbgwant;
 

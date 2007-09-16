@@ -179,7 +179,7 @@ onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
 ***/
 
 static int
-getBytePiece( const tr_info_t * info, uint64_t byteOffset )
+getBytePiece( const tr_info * info, uint64_t byteOffset )
 {
     assert( info != NULL );
     assert( info->pieceSize != 0 );
@@ -188,7 +188,7 @@ getBytePiece( const tr_info_t * info, uint64_t byteOffset )
 }
 
 static void
-initFilePieces ( tr_info_t * info, int fileIndex )
+initFilePieces ( tr_info * info, int fileIndex )
 {
     tr_file_t * file = &info->files[fileIndex];
     uint64_t firstByte, lastByte;
@@ -266,9 +266,6 @@ tr_torrentStartImpl( tr_torrent * tor )
 static void
 recheckDoneCB( tr_torrent * tor )
 {
-    tr_peerMgrUpdateCompletion( tor->handle->peerMgr,
-                                tor->info.hash );
-
     recheckCpState( tor );
 
     if( tor->runStatus == TR_RUN_RUNNING )
@@ -284,7 +281,7 @@ torrentRealInit( tr_handle_t * h,
     uint64_t loaded;
     uint64_t t;
     tr_bitfield * uncheckedPieces;
-    tr_info_t * info = &tor->info;
+    tr_info * info = &tor->info;
     
     tor->info.flags |= flags;
 
@@ -441,7 +438,7 @@ hashExists( const tr_handle_t   * h,
 static int
 infoCanAdd( const tr_handle_t   * h,
             const char          * destination,
-            const tr_info_t     * info )
+            const tr_info     * info )
 {
     if( hashExists( h, info->hash ) )
         return TR_EDUPLICATE;
@@ -456,15 +453,15 @@ int
 tr_torrentParse( const tr_handle_t  * h,
                  const char         * path,
                  const char         * destination,
-                 tr_info_t          * setme_info )
+                 tr_info          * setme_info )
 {
     int ret, doFree;
-    tr_info_t tmp;
+    tr_info tmp;
 
     if( setme_info == NULL )
         setme_info = &tmp;
 
-    memset( setme_info, 0, sizeof( tr_info_t ) );
+    memset( setme_info, 0, sizeof( tr_info ) );
     ret = tr_metainfoParseFile( setme_info, h->tag, path, FALSE );
     doFree = !ret && (setme_info == &tmp);
 
@@ -507,15 +504,15 @@ int
 tr_torrentParseHash( const tr_handle_t  * h,
                      const char         * hashStr,
                      const char         * destination,
-                     tr_info_t          * setme_info )
+                     tr_info          * setme_info )
 {
     int ret, doFree;
-    tr_info_t tmp;
+    tr_info tmp;
 
     if( setme_info == NULL )
         setme_info = &tmp;
 
-    memset( setme_info, 0, sizeof( tr_info_t ) );
+    memset( setme_info, 0, sizeof( tr_info ) );
     ret = tr_metainfoParseHash( setme_info, h->tag, hashStr );
     doFree = !ret && (setme_info == &tmp);
 
@@ -559,15 +556,15 @@ tr_torrentParseData( const tr_handle_t  * h,
                      const uint8_t      * data,
                      size_t               size,
                      const char         * destination,
-                     tr_info_t          * setme_info )
+                     tr_info          * setme_info )
 {
     int ret, doFree;
-    tr_info_t tmp;
+    tr_info tmp;
 
     if( setme_info == NULL )
         setme_info = &tmp;
 
-    memset( setme_info, 0, sizeof( tr_info_t ) );
+    memset( setme_info, 0, sizeof( tr_info ) );
     ret = tr_metainfoParseData( setme_info, h->tag, data, size, FALSE );
     doFree = !ret && (setme_info == &tmp);
 
@@ -607,7 +604,7 @@ tr_torrentInitData( tr_handle_t    * h,
     return tor;
 }
 
-const tr_info_t *
+const tr_info *
 tr_torrentInfo( const tr_torrent * tor )
 {
     return &tor->info;
@@ -1000,7 +997,7 @@ tr_torrentFree( tr_torrent * tor )
 {
     tr_torrent * t;
     tr_handle_t * h = tor->handle;
-    tr_info_t * inf = &tor->info;
+    tr_info * inf = &tor->info;
 fprintf( stderr, "closing torrent %s\n", tor->info.name );
 
     assert( tor != NULL );
@@ -1284,7 +1281,7 @@ tr_torrentSetFileDLs ( tr_torrent  * tor,
 
 int _tr_block( const tr_torrent * tor, int index, int begin )
 {
-    const tr_info_t * inf = &tor->info;
+    const tr_info * inf = &tor->info;
     return index * ( inf->pieceSize / tor->blockSize ) +
         begin / tor->blockSize;
 }

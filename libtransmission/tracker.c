@@ -271,7 +271,7 @@ static int torrentCount = 0;
 static Tracker*
 tr_trackerGet( const tr_torrent * tor )
 {
-    const tr_info_t * info = &tor->info;
+    const tr_info * info = &tor->info;
     tr_ptrArray * trackers = getTrackerLookupTable( );
     Tracker *t, tmp;
     assert( info != NULL );

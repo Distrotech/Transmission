@@ -101,8 +101,8 @@ run_status_t;
 
 struct tr_torrent
 {
-    tr_handle_t               * handle;
-    tr_info_t                   info;
+    tr_handle                 * handle;
+    tr_info                     info;
 
     tr_speedlimit_t             uploadLimitMode;
     tr_speedlimit_t             downloadLimitMode;

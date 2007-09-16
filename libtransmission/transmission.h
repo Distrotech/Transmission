@@ -341,9 +341,9 @@ typedef struct tr_info tr_info_t;
  * call tr_metainfoFree( setme_info ) when done with it.
  */
 int tr_torrentParse( const tr_handle  * handle,
-                     const char         * metainfo_filename,
-                     const char         * destination,
-                     tr_info_t          * setme_info );
+                     const char       * metainfo_filename,
+                     const char       * destination,
+                     tr_info          * setme_info );
 
 /**
  * Parses the cached metainfo file that matches the given hash string.
@@ -351,9 +351,9 @@ int tr_torrentParse( const tr_handle  * handle,
  */
 int
 tr_torrentParseHash( const tr_handle  * h,
-                     const char         * hashStr,
-                     const char         * destination,
-                     tr_info_t          * setme_info );
+                     const char       * hashStr,
+                     const char       * destination,
+                     tr_info          * setme_info );
 
 
 /***********************************************************************
@@ -388,7 +388,7 @@ tr_torrent * tr_torrentInitSaved( tr_handle *,
  **********************************************************************/
 void tr_torrentDisablePex( tr_torrent *, int disable );
 
-const tr_info_t * tr_torrentInfo( const tr_torrent * );
+const tr_info * tr_torrentInfo( const tr_torrent * );
 
 #if 0
 /***********************************************************************

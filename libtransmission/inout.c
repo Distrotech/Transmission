@@ -53,7 +53,7 @@ readOrWriteBytes ( const tr_torrent    * tor,
                    void                * buf,
                    size_t                buflen )
 {
-    const tr_info_t * info = &tor->info;
+    const tr_info * info = &tor->info;
     const tr_file_t * file = &info->files[fileIndex];
     typedef size_t (* iofunc) ( int, void *, size_t );
     iofunc func = ioMode == TR_IO_READ ? (iofunc)read : (iofunc)write;
@@ -94,7 +94,7 @@ findFileLocation ( const tr_torrent * tor,
                    int                * fileIndex,
                    uint64_t           * fileOffset )
 {
-    const tr_info_t * info = &tor->info;
+    const tr_info * info = &tor->info;
 
     int i;
     uint64_t piecePos = ((uint64_t)pieceIndex * info->pieceSize) + pieceOffset;
@@ -156,7 +156,7 @@ readOrWritePiece ( tr_torrent       * tor,
     int ret = 0;
     int fileIndex;
     uint64_t fileOffset;
-    const tr_info_t * info = &tor->info;
+    const tr_info * info = &tor->info;
 
     assert( 0<=pieceIndex && pieceIndex<tor->info.pieceCount );
     assert( buflen <= (size_t) tr_torPieceCountBytes( tor, pieceIndex ) );
@@ -207,7 +207,7 @@ tr_ioRecalculateHash ( tr_torrent    * tor,
     int n;
     int ret;
     uint8_t * buf;
-    const tr_info_t * info;
+    const tr_info * info;
 
     assert( tor != NULL );
     assert( setme != NULL );
@@ -244,7 +244,7 @@ void
 tr_ioClose( const tr_torrent * tor )
 {
     int i;
-    const tr_info_t * info = &tor->info;
+    const tr_info * info = &tor->info;
 
     for( i=0; i<info->fileCount; ++i )
         tr_fdFileClose( tor->destination, info->files[i].name );

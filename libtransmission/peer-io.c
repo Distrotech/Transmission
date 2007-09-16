@@ -337,6 +337,12 @@ tr_peerIoGetExtension( const tr_peerIo * io )
 /**
 ***
 **/
+
+size_t
+tr_peerIoWriteBytesWaiting( const tr_peerIo * io )
+{
+    return EVBUFFER_LENGTH( EVBUFFER_OUTPUT( io->bufev ) );
+}
  
 void
 tr_peerIoWrite( tr_peerIo   * io,

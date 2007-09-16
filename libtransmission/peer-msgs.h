@@ -56,12 +56,11 @@ int          tr_peerMsgsAddRequest( tr_peermsgs * peer,
 
 typedef enum
 {
-    TR_PEERMSG_PEER_BITFIELD,
-    TR_PEERMSG_PEER_HAVE,
     TR_PEERMSG_CLIENT_HAVE,
     TR_PEERMSG_CLIENT_BLOCK,
     TR_PEERMSG_GOT_PEX,
-    TR_PEERMSG_GOT_ERROR
+    TR_PEERMSG_GOT_ERROR,
+    TR_PEERMSG_NEED_REQ
 }
 PeerMsgsEventType;
 
@@ -71,7 +70,6 @@ typedef struct
     uint32_t pieceIndex; /* for TR_PEERMSG_GOT_BLOCK, TR_PEERMSG_GOT_HAVE */
     uint32_t offset;     /* for TR_PEERMSG_GOT_BLOCK */
     uint32_t length;     /* for TR_PEERMSG_GOT_BLOCK */
-    const struct tr_bitfield * bitfield; /* for TR_PEERMSG_GOT_BITFIELD */
 }
 tr_peermsgs_event;
 
