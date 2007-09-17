@@ -124,9 +124,12 @@ getExistingPeer( Torrent * torrent, const struct in_addr * in_addr )
 }
 
 static tr_peer*
-getPeer( Torrent * torrent, const struct in_addr * in_addr )
+getPeer( Torrent * torrent, const struct in_addr * in_addr, int * isNew )
 {
     tr_peer * peer = getExistingPeer( torrent, in_addr );
+
+    if( isNew )
+        *isNew = peer == NULL;
 
     if( peer == NULL )
     {
@@ -135,6 +138,7 @@ getPeer( Torrent * torrent, const struct in_addr * in_addr )
         tr_ptrArrayInsertSorted( torrent->peers, peer, peerCompare );
 fprintf( stderr, "getPeer: torrent %p now has %d peers\n", torrent, tr_ptrArraySize(torrent->peers) );
     }
+
     return peer;
 }
 
@@ -421,9 +425,13 @@ fprintf( stderr, "REFILL refillPulse for {%s} got %d blocks\n", tor->info.name, 
     {
         const int block = blocks[i];
         const uint32_t index = tr_torBlockPiece( tor, block );
-        const uint32_t begin = tor->blockSize * (block - tr_torPieceFirstBlock(tor,index));
+        const uint32_t begin = (block * tor->blockSize) - (index * tor->info.pieceSize);
         const uint32_t length = tr_torBlockCountBytes( tor, block );
         int j;
+        assert( _tr_block( tor, index, begin ) == block );
+        assert( begin < (uint32_t)tr_torPieceCountBytes( tor, (int)index ) );
+        assert( (begin + length) <= (uint32_t)tr_torPieceCountBytes( tor, (int)index ) );
+
 
         /* find a peer who can ask for this block */
         for( j=0; j<peerCount; )
@@ -432,8 +440,8 @@ fprintf( stderr, "REFILL refillPulse for {%s} got %d blocks\n", tor->info.name, 
             switch( val )
             {
                 case TR_ADDREQ_FULL: 
-                case TR_ADDREQ_CLIENT_CHOKED: 
-                    peers[j] = peers[--peerCount];
+                case TR_ADDREQ_CLIENT_CHOKED:
+                    memmove( peers+j, peers+j+1, sizeof(tr_peer*)*(--peerCount-j) );
                     break;
 
                 case TR_ADDREQ_MISSING: 
@@ -444,6 +452,10 @@ fprintf( stderr, "REFILL refillPulse for {%s} got %d blocks\n", tor->info.name, 
                     fprintf( stderr, "REFILL peer %p took the request for block %d\n", peers[j]->msgs, block );
                     tr_bitfieldAdd( t->requested, block );
                     j = peerCount;
+                    break;
+
+                default:
+                    assert( 0 && "unhandled value" );
                     break;
             }
         }
@@ -569,8 +581,8 @@ myHandshakeDoneCB( tr_handshake    * handshake,
     }
 
     if( 1 ) {
-        tr_peer * peer = getPeer( t, in_addr );
-        if( peer->msgs != NULL ) { /* we alerady have this peer */
+        tr_peer * peer = getPeer( t, in_addr, NULL );
+        if( peer->msgs != NULL ) { /* we already have this peer */
             tr_peerIoFree( io );
             --manager->connectionCount;
         } else {
@@ -643,10 +655,13 @@ tr_peerMgrAddPex( tr_peerMgr     * manager,
     Torrent * t = getExistingTorrent( manager, torrentHash );
     for( i=0; i<pexCount; ++i )
     {
-        tr_peer * peer = getPeer( t, &walk->in_addr );
-        peer->port = walk->port;
-        peer->from = from;
-        maybeConnect( manager, t, peer );
+        int isNew;
+        tr_peer * peer = getPeer( t, &walk->in_addr, &isNew );
+        if( isNew ) {
+            peer->port = walk->port;
+            peer->from = from;
+            maybeConnect( manager, t, peer );
+        }
     }
 }
 
@@ -662,15 +677,18 @@ tr_peerMgrAddPeers( tr_peerMgr    * manager,
     Torrent * t = getExistingTorrent( manager, torrentHash );
     for( i=0; t!=NULL && i<peerCount; ++i )
     {
+        int isNew;
         tr_peer * peer;
         struct in_addr addr;
         uint16_t port;
         memcpy( &addr, walk, 4 ); walk += 4;
         memcpy( &port, walk, 2 ); walk += 2;
-        peer = getPeer( t, &addr );
-        peer->port = port;
-        peer->from = from;
-        maybeConnect( manager, t, peer );
+        peer = getPeer( t, &addr, &isNew );
+        if( isNew ) {
+            peer->port = port;
+            peer->from = from;
+            maybeConnect( manager, t, peer );
+        }
     }
 }
 

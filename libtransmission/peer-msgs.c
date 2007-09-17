@@ -106,6 +106,7 @@ struct tr_peermsgs
 
     struct peer_request blockToUs; /* the block currntly being sent to us */
 
+    time_t lastReqAddedAt;
     time_t gotKeepAliveTime;
     time_t clientSentPexAt;
 
@@ -230,6 +231,10 @@ sendInterest( tr_peermsgs * msgs, int weAreInterested )
     const uint32_t len = sizeof(uint8_t);
     const uint8_t bt_msgid = weAreInterested ? BT_INTERESTED : BT_NOT_INTERESTED;
 
+    assert( msgs != NULL );
+    assert( weAreInterested==0 || weAreInterested==1 );
+
+    msgs->info->clientIsInterested = weAreInterested;
     fprintf( stderr, "peer %p: sending an %s message\n", msgs, (weAreInterested ? "INTERESTED" : "NOT_INTERESTED") );
     tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
     tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
@@ -317,7 +322,7 @@ tr_peerMsgsHave( tr_peermsgs * msgs,
 {
     const uint8_t bt_msgid = BT_HAVE;
     const uint32_t len = sizeof(uint8_t) + sizeof(uint32_t);
-    fprintf( stderr, "peer %p: telling them we HAVE piece #%d\n", msgs, pieceIndex );
+    fprintf( stderr, "peer %p: w00t telling them we HAVE piece #%d\n", msgs, pieceIndex );
     tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
     tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
     tr_peerIoWriteUint32( msgs->io, msgs->outMessages, pieceIndex );
@@ -328,6 +333,9 @@ tr_peerMsgsHave( tr_peermsgs * msgs,
 /**
 ***
 **/
+
+static int
+pulse( void * vmsgs );
 
 int
 tr_peerMsgsAddRequest( tr_peermsgs * msgs,
@@ -340,6 +348,12 @@ tr_peerMsgsAddRequest( tr_peermsgs * msgs,
     struct peer_request * req;
     int maxSize;
 
+    assert( msgs != NULL );
+    assert( msgs->torrent != NULL );
+    assert( index < ((uint32_t)msgs->torrent->info.pieceCount) );
+    assert( offset < (uint32_t)tr_torPieceCountBytes( msgs->torrent, (int)index ) );
+    assert( (offset + length) <= (uint32_t)tr_torPieceCountBytes( msgs->torrent, (int)index ) );
+
     if( msgs->info->clientIsChoked )
         return TR_ADDREQ_CLIENT_CHOKED;
 
@@ -347,9 +361,11 @@ tr_peerMsgsAddRequest( tr_peermsgs * msgs,
         return TR_ADDREQ_MISSING;
 
     maxSize = MIN( 2 + (int)(tr_peerIoGetRateToClient(msgs->io)/10), 100 );
+    //if( ( time(NULL) - msgs->lastReqAddedAt <= 5 ) && ( tr_list_size( msgs->clientAskedFor) >= maxSize ) )
     if( tr_list_size( msgs->clientAskedFor) >= maxSize )
         return TR_ADDREQ_FULL;
-    fprintf( stderr, "w00t peer %p has a max request queue size of %d\n", msgs, maxSize );
+
+    fprintf( stderr, "w00t peer %p has a max request queue size of %d... adding request for piece %d, offset %d\n", msgs, maxSize, (int)index, (int)offset );
 
     /* queue the request */
     tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
@@ -363,8 +379,9 @@ tr_peerMsgsAddRequest( tr_peermsgs * msgs,
     req->index = index;
     req->offset = offset;
     req->length = length;
-    req->time_requested = time( NULL );
+    req->time_requested = msgs->lastReqAddedAt = time( NULL );
     tr_list_append( &msgs->clientAskedFor, req );
+    pulse( msgs );
 
     return TR_ADDREQ_OK;
 }
@@ -525,7 +542,7 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
     {
         case BT_CHOKE:
             assert( msglen == 0 );
-            fprintf( stderr, "peer-msgs %p sent us a BT_CHOKE\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_CHOKE\n", msgs );
             msgs->info->clientIsChoked = 1;
             tr_list_foreach( msgs->peerAskedFor, tr_free );
             tr_list_free( &msgs->peerAskedFor );
@@ -534,20 +551,20 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
 
         case BT_UNCHOKE:
             assert( msglen == 0 );
-            fprintf( stderr, "peer-msgs %p sent us a BT_UNCHOKE\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_UNCHOKE\n", msgs );
             msgs->info->clientIsChoked = 0;
             fireNeedReq( msgs );
             break;
 
         case BT_INTERESTED:
             assert( msglen == 0 );
-            fprintf( stderr, "peer-msgs %p sent us a BT_INTERESTED\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_INTERESTED\n", msgs );
             msgs->info->peerIsInterested = 1;
             break;
 
         case BT_NOT_INTERESTED:
             assert( msglen == 0 );
-            fprintf( stderr, "peer-msgs %p sent us a BT_NOT_INTERESTED\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_NOT_INTERESTED\n", msgs );
             msgs->info->peerIsInterested = 0;
             break;
 
@@ -793,40 +810,42 @@ gotBlock( tr_peermsgs      * msgs,
 static ReadState
 readBtPiece( tr_peermsgs * msgs, struct evbuffer * inbuf )
 {
+    uint32_t inlen;
+    uint8_t * tmp;
+
+    assert( msgs != NULL );
     assert( msgs->blockToUs.length > 0 );
+    assert( inbuf != NULL );
+    assert( EVBUFFER_LENGTH( inbuf ) > 0 );
 
-    if( !canDownload( msgs ) )
+    /* read from the inbuf into our block buffer */
+    inlen = MIN( EVBUFFER_LENGTH(inbuf), msgs->blockToUs.length );
+    tmp = tr_new( uint8_t, inlen );
+    tr_peerIoReadBytes( msgs->io, inbuf, tmp, inlen );
+    evbuffer_add( msgs->inBlock, tmp, inlen );
+
+    /* update our tables accordingly */
+    assert( inlen >= msgs->blockToUs.length );
+    msgs->blockToUs.length -= inlen;
+    msgs->info->peerSentDataAt = time( NULL );
+    clientGotBytes( msgs, inlen );
+
+    /* if this was the entire block, save it */
+    if( !msgs->blockToUs.length )
     {
-        msgs->notListening = 1;
-        tr_peerIoSetIOMode ( msgs->io, 0, EV_READ );
-        return READ_DONE;
+        fprintf( stderr, "w00t -- got block index %u, offset %u\n", msgs->blockToUs.index, msgs->blockToUs.offset );
+        assert( (int)EVBUFFER_LENGTH( msgs->inBlock ) == tr_torBlockCountBytes( msgs->torrent, _tr_block(msgs->torrent,msgs->blockToUs.index, msgs->blockToUs.offset) ) );
+        gotBlock( msgs, msgs->inBlock,
+                        msgs->blockToUs.index,
+                        msgs->blockToUs.offset,
+                        EVBUFFER_LENGTH( msgs->inBlock ) );
+        evbuffer_drain( msgs->inBlock, ~0 );
+        msgs->state = AWAITING_BT_LENGTH;
     }
-    else
-    {
-        /* inbuf ->  inBlock */
-        const uint32_t len = MIN( EVBUFFER_LENGTH(inbuf), msgs->blockToUs.length );
-        uint8_t * tmp = tr_new( uint8_t, len );
-        tr_peerIoReadBytes( msgs->io, inbuf, tmp, len );
-        evbuffer_add( msgs->inBlock, tmp, len );
-        tr_free( tmp );
-        msgs->blockToUs.length -= len;
-        clientGotBytes( msgs, len );
-        msgs->info->peerSentDataAt = time( NULL );
-fprintf( stderr, "got %"PRIu64"; left to read is [%"PRIu64"]\n", (uint64_t)len, (uint64_t)msgs->blockToUs.length );
 
-        if( !msgs->blockToUs.length )
-        {
-fprintf( stderr, "w00t -- index %u, offset %u\n", msgs->blockToUs.index, msgs->blockToUs.offset );
-            gotBlock( msgs, msgs->inBlock,
-                            msgs->blockToUs.index,
-                            msgs->blockToUs.offset,
-                            EVBUFFER_LENGTH( msgs->inBlock ) );
-            evbuffer_drain( msgs->inBlock, ~0 );
-            msgs->state = AWAITING_BT_LENGTH;
-        }
-
-        return READ_AGAIN;
-    }
+    /* cleanup */
+    tr_free( tmp );
+    return READ_AGAIN;
 }
 
 static ReadState
@@ -854,7 +873,7 @@ static int
 canWrite( const tr_peermsgs * msgs )
 {
     /* don't let our outbuffer get too large */
-    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 1024 )
+    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 2048 )
         return FALSE;
 
     return TRUE;
@@ -894,11 +913,14 @@ pulse( void * vmsgs )
     }
 #endif
 
-    if(( len = EVBUFFER_LENGTH( msgs->outBlock ) ))
+    if( !canWrite( msgs ) )
+    {
+    }
+    else if(( len = EVBUFFER_LENGTH( msgs->outBlock ) ))
     {
         while ( len && canUpload( msgs ) )
         {
-            const size_t outlen = MIN( len, 1024 );
+            const size_t outlen = MIN( len, 2048 );
             tr_peerIoWrite( msgs->io, EVBUFFER_DATA(msgs->outBlock), outlen );
             evbuffer_drain( msgs->outBlock, outlen );
             peerGotBytes( msgs, outlen );
@@ -907,8 +929,7 @@ pulse( void * vmsgs )
     }
     else if(( len = EVBUFFER_LENGTH( msgs->outMessages ) ))
     {
-        if( canWrite( msgs ) )
-            tr_peerIoWriteBuf( msgs->io, msgs->outMessages );
+        tr_peerIoWriteBuf( msgs->io, msgs->outMessages );
     }
     else if(( msgs->peerAskedFor ))
     {
