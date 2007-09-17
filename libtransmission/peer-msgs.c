@@ -230,12 +230,13 @@ sendInterest( tr_peermsgs * msgs, int weAreInterested )
 {
     const uint32_t len = sizeof(uint8_t);
     const uint8_t bt_msgid = weAreInterested ? BT_INTERESTED : BT_NOT_INTERESTED;
+const time_t now = time( NULL );
 
     assert( msgs != NULL );
     assert( weAreInterested==0 || weAreInterested==1 );
 
     msgs->info->clientIsInterested = weAreInterested;
-    fprintf( stderr, "peer %p: sending an %s message\n", msgs, (weAreInterested ? "INTERESTED" : "NOT_INTERESTED") );
+    fprintf( stderr, "peer %p: sending an %s message at %s\n", msgs, (weAreInterested ? "INTERESTED" : "NOT_INTERESTED"), ctime(&now) );
     tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
     tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
 }
@@ -256,6 +257,7 @@ tr_peerMsgsSetChoke( tr_peermsgs * msgs, int choke )
     assert( msgs != NULL );
     assert( msgs->info != NULL );
     assert( choke==0 || choke==1 );
+const time_t now = time( NULL );
 
     if( msgs->info->peerIsChoked != choke )
     {
@@ -269,7 +271,7 @@ tr_peerMsgsSetChoke( tr_peermsgs * msgs, int choke )
             tr_list_free( &msgs->peerAskedFor );
         }
 
-        fprintf( stderr, "peer %p: sending a %s message\n", msgs, (choke ? "CHOKE" : "UNCHOKE") );
+        fprintf( stderr, "peer %p: sending a %s message at %s\n", msgs, (choke ? "CHOKE" : "UNCHOKE"), ctime(&now) );
         tr_peerIoWriteUint32( msgs->io, msgs->outMessages, len );
         tr_peerIoWriteBytes( msgs->io, msgs->outMessages, &bt_msgid, 1 );
     }
@@ -529,6 +531,7 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
     uint8_t id;
     uint32_t ui32;
     uint32_t msglen = msgs->incomingMessageLength;
+const time_t now = time( NULL );
 
     if( EVBUFFER_LENGTH(inbuf) < msglen )
         return READ_MORE;
@@ -542,29 +545,30 @@ readBtMessage( tr_peermsgs * msgs, struct evbuffer * inbuf )
     {
         case BT_CHOKE:
             assert( msglen == 0 );
-            fprintf( stderr, "w00t peer-msgs %p sent us a BT_CHOKE\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_CHOKE at %s\n", msgs, ctime(&now) );
             msgs->info->clientIsChoked = 1;
             tr_list_foreach( msgs->peerAskedFor, tr_free );
             tr_list_free( &msgs->peerAskedFor );
-            /* FIXME: unmark anything we'd requested from them... */
+            tr_list_foreach( msgs->clientAskedFor, tr_free );
+            tr_list_free( &msgs->clientAskedFor );
             break;
 
         case BT_UNCHOKE:
             assert( msglen == 0 );
-            fprintf( stderr, "w00t peer-msgs %p sent us a BT_UNCHOKE\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_UNCHOKE at %s\n", msgs, ctime(&now) );
             msgs->info->clientIsChoked = 0;
             fireNeedReq( msgs );
             break;
 
         case BT_INTERESTED:
             assert( msglen == 0 );
-            fprintf( stderr, "w00t peer-msgs %p sent us a BT_INTERESTED\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_INTERESTED at %s\n", msgs, ctime(&now) );
             msgs->info->peerIsInterested = 1;
             break;
 
         case BT_NOT_INTERESTED:
             assert( msglen == 0 );
-            fprintf( stderr, "w00t peer-msgs %p sent us a BT_NOT_INTERESTED\n", msgs );
+            fprintf( stderr, "w00t peer-msgs %p sent us a BT_NOT_INTERESTED at %s\n", msgs, ctime(&now) );
             msgs->info->peerIsInterested = 0;
             break;
 
@@ -735,6 +739,7 @@ gotBlock( tr_peermsgs      * msgs,
     tr_torrent * tor = msgs->torrent;
     const int block = _tr_block( tor, index, offset );
     struct peer_request key, *req;
+    const time_t now = time( NULL );
 
     /**
     *** Remove the block from our `we asked for this' list
@@ -745,8 +750,8 @@ gotBlock( tr_peermsgs      * msgs,
     key.length = length;
     req = (struct peer_request*) tr_list_remove( &msgs->clientAskedFor, &key,
                                                  peer_request_compare );
-    fprintf( stderr, "w00t got a block from %p. turnaround time for this block was %d seconds\n",
-                     msgs, (int)(time(NULL) - req->time_requested) );
+    fprintf( stderr, "w00t got a block from %p. turnaround time for this block was %d seconds... at %s\n",
+                     msgs, (int)(time(NULL) - req->time_requested), ctime(&now) );
     if( req == NULL ) {
         gotUnwantedBlock( msgs, index, offset, length );
         fprintf( stderr, "we didn't ask for this message...\n" );

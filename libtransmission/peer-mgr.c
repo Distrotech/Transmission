@@ -346,7 +346,7 @@ getPreferredPieces( Torrent     * t,
 
 #if 0
 fprintf (stderr, "new pool: ");
-for (i=0; i<15 && i<poolSize; ++i ) fprintf (stderr, "%d, ", pool[i] );
+for (i=0; i<15 && i<(int)poolSize; ++i ) fprintf (stderr, "%d, ", (int)pool[i] );
 fprintf (stderr, "\n");
 #endif
     tr_free( peers );
@@ -361,7 +361,7 @@ getPreferredBlocks( Torrent * t, uint64_t * setmeCount )
     uint32_t i;
     uint32_t pieceCount;
     uint32_t * pieces;
-    uint64_t *req, *unreq, *ret;
+    uint64_t *req, *unreq, *ret, *walk;
     int reqCount, unreqCount;
     const tr_torrent * tor = t->tor;
 
@@ -387,12 +387,14 @@ fprintf( stderr, "REFILL refillPulse for {%s} got %d of %d pieces\n", tor->info.
                 unreq[unreqCount++] = block;
     }
 
-fprintf( stderr, "REFILL refillPulse for {%s} reqCount is %d\n", tor->info.name, (int)reqCount );
-fprintf( stderr, "REFILL refillPulse for {%s} unreqCount is %d\n", tor->info.name, (int)unreqCount );
-    ret = tr_new( uint64_t, unreqCount + reqCount );
-    memcpy( ret, unreq, sizeof(uint64_t) * unreqCount );
-    memcpy( ret, req, sizeof(uint64_t) * reqCount );
-    *setmeCount = unreqCount + reqCount;
+fprintf( stderr, "REFILL refillPulse for {%s} reqCount is %d, unreqCount is %d\n", tor->info.name, (int)reqCount, (int)unreqCount );
+    ret = walk = tr_new( uint64_t, unreqCount + reqCount );
+    memcpy( walk, unreq, sizeof(uint64_t) * unreqCount );
+    walk += unreqCount;
+    memcpy( walk, req, sizeof(uint64_t) * reqCount );
+    walk += reqCount;
+    assert( ( walk - ret ) == ( unreqCount + reqCount ) );
+    *setmeCount = walk - ret;
 
     tr_free( req );
     tr_free( unreq );
@@ -650,18 +652,18 @@ tr_peerMgrAddPex( tr_peerMgr     * manager,
                   const tr_pex   * pex,
                   int              pexCount )
 {
-    int i;
-    const tr_pex * walk = pex;
     Torrent * t = getExistingTorrent( manager, torrentHash );
-    for( i=0; i<pexCount; ++i )
+    const tr_pex * end = pex + pexCount;
+    while( pex != end )
     {
         int isNew;
-        tr_peer * peer = getPeer( t, &walk->in_addr, &isNew );
+        tr_peer * peer = getPeer( t, &pex->in_addr, &isNew );
         if( isNew ) {
-            peer->port = walk->port;
+            peer->port = pex->port;
             peer->from = from;
             maybeConnect( manager, t, peer );
         }
+        ++pex;
     }
 }
 
