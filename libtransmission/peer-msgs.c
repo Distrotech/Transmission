@@ -104,13 +104,13 @@ struct tr_peermsgs
     tr_timer * pulseTimer;
     tr_timer * pexTimer;
 
-    unsigned int notListening    : 1;
-    unsigned int peerSupportsPex : 1;
-
     struct peer_request blockToUs; /* the block currntly being sent to us */
 
     time_t gotKeepAliveTime;
     time_t clientSentPexAt;
+
+    unsigned int notListening    : 1;
+    unsigned int peerSupportsPex : 1;
 
     uint8_t state;
 
@@ -136,12 +136,6 @@ publishEvent( tr_peermsgs * peer, int eventType )
     tr_peermsgs_event e = blankEvent;
     e.eventType = eventType;
     tr_publisherPublish( peer->publisher, peer, &e );
-}
-
-static void
-fireGotPex( tr_peermsgs * peer )
-{
-    publishEvent( peer, TR_PEERMSG_GOT_PEX );
 }
 
 static void
@@ -457,8 +451,6 @@ parseUtPex( tr_peermsgs * msgs, int msglen, struct evbuffer * inbuf )
                             TR_PEER_FROM_PEX,
                             (uint8_t*)sub->val.s.s, n );
     }
-
-    fireGotPex( msgs );
 
     tr_bencFree( &val );
     tr_free( tmp );

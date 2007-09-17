@@ -487,7 +487,9 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
     {
         case TR_PEERMSG_NEED_REQ:
             if( t->refillTimer == NULL )
-                t->refillTimer = tr_timerNew( t->manager->handle, refillPulse, t, REFILL_PERIOD_MSEC );
+                t->refillTimer = tr_timerNew( t->manager->handle,
+                                              refillPulse, t,
+                                              REFILL_PERIOD_MSEC );
             break;
 
         case TR_PEERMSG_CLIENT_HAVE:
@@ -496,10 +498,6 @@ msgsCallbackFunc( void * source UNUSED, void * vevent, void * vt )
 
         case TR_PEERMSG_CLIENT_BLOCK:
             broadcastGotBlock( t, e->pieceIndex, e->offset, e->length );
-            break;
-
-        case TR_PEERMSG_GOT_PEX:
-            /* FIXME */
             break;
 
         case TR_PEERMSG_GOT_ERROR:
