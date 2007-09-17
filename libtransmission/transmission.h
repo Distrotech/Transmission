@@ -105,7 +105,8 @@ typedef struct tr_handle tr_handle;
 typedef struct tr_handle tr_handle_t;
 tr_handle * tr_init( const char * tag );
 
-typedef struct tr_tracker_info_s tr_tracker_info_t;
+typedef struct tr_tracker_info tr_tracker_info;
+typedef struct tr_tracker_info tr_tracker_info_t;
 
 /***********************************************************************
  * tr_setMessageLevel
@@ -123,7 +124,8 @@ int tr_getMessageLevel( void );
  ***********************************************************************
  * Enable or disable message queuing
  **********************************************************************/
-typedef struct tr_msg_list_s tr_msg_list_t;
+typedef struct tr_msg_list tr_msg_list;
+typedef struct tr_msg_list tr_msg_list_t;
 void tr_setMessageQueuing( int );
 
 /***********************************************************************
@@ -131,8 +133,8 @@ void tr_setMessageQueuing( int );
  ***********************************************************************
  * Return a list of queued messages
  **********************************************************************/
-tr_msg_list_t * tr_getQueuedMessages( void );
-void tr_freeMessageList( tr_msg_list_t * list );
+tr_msg_list * tr_getQueuedMessages( void );
+void tr_freeMessageList( tr_msg_list * list );
 
 /***********************************************************************
  * tr_getPrefsDirectory
@@ -201,14 +203,14 @@ typedef enum
     TR_SPEEDLIMIT_SINGLE,    /* only follow the per-torrent limit */
     TR_SPEEDLIMIT_UNLIMITED  /* no limits at all */
 }
-tr_speedlimit_t;
+tr_speedlimit;
 
-void tr_torrentSetSpeedMode( tr_torrent     * tor,
-                             int              up_or_down,
-                             tr_speedlimit_t  mode );
+void tr_torrentSetSpeedMode( tr_torrent   * tor,
+                             int            up_or_down,
+                             tr_speedlimit  mode );
 
-tr_speedlimit_t tr_torrentGetSpeedMode( const tr_torrent  * tor,
-                                        int                 up_or_down);
+tr_speedlimit tr_torrentGetSpeedMode( const tr_torrent  * tor,
+                                      int                 up_or_down);
 
 void tr_torrentSetSpeedLimit( tr_torrent   * tor,
                               int            up_or_down,
@@ -458,15 +460,16 @@ int tr_torrentCanManualUpdate( const tr_torrent * );
 /***********************************************************************
  * tr_torrentStat
  ***********************************************************************
- * Returns a pointer to an tr_stat_t structure with updated information
+ * Returns a pointer to an tr_stat structure with updated information
  * on the torrent. The structure belongs to libtransmission (do not
  * free it) and is guaranteed to be unchanged until the next call to
  * tr_torrentStat.
  * The interface should call this function every second or so in order
  * to update itself.
  **********************************************************************/
-typedef struct tr_stat_s tr_stat_t;
-const tr_stat_t * tr_torrentStat( tr_torrent * );
+typedef struct tr_stat tr_stat;
+typedef struct tr_stat tr_stat_t;
+const tr_stat * tr_torrentStat( tr_torrent * );
 
 /***********************************************************************
  * tr_torrentPeers
@@ -476,9 +479,10 @@ typedef struct tr_peer_stat tr_peer_stat_t;
 tr_peer_stat * tr_torrentPeers( const tr_torrent *, int * peerCount );
 void tr_torrentPeersFree( tr_peer_stat *, int peerCount );
 
-typedef struct tr_file_stat_s tr_file_stat_t;
-tr_file_stat_t * tr_torrentFiles( const tr_torrent *, int * fileCount );
-void tr_torrentFilesFree( tr_file_stat_t *, int fileCount );
+typedef struct tr_file_stat tr_file_stat;
+typedef struct tr_file_stat tr_file_stat_t;
+tr_file_stat * tr_torrentFiles( const tr_torrent *, int * fileCount );
+void tr_torrentFilesFree( tr_file_stat *, int fileCount );
 
 
 /***********************************************************************
@@ -515,7 +519,7 @@ void tr_torrentClose( tr_torrent * );
  * tr_info
  **********************************************************************/
 
-typedef struct tr_file_s
+typedef struct tr_file
 {
     uint64_t length;                /* Length of the file, in bytes */
     char     name[MAX_PATH_LENGTH]; /* Path to the file */
@@ -525,15 +529,15 @@ typedef struct tr_file_s
     int      lastPiece;             /* ...lastPiece] to dl this file */
     uint64_t offset;                /* file begins at the torrent's nth byte */
 }
-tr_file_t;
+tr_file;
 
-typedef struct tr_piece_s
+typedef struct tr_piece
 {
     uint8_t  hash[SHA_DIGEST_LENGTH];  /* pieces hash */
     int8_t   priority;                 /* TR_PRI_HIGH, _NORMAL, or _LOW */
     int8_t   dnd;                      /* nonzero if the piece shouldn't be downloaded */
 }
-tr_piece_t;
+tr_piece;
     
 struct tr_info
 {
@@ -554,7 +558,7 @@ struct tr_info
     /* Tracker info */
     struct
     {
-        tr_tracker_info_t * list;
+        tr_tracker_info  * list;
         int                 count;
     }                  * trackerList;
     int                  trackerTiers;
@@ -569,12 +573,12 @@ struct tr_info
     int                  pieceSize;
     int                  pieceCount;
     uint64_t             totalSize;
-    tr_piece_t         * pieces;
+    tr_piece           * pieces;
 
     /* Files info */
     int                  multifile;
     int                  fileCount;
-    tr_file_t          * files;
+    tr_file            * files;
 };
 
 typedef enum
@@ -605,9 +609,9 @@ typedef enum
 cp_status_t;
 
 /***********************************************************************
- * tr_stat_s
+ * tr_stat
  **********************************************************************/
-struct tr_stat_s
+struct tr_stat
 {
     torrent_status_t    status;
     cp_status_t         cpStatus;
@@ -615,7 +619,7 @@ struct tr_stat_s
     int                 error;
     char                errorString[128];
 
-    const tr_tracker_info_t * tracker;
+    const tr_tracker_info * tracker;
 
     float               recheckProgress;
     float               percentComplete;
@@ -646,7 +650,7 @@ struct tr_stat_s
     uint64_t            activityDate;
 };
 
-struct tr_file_stat_s
+struct tr_file_stat
 {
     uint64_t bytesCompleted;
     float progress;
@@ -671,15 +675,15 @@ struct tr_peer_stat
     float uploadToRate;
 };
 
-struct tr_msg_list_s
+struct tr_msg_list
 {
-    int                    level;
-    time_t                 when;
-    char                 * message;
-    struct tr_msg_list_s * next;
+    int                  level;
+    time_t               when;
+    char               * message;
+    struct tr_msg_list * next;
 };
 
-struct tr_tracker_info_s
+struct tr_tracker_info
 {
     char * address;
     int    port;

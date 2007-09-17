@@ -727,7 +727,7 @@ ipc_addinfo( benc_val_t * list, int tor, const tr_info * inf, int types )
 
 int
 ipc_addstat( benc_val_t * list, int tor,
-             const tr_stat_t * st, int types )
+             const tr_stat * st, int types )
 {
     benc_val_t  * dict, * item;
     int           ii, used;

@@ -55,34 +55,34 @@ typedef struct
 }
 tr_tracker_event_t;
 
-tr_publisher_tag  tr_trackerSubscribe         ( struct tr_tracker * tag,
-                                                tr_delivery_func      func,
-                                                void                * user );
+tr_publisher_tag  tr_trackerSubscribe       ( struct tr_tracker * tag,
+                                              tr_delivery_func      func,
+                                              void                * user );
 
-void              tr_trackerUnsubscribe       ( struct tr_tracker * tracker,
-                                                tr_publisher_tag      tag );
+void              tr_trackerUnsubscribe     ( struct tr_tracker * tracker,
+                                              tr_publisher_tag      tag );
 
 /***
 ****
 ***/
 
-void tr_trackerStart                          ( struct tr_tracker * );
+void tr_trackerStart                        ( struct tr_tracker * );
 
-void tr_trackerCompleted                      ( struct tr_tracker * );
+void tr_trackerCompleted                    ( struct tr_tracker * );
 
-void tr_trackerStop                           ( struct tr_tracker * );
+void tr_trackerStop                         ( struct tr_tracker * );
 
-void tr_trackerReannounce                     ( struct tr_tracker * );
+void tr_trackerReannounce                   ( struct tr_tracker * );
 
-void tr_trackerChangeMyPort                   ( struct tr_tracker * );
+void tr_trackerChangeMyPort                 ( struct tr_tracker * );
 
-const tr_tracker_info_t * tr_trackerGetAddress( const struct tr_tracker * );
+const tr_tracker_info * tr_trackerGetAddress( const struct tr_tracker * );
 
-int  tr_trackerCanManualAnnounce              ( const struct tr_tracker * );
+int  tr_trackerCanManualAnnounce            ( const struct tr_tracker * );
 
-void tr_trackerGetCounts                      ( const struct tr_tracker *,
-                                                int * setme_completedCount,
-                                                int * setme_leecherCount,
-                                                int * setme_seederCount );
+void tr_trackerGetCounts                    ( const struct tr_tracker *,
+                                              int * setme_completedCount,
+                                              int * setme_leecherCount,
+                                              int * setme_seederCount );
 
 #endif

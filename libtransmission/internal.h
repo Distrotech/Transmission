@@ -45,11 +45,11 @@ typedef enum { TR_NET_OK, TR_NET_ERROR, TR_NET_WAIT } tr_tristate_t;
 #define FALSE 0
 #endif
 
-int tr_trackerInfoInit( struct tr_tracker_info_s  * info,
-                        const char                * address,
-                        int                         address_len );
+int tr_trackerInfoInit( struct tr_tracker_info  * info,
+                        const char              * address,
+                        int                       address_len );
 
-void tr_trackerInfoClear( struct tr_tracker_info_s * info );
+void tr_trackerInfoClear( struct tr_tracker_info * info );
 
 void tr_peerIdNew ( char* buf, int buflen );
 
@@ -104,8 +104,8 @@ struct tr_torrent
     tr_handle                 * handle;
     tr_info                     info;
 
-    tr_speedlimit_t             uploadLimitMode;
-    tr_speedlimit_t             downloadLimitMode;
+    tr_speedlimit               uploadLimitMode;
+    tr_speedlimit               downloadLimitMode;
     struct tr_ratecontrol     * upload;
     struct tr_ratecontrol     * download;
     struct tr_ratecontrol     * swarmspeed;
@@ -160,7 +160,7 @@ struct tr_torrent
     uint8_t                    pexDisabled;
 
     int8_t                     statCur;
-    tr_stat_t                  stats[2];
+    tr_stat                    stats[2];
 
     tr_torrent               * next;
 };

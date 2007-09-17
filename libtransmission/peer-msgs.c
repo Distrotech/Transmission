@@ -859,12 +859,21 @@ canRead( struct bufferevent * evin, void * vpeer )
 **/
 
 static int
+canWrite( const tr_peermsgs * msgs )
+{
+    /* don't let our outbuffer get too large */
+    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 1024 )
+        return FALSE;
+
+    return TRUE;
+}
+
+static int
 canUpload( const tr_peermsgs * msgs )
 {
     const tr_torrent * tor = msgs->torrent;
 
-    /* don't let our outbuffer get too large */
-    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 1024 )
+    if( !canWrite( msgs ) )
         return FALSE;
 
     if( tor->uploadLimitMode == TR_SPEEDLIMIT_GLOBAL )
@@ -906,7 +915,8 @@ pulse( void * vmsgs )
     }
     else if(( len = EVBUFFER_LENGTH( msgs->outMessages ) ))
     {
-        tr_peerIoWriteBuf( msgs->io, msgs->outMessages );
+        if( canWrite( msgs ) )
+            tr_peerIoWriteBuf( msgs->io, msgs->outMessages );
     }
     else if(( msgs->peerAskedFor ))
     {

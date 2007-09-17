@@ -54,7 +54,7 @@ readOrWriteBytes ( const tr_torrent    * tor,
                    size_t                buflen )
 {
     const tr_info * info = &tor->info;
-    const tr_file_t * file = &info->files[fileIndex];
+    const tr_file * file = &info->files[fileIndex];
     typedef size_t (* iofunc) ( int, void *, size_t );
     iofunc func = ioMode == TR_IO_READ ? (iofunc)read : (iofunc)write;
     char path[MAX_PATH_LENGTH];
@@ -122,7 +122,7 @@ ensureMinimumFileSize ( const tr_torrent  * tor,
     int fd;
     int ret;
     struct stat sb;
-    const tr_file_t * file = &tor->info.files[fileIndex];
+    const tr_file * file = &tor->info.files[fileIndex];
 
     assert ( 0<=fileIndex && fileIndex<tor->info.fileCount );
     assert ( minSize <= file->length );
@@ -165,7 +165,7 @@ readOrWritePiece ( tr_torrent       * tor,
 
     while( buflen && !ret )
     {
-        const tr_file_t * file = &info->files[fileIndex];
+        const tr_file * file = &info->files[fileIndex];
         const uint64_t bytesThisPass = MIN( buflen, file->length - fileOffset );
 
         if( ioMode == TR_IO_WRITE )

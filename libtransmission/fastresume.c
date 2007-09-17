@@ -88,9 +88,9 @@ enum
 
     /* transfer speeds
      * uint32_t: dl speed rate to use when the mode is single
-     * uint32_t: dl's tr_speedlimit_t
+     * uint32_t: dl's tr_speedlimit
      * uint32_t: ul speed rate to use when the mode is single
-     * uint32_t: ul's tr_speedlimit_t
+     * uint32_t: ul's tr_speedlimit
      */
     FR_ID_SPEED = 8,
 
@@ -330,11 +330,11 @@ loadSpeeds( tr_torrent * tor, FILE * file )
     memcpy( &i16, walk, 2 ); walk += 2;
     tr_torrentSetSpeedLimit( tor, TR_DOWN, i16 );
     memcpy( &i8, walk, 1 ); walk += 1;
-    tr_torrentSetSpeedMode( tor, TR_DOWN, (tr_speedlimit_t)i8 );
+    tr_torrentSetSpeedMode( tor, TR_DOWN, (tr_speedlimit)i8 );
     memcpy( &i16, walk, 2 ); walk += 2;
     tr_torrentSetSpeedLimit( tor, TR_UP, i16 );
     memcpy( &i8, walk, 1 ); walk += 1;
-    tr_torrentSetSpeedMode( tor, TR_UP, (tr_speedlimit_t)i8 );
+    tr_torrentSetSpeedMode( tor, TR_UP, (tr_speedlimit)i8 );
 
     tr_free( buf );
     return TR_OK;
@@ -414,7 +414,7 @@ fastResumeLoadProgress( const tr_torrent  * tor,
         const tr_time_t * oldMTimes = (const tr_time_t *) walk;
         for( i=0; i<n; ++i ) {
             if ( curMTimes[i]!=oldMTimes[i] ) {
-                const tr_file_t * file = &tor->info.files[i];
+                const tr_file * file = &tor->info.files[i];
                 tr_dbg( "File '%s' mtimes differ-- flagging pieces [%d..%d] for recheck",
                         file->name, file->firstPiece, file->lastPiece);
                 tr_bitfieldAddRange( uncheckedPieces, 

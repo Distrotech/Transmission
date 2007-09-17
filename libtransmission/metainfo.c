@@ -255,7 +255,7 @@ realparse( tr_info * inf, const uint8_t * buf, size_t size )
     }
     inf->pieceCount = val->val.s.i / SHA_DIGEST_LENGTH;
 
-    inf->pieces = calloc ( inf->pieceCount, sizeof(tr_piece_t) );
+    inf->pieces = calloc ( inf->pieceCount, sizeof(tr_piece) );
 
     for ( i=0; i<inf->pieceCount; ++i )
     {
@@ -387,7 +387,7 @@ static int getannounce( tr_info * inf, benc_val_t * meta )
     benc_val_t        * val, * subval, * urlval;
     char              * address, * announce;
     int                 ii, jj, port, random, subcount;
-    tr_tracker_info_t * sublist;
+    tr_tracker_info   * sublist;
     void * swapping;
 
     /* Announce-list */
@@ -412,7 +412,7 @@ static int getannounce( tr_info * inf, benc_val_t * meta )
             /* iterate through the tier's items */
             for( jj = 0; jj < subval->val.l.count; jj++ )
             {
-                tr_tracker_info_t tmp;
+                tr_tracker_info tmp;
 
                 urlval = &subval->val.l.vals[jj];
                 if( TYPE_STR != urlval->type ||
@@ -559,9 +559,9 @@ static char * announceToScrape( const char * announce )
 }
 
 int
-tr_trackerInfoInit( tr_tracker_info_t  * info,
-                    const char         * address,
-                    int                  address_len )
+tr_trackerInfoInit( tr_tracker_info  * info,
+                    const char       * address,
+                    int                address_len )
 {
     int ret = tr_httpParseUrl( address, address_len,
                                &info->address,
@@ -574,12 +574,12 @@ tr_trackerInfoInit( tr_tracker_info_t  * info,
 }
 
 void
-tr_trackerInfoClear( tr_tracker_info_t * info )
+tr_trackerInfoClear( tr_tracker_info * info )
 {
     tr_free( info->address );
     tr_free( info->announce );
     tr_free( info->scrape );
-    memset( info, '\0', sizeof(tr_tracker_info_t) );
+    memset( info, '\0', sizeof(tr_tracker_info) );
 }
 
 

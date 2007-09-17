@@ -49,11 +49,11 @@
 
 #define SPRINTF_BUFSIZE         100
 
-static tr_lock        * messageLock = NULL;
-static int              messageLevel = 0;
-static int              messageQueuing = FALSE;
-static tr_msg_list_t *  messageQueue = NULL;
-static tr_msg_list_t ** messageQueueTail = &messageQueue;
+static tr_lock      * messageLock = NULL;
+static int            messageLevel = 0;
+static int            messageQueuing = FALSE;
+static tr_msg_list *  messageQueue = NULL;
+static tr_msg_list ** messageQueueTail = &messageQueue;
 
 void tr_msgInit( void )
 {
@@ -89,9 +89,9 @@ void tr_setMessageQueuing( int enabled )
     tr_lockUnlock( messageLock );
 }
 
-tr_msg_list_t * tr_getQueuedMessages( void )
+tr_msg_list * tr_getQueuedMessages( void )
 {
-    tr_msg_list_t * ret;
+    tr_msg_list * ret;
 
     assert( NULL != messageLock );
     tr_lockLock( messageLock );
@@ -103,9 +103,9 @@ tr_msg_list_t * tr_getQueuedMessages( void )
     return ret;
 }
 
-void tr_freeMessageList( tr_msg_list_t * list )
+void tr_freeMessageList( tr_msg_list * list )
 {
-    tr_msg_list_t * next;
+    tr_msg_list * next;
 
     while( NULL != list )
     {
@@ -118,8 +118,8 @@ void tr_freeMessageList( tr_msg_list_t * list )
 
 void tr_msg( int level, char * msg, ... )
 {
-    va_list         args1, args2;
-    tr_msg_list_t * newmsg;
+    va_list       args1, args2;
+    tr_msg_list * newmsg;
     int             len1, len2;
 
     assert( NULL != messageLock );

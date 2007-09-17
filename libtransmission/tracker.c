@@ -77,8 +77,8 @@ typedef struct
        back than we asked for */
     int multiscrapeMax;
 
-    tr_tracker_info_t * redirect;
-    tr_tracker_info_t * addresses;
+    tr_tracker_info * redirect;
+    tr_tracker_info * addresses;
     int addressIndex;
     int addressCount;
     int * tierFronts;
@@ -284,7 +284,7 @@ tr_trackerGet( const tr_torrent * tor )
     if( t == NULL ) /* no such tracker.... create one */
     {
         int i, j, sum, *iwalk;
-        tr_tracker_info_t * nwalk;
+        tr_tracker_info * nwalk;
         tr_dbg( "making a new tracker for \"%s\"", info->primaryAddress );
 
         t = tr_new0( Tracker, 1 );
@@ -302,7 +302,7 @@ fprintf( stderr, "TRACKER new tracker %p addr %s; counts are trackers %d torrent
 
         for( sum=i=0; i<info->trackerTiers; ++i )
              sum += info->trackerList[i].count;
-        t->addresses = nwalk = tr_new0( tr_tracker_info_t, sum );
+        t->addresses = nwalk = tr_new0( tr_tracker_info, sum );
         t->addressIndex = 0;
         t->addressCount = sum;
         t->tierFronts = iwalk = tr_new0( int, sum );
@@ -313,7 +313,7 @@ fprintf( stderr, "TRACKER new tracker %p addr %s; counts are trackers %d torrent
 
             for( j=0; j<info->trackerList[i].count; ++j )
             {
-                const tr_tracker_info_t * src = &info->trackerList[i].list[j];
+                const tr_tracker_info * src = &info->trackerList[i].list[j];
                 nwalk->address = tr_strdup( src->address );
                 nwalk->port = src->port;
                 nwalk->announce = tr_strdup( src->announce );
@@ -477,7 +477,7 @@ updateAddresses( Tracker * t, const struct evhttp_request * req )
                successful, it will be moved to the front of the tier." */
             const int i = t->addressIndex;
             const int j = t->tierFronts[i];
-            const tr_tracker_info_t swap = t->addresses[i];
+            const tr_tracker_info swap = t->addresses[i];
             t->addresses[i] = t->addresses[j];
             t->addresses[j] = swap;
         }
@@ -486,21 +486,21 @@ updateAddresses( Tracker * t, const struct evhttp_request * req )
              || ( req->response_code == HTTP_MOVETEMP ) )
     {
         const char * loc = evhttp_find_header( req->input_headers, "Location" );
-        tr_tracker_info_t tmp;
+        tr_tracker_info tmp;
         if( tr_trackerInfoInit( &tmp, loc, -1 ) ) /* a bad redirect? */
         {
             moveToNextAddress = TRUE;
         }
         else if( req->response_code == HTTP_MOVEPERM )
         {
-            tr_tracker_info_t * cur = &t->addresses[t->addressIndex];
+            tr_tracker_info * cur = &t->addresses[t->addressIndex];
             tr_trackerInfoClear( cur );
             *cur = tmp;
         }
         else if( req->response_code == HTTP_MOVETEMP )
         {
             if( t->redirect == NULL )
-                t->redirect = tr_new0( tr_tracker_info_t, 1 );
+                t->redirect = tr_new0( tr_tracker_info, 1 );
             else
                 tr_trackerInfoClear( t->redirect );
             *t->redirect = tmp;
@@ -523,7 +523,7 @@ updateAddresses( Tracker * t, const struct evhttp_request * req )
     return ret;
 }
 
-static tr_tracker_info_t *
+static tr_tracker_info *
 getCurrentAddress( const Tracker * t )
 {
     assert( t->addresses != NULL );
@@ -535,7 +535,7 @@ getCurrentAddress( const Tracker * t )
 static int
 trackerSupportsScrape( const Tracker * t )
 {
-    const tr_tracker_info_t * info = getCurrentAddress( t );
+    const tr_tracker_info * info = getCurrentAddress( t );
 
     return ( info != NULL )
         && ( info->scrape != NULL )
@@ -548,7 +548,7 @@ addCommonHeaders( const Tracker * t,
                   struct evhttp_request * req )
 {
     char buf[1024];
-    tr_tracker_info_t * address = getCurrentAddress( t );
+    tr_tracker_info * address = getCurrentAddress( t );
     snprintf( buf, sizeof(buf), "%s:%d", address->address, address->port );
     evhttp_add_header( req->output_headers, "Host", buf );
     evhttp_add_header( req->output_headers, "Connection", "close" );
@@ -685,7 +685,7 @@ static int
 onTrackerScrapeNow( void * vt )
 {
     Tracker * t = (Tracker*) vt;
-    const tr_tracker_info_t * address = getCurrentAddress( t );
+    const tr_tracker_info * address = getCurrentAddress( t );
 
     assert( tr_ptrArrayEmpty( t->scraping ) );
 
@@ -961,7 +961,7 @@ static int
 sendTrackerRequest( void * vtor, const char * eventName )
 {
     Torrent * tor = (Torrent *) vtor;
-    const tr_tracker_info_t * address = getCurrentAddress( tor->tracker );
+    const tr_tracker_info * address = getCurrentAddress( tor->tracker );
     char * uri = buildTrackerRequestURI( tor, eventName );
     struct evhttp_connection * evcon = NULL;
 
@@ -1019,7 +1019,7 @@ tr_trackerUnsubscribe( Torrent           * tor,
     tr_publisherUnsubscribe( tor->publisher, tag );
 }
 
-const tr_tracker_info_t *
+const tr_tracker_info *
 tr_trackerGetAddress( const Torrent * tor )
 {
     return getCurrentAddress( tor->tracker );
