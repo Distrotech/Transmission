@@ -398,6 +398,7 @@ fprintf( stderr, "REFILL refillPulse for {%s} reqCount is %d, unreqCount is %d\n
 
     tr_free( req );
     tr_free( unreq );
+    tr_free( pieces );
 
     return ret;
 }
