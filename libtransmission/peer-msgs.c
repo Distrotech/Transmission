@@ -946,7 +946,7 @@ static int
 canWrite( const tr_peermsgs * msgs )
 {
     /* don't let our outbuffer get too large */
-    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 4096 )
+    if( tr_peerIoWriteBytesWaiting( msgs->io ) > 1024 )
         return FALSE;
 
     return TRUE;
@@ -993,7 +993,7 @@ pulse( void * vmsgs )
     {
         while ( len && canUpload( msgs ) )
         {
-            const size_t outlen = MIN( len, 4096 );
+            const size_t outlen = MIN( len, 1024 );
             tr_peerIoWrite( msgs->io, EVBUFFER_DATA(msgs->outBlock), outlen );
             evbuffer_drain( msgs->outBlock, outlen );
             peerGotBytes( msgs, outlen );
