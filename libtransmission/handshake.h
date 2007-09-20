@@ -13,13 +13,7 @@
 #ifndef TR_HANDSHAKE_H
 #define TR_HANDSHAKE_H
 
-enum EncryptionPreference
-{
-    HANDSHAKE_ENCRYPTION_PREFERRED,
-    HANDSHAKE_ENCRYPTION_REQUIRED,
-    HANDSHAKE_PLAINTEXT_PREFERRED,
-    HANDSHAKE_PLAINTEXT_REQUIRED
-};
+#include "transmission.h"
 
 struct tr_peerIo;
 typedef struct tr_handshake tr_handshake;
@@ -31,11 +25,11 @@ typedef void (*handshakeDoneCB)(struct tr_handshake * handshake,
                                 int                   peerSupportsEncryption,
                                 void                * userData );
 
-tr_handshake *  tr_handshakeNew( struct tr_peerIo * io,
-                                 int                encryptionPreference,
-                                 handshakeDoneCB    doneCB,
-                                 void             * doneUserData );
+tr_handshake *  tr_handshakeNew( struct tr_peerIo   * io,
+                                 tr_encryption_mode   encryptionMode,
+                                 handshakeDoneCB      doneCB,
+                                 void               * doneUserData );
 
-void tr_handshakeAbort( tr_handshake * );
+void tr_handshakeAbort( tr_handshake  * handshake );
 
 #endif

@@ -199,6 +199,15 @@ tr_peerIoGetAddress( const tr_peerIo * io, uint16_t * port )
     return &io->in_addr;
 }
 
+const char*
+tr_peerIoGetAddrStr( const tr_peerIo * io )
+{
+    static char buf[512];
+    assert( io != NULL );
+    snprintf( buf, sizeof(buf), "%s:%u", inet_ntoa( io->in_addr ), (unsigned int)io->port );
+    return buf;
+}
+
 void 
 tr_peerIoSetIOFuncs( tr_peerIo          * io,
                      tr_can_read_cb       readcb,
@@ -376,7 +385,7 @@ tr_peerIoSetEncryption( tr_peerIo * io,
                         int         encryptionMode )
 {
     assert( io != NULL );
-    assert( encryptionMode==PEER_ENCRYPTION_PLAINTEXT || encryptionMode==PEER_ENCRYPTION_RC4 );
+    assert( encryptionMode==PEER_ENCRYPTION_NONE || encryptionMode==PEER_ENCRYPTION_RC4 );
 
     io->encryptionMode = encryptionMode;
 }
@@ -397,7 +406,7 @@ tr_peerIoWriteBytes( tr_peerIo        * io,
 
     switch( io->encryptionMode )
     {
-        case PEER_ENCRYPTION_PLAINTEXT:
+        case PEER_ENCRYPTION_NONE:
             /*fprintf( stderr, "writing %d plaintext bytes to outbuf...\n", byteCount );*/
             evbuffer_add( outbuf, bytes, byteCount );
             break;
@@ -443,7 +452,7 @@ tr_peerIoReadBytes( tr_peerIo        * io,
 
     switch( io->encryptionMode )
     {
-        case PEER_ENCRYPTION_PLAINTEXT:
+        case PEER_ENCRYPTION_NONE:
             /*fprintf( stderr, "reading %d plaintext bytes from inbuf...\n", byteCount );*/
             evbuffer_remove(  inbuf, bytes, byteCount );
             tr_rcTransferred( io->rateToClient, byteCount );

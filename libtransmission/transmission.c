@@ -78,6 +78,27 @@ getPeerId( void )
 ****
 ***/
 
+tr_encryption_mode
+tr_getEncryptionMode( tr_handle * handle )
+{
+    assert( handle != NULL );
+
+    return handle->encryptionMode;
+}
+
+void
+tr_setEncryptionMode( tr_handle * handle, tr_encryption_mode mode )
+{
+    assert( handle != NULL );
+    assert( mode==TR_ENCRYPTION_PREFERRED || mode==TR_ENCRYPTION_REQUIRED );
+
+    handle->encryptionMode = mode;
+}
+
+/***
+****
+***/
+
 
 /***********************************************************************
  * tr_init
@@ -99,6 +120,8 @@ tr_handle_t * tr_init( const char * tag )
     h = tr_new0( tr_handle_t, 1 );
     if( !h )
         return NULL;
+
+    h->encryptionMode = TR_ENCRYPTION_PREFERRED;
 
     tr_eventInit( h );
     while( !h->events )

@@ -101,12 +101,29 @@ extern "C" {
  * deleting a torrent used by another. The following tags are used:
  *   beos cli daemon gtk macosx
  **********************************************************************/
+
 typedef struct tr_handle tr_handle;
 typedef struct tr_handle tr_handle_t;
+
 tr_handle * tr_init( const char * tag );
 
 typedef struct tr_tracker_info tr_tracker_info;
 typedef struct tr_tracker_info tr_tracker_info_t;
+
+/**
+***
+**/
+
+typedef enum
+{
+    TR_ENCRYPTION_PREFERRED,
+    TR_ENCRYPTION_REQUIRED
+}
+tr_encryption_mode;
+
+tr_encryption_mode tr_getEncryptionMode( tr_handle * handle );
+
+void tr_setEncryptionMode( tr_handle * handle, tr_encryption_mode mode );
 
 /***********************************************************************
  * tr_setMessageLevel

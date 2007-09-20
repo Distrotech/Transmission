@@ -51,6 +51,13 @@
 ****
 ***/
 
+int
+tr_torrentExists( tr_handle       * handle,
+                  const uint8_t   * torrentHash )
+{
+    return tr_torrentFindFromHash( handle, torrentHash ) != NULL;
+}
+
 tr_torrent*
 tr_torrentFindFromHash( tr_handle      * handle,
                         const uint8_t  * torrentHash )
@@ -166,7 +173,7 @@ onTrackerResponse( void * tracker UNUSED, void * vevent, void * user_data )
             break;
 
         case TR_TRACKER_STOPPED:
-            assert( tor->runStatus == TR_RUN_STOPPING );
+            //assert( tor->runStatus == TR_RUN_STOPPING );
             tor->runStatus = TR_RUN_STOPPED;
             break;
     }

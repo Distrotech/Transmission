@@ -224,16 +224,15 @@ tr_peerMgrNew( tr_handle * handle )
 void
 tr_peerMgrFree( tr_peerMgr * manager )
 {
-    int i, n;
 fprintf( stderr, "timer peerMgrFree\n" );
+
+    while( !tr_ptrArrayEmpty( manager->handshakes ) )
+        tr_handshakeAbort( (tr_handshake*)tr_ptrArrayNth( manager->handshakes, 0) );
+    tr_ptrArrayFree( manager->handshakes );
 
     while( !tr_ptrArrayEmpty( manager->torrents ) )
         freeTorrent( manager, (Torrent*)tr_ptrArrayNth( manager->torrents, 0) );
     tr_ptrArrayFree( manager->torrents );
-
-    for( i=0, n=tr_ptrArraySize(manager->handshakes); i<n; ++i )
-        tr_handshakeAbort( (tr_handshake*) tr_ptrArrayNth( manager->handshakes, i) );
-    tr_ptrArrayFree( manager->handshakes );
 
     tr_free( manager );
 }
@@ -604,7 +603,7 @@ static void
 initiateHandshake( tr_peerMgr * manager, tr_peerIo * io )
 {
     tr_handshake * handshake = tr_handshakeNew( io,
-                                                HANDSHAKE_ENCRYPTION_PREFERRED,
+                                                manager->handle->encryptionMode,
                                                 myHandshakeDoneCB,
                                                 manager );
     ++manager->connectionCount;

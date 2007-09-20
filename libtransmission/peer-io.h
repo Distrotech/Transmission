@@ -64,6 +64,9 @@ int   tr_peerIoGetExtension( const tr_peerIo * io );
 ***
 **/
 
+const char*
+      tr_peerIoGetAddrStr( const tr_peerIo * io );
+
 const struct in_addr*
       tr_peerIoGetAddress( const tr_peerIo * io, uint16_t * port );
 
@@ -131,8 +134,8 @@ struct tr_crypto* tr_peerIoGetCrypto( tr_peerIo * io );
 typedef enum
 {
     /* these match the values in MSE's crypto_select */
-    PEER_ENCRYPTION_PLAINTEXT = (1<<0),
-    PEER_ENCRYPTION_RC4       = (1<<1)
+    PEER_ENCRYPTION_NONE  = (1<<0),
+    PEER_ENCRYPTION_RC4   = (1<<1)
 }
 EncryptionMode;
 

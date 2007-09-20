@@ -62,6 +62,7 @@ void tr_torrentUnlock  ( const tr_torrent * );
 
 void tr_torrentChangeMyPort  ( tr_torrent *, int port );
 
+int tr_torrentExists( tr_handle *, const uint8_t * );
 tr_torrent* tr_torrentFindFromHash( tr_handle *, const uint8_t * );
 tr_torrent* tr_torrentFindFromObfuscatedHash( tr_handle *, const uint8_t* );
 
@@ -167,6 +168,8 @@ struct tr_torrent
 
 struct tr_handle
 {
+    tr_encryption_mode         encryptionMode;
+
     struct tr_event_handle   * events;
 
     int                        torrentCount;
