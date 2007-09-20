@@ -38,21 +38,29 @@
 ****
 ***/
 
-#define HANDSHAKE_NAME          "\023BitTorrent protocol"
-#define HANDSHAKE_NAME_LEN      20
-#define HANDSHAKE_FLAGS_LEN     8
-#define HANDSHAKE_SIZE          68
-
-/***
-****
-***/
+#define HANDSHAKE_NAME "\023BitTorrent protocol"
 
 enum
 {
+    /* BitTorrent Handshake Constants */
+    HANDSHAKE_NAME_LEN             = 20,
+    HANDSHAKE_FLAGS_LEN            = 8,
+    HANDSHAKE_SIZE                 = 68,
+    PEER_ID_LEN                    = 20,
+
+    /* Extension Negotiation Constants */
     HANDSHAKE_EXTPREF_LTEP_FORCE   = 0x0,
     HANDSHAKE_EXTPREF_LTEP_PREFER  = 0x1,
     HANDSHAKE_EXTPREF_AZMP_PREFER  = 0x2,
-    HANDSHAKE_EXTPREF_AZMP_FORCE   = 0x3
+    HANDSHAKE_EXTPREF_AZMP_FORCE   = 0x3,
+
+    /* Encryption Constants */
+    PadA_MAXLEN                    = 512,
+    PadB_MAXLEN                    = 512,
+    PadC_MAXLEN                    = 512,
+    PadD_MAXLEN                    = 512,
+    VC_LENGTH                      = 8,
+    KEY_LEN                        = 96
 };
 
 
@@ -77,23 +85,8 @@ enum
    azureus protocol is supported, they indicate which protocol is preferred */
 #define HANDSHAKE_GET_EXTPREF( reserved )      ( (reserved)[5] & 0x03 )
 #define HANDSHAKE_SET_EXTPREF( reserved, val ) ( (reserved)[5] |= 0x03 & (val) )
-#define HANDSHAKE_EXTPREF_LTEP_FORCE   ( 0x0 )
-#define HANDSHAKE_EXTPREF_LTEP_PREFER  ( 0x1 )
-#define HANDSHAKE_EXTPREF_AZMP_PREFER  ( 0x2 )
-#define HANDSHAKE_EXTPREF_AZMP_FORCE   ( 0x3 )
-
-enum
-{
-    PadA_MAXLEN = 512,
-    PadB_MAXLEN = 512,
-    PadC_MAXLEN = 512,
-    PadD_MAXLEN = 512
-};
 
 extern const char* getPeerId( void ) ;
-
-#define KEY_LEN 96
-#define VC_LENGTH 8
 
 struct tr_handshake
 {
@@ -104,15 +97,15 @@ struct tr_handshake
     tr_peerIo * io;
     tr_crypto * crypto;
     struct tr_handle * handle;
-    uint8_t myPublicKey[96];
-    uint8_t mySecret[96];
+    uint8_t myPublicKey[KEY_LEN];
+    uint8_t mySecret[KEY_LEN];
     uint8_t state;
     uint16_t pad_c_len;
     uint16_t pad_d_len;
     uint16_t  ia_len;
     uint32_t crypto_select;
     uint8_t myReq1[SHA_DIGEST_LENGTH];
-    uint8_t peer_id[20];
+    uint8_t peer_id[PEER_ID_LEN];
     handshakeDoneCB doneCB;
     void * doneUserData;
 };
@@ -495,17 +488,13 @@ readHandshake( tr_handshake * handshake, struct evbuffer * inbuf )
     uint8_t azmp = 0;
     uint8_t pstrlen;
     uint8_t * pstr;
-    uint8_t reserved[8];
+    uint8_t reserved[HANDSHAKE_FLAGS_LEN];
     uint8_t hash[SHA_DIGEST_LENGTH];
 
     dbgmsg( handshake, "payload: need %d, got %d\n", (int)HANDSHAKE_SIZE, (int)EVBUFFER_LENGTH(inbuf) );
 
     if( EVBUFFER_LENGTH(inbuf) < HANDSHAKE_SIZE )
         return READ_MORE;
-
-for( i=0; i<(int)EVBUFFER_LENGTH(inbuf); ++i )
-fprintf( stderr, "[%c]", EVBUFFER_DATA(inbuf)[i] );
-fprintf( stderr, "\n" );
 
     pstrlen = EVBUFFER_DATA(inbuf)[0]; /* peek, don't read.  We may be
                                           handing inbuf to AWAITING_YA */
@@ -582,6 +571,12 @@ fprintf( stderr, "\n" );
     tr_peerIoReadBytes( handshake->io, inbuf, handshake->peer_id, sizeof(handshake->peer_id) );
     tr_peerIoSetPeersId( handshake->io, handshake->peer_id );
     handshake->havePeerID = TRUE;
+    dbgmsg( handshake, "peer-id is [%*.*s]", PEER_ID_LEN, PEER_ID_LEN, handshake->peer_id );
+    if( !memcmp( handshake->peer_id, getPeerId(), PEER_ID_LEN ) ) {
+        dbgmsg( handshake, "streuth!  we've connected to ourselves." );
+        tr_handshakeDone( handshake, FALSE );
+        return READ_DONE;
+    }
 
     /**
     *** Extension negotiation
@@ -889,3 +884,14 @@ dbgmsg( handshake, "new handshake for io %p", io );
 
     return handshake;
 }
+
+const struct in_addr *
+tr_handshakeGetAddr( const struct tr_handshake * handshake, uint16_t * port )
+{
+    assert( handshake != NULL );
+    assert( handshake->io != NULL );
+
+    return tr_peerIoGetAddress( handshake->io, port );
+}
+
+

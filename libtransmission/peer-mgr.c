@@ -70,10 +70,40 @@ struct tr_peerMgr
 **/
 
 static int
+handshakeCompareToAddr( const void * va, const void * vb )
+{
+    const tr_handshake * a = va;
+    const struct in_addr * b = vb;
+    return memcmp( tr_handshakeGetAddr( a, NULL ), b, sizeof( struct in_addr ) );
+}
+
+static int
+handshakeCompare( const void * va, const void * vb )
+{
+    const tr_handshake * a = va;
+    const tr_handshake * b = vb;
+    return memcmp( tr_handshakeGetAddr( a, NULL ),
+                   tr_handshakeGetAddr( b, NULL ),
+                   sizeof( struct in_addr ) );
+}
+
+static tr_handshake*
+getExistingHandshake( tr_peerMgr * mgr, const struct in_addr * in_addr )
+{
+    return tr_ptrArrayFindSorted( mgr->handshakes,
+                                  in_addr,
+                                  handshakeCompareToAddr );
+}
+
+/**
+***
+**/
+
+static int
 torrentCompare( const void * va, const void * vb )
 {
-    const Torrent * a = (const Torrent*) va;
-    const Torrent * b = (const Torrent*) vb;
+    const Torrent * a = va;
+    const Torrent * b = vb;
     return memcmp( a->hash, b->hash, SHA_DIGEST_LENGTH );
 }
 
@@ -545,7 +575,7 @@ myHandshakeDoneCB( tr_handshake    * handshake,
 
     ours = tr_ptrArrayRemoveSorted( manager->handshakes,
                                     handshake,
-                                    tr_comparePointers );
+                                    handshakeCompare );
     assert( handshake == ours );
 
     in_addr = tr_peerIoGetAddress( io, &port );
@@ -608,7 +638,7 @@ initiateHandshake( tr_peerMgr * manager, tr_peerIo * io )
                                                 manager );
     ++manager->connectionCount;
 
-    tr_ptrArrayInsertSorted( manager->handshakes, handshake, tr_comparePointers );
+    tr_ptrArrayInsertSorted( manager->handshakes, handshake, handshakeCompare );
 }
 
 void
@@ -616,8 +646,11 @@ tr_peerMgrAddIncoming( tr_peerMgr      * manager,
                        struct in_addr  * addr,
                        int               socket )
 {
-    tr_peerIo * io = tr_peerIoNewIncoming( manager->handle, addr, socket );
-    initiateHandshake( manager, io );
+    if( getExistingHandshake( manager, addr ) == NULL )
+    {
+        tr_peerIo * io = tr_peerIoNewIncoming( manager->handle, addr, socket );
+        initiateHandshake( manager, io );
+    }
 }
 
 static void
@@ -635,6 +668,10 @@ maybeConnect( tr_peerMgr * manager, Torrent * t, tr_peer * peer )
     }
     if( !t->isRunning ) { /* torrent's not running */
         fprintf( stderr, "OUTGOING connection not being made because t [%s] is not running\n", t->tor->info.name );
+        return;
+    }
+    if( getExistingHandshake( manager, &peer->in_addr ) != NULL ) { /* already have a handshake pending */
+        fprintf( stderr, "already have a handshake for that address\n" );
         return;
     }
 

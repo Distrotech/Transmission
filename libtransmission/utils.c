@@ -332,12 +332,6 @@ tr_compareUint64( uint64_t a, uint64_t b )
     return 0;
 }
 
-int
-tr_comparePointers( const void * a, const void * b )
-{
-    return a - b;
-}
-
 /**
 ***
 **/
