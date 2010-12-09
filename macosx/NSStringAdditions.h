@@ -1,5 +1,5 @@
 /******************************************************************************
- * $Id: StringAdditions.h 2869 2007-08-19 03:03:28Z livings124 $
+ * $Id$
  *
  * Copyright (c) 2005-2010 Transmission authors and contributors
  *
@@ -28,6 +28,8 @@
 
 + (NSString *) ellipsis;
 - (NSString *) stringByAppendingEllipsis;
+
++ (NSString *) formattedUInteger: (NSUInteger) value;
 
 + (NSString *) stringForFileSize: (uint64_t) size;
 

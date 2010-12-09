@@ -141,6 +141,7 @@ Session :: updatePref( int key )
         case Prefs :: ALT_SPEED_LIMIT_UP:
         case Prefs :: BLOCKLIST_DATE:
         case Prefs :: BLOCKLIST_ENABLED:
+        case Prefs :: BLOCKLIST_URL:
         case Prefs :: DHT_ENABLED:
         case Prefs :: DOWNLOAD_DIR:
         case Prefs :: DSPEED:
@@ -192,7 +193,7 @@ Session :: updatePref( int key )
 
         case Prefs :: RPC_AUTH_REQUIRED:
             if( mySession )
-                tr_sessionSetRPCEnabled( mySession, myPrefs.getBool(key) );
+                tr_sessionSetRPCPasswordEnabled( mySession, myPrefs.getBool(key) );
             break;
         case Prefs :: RPC_ENABLED:
             if( mySession )

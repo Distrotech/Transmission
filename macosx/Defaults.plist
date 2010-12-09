@@ -16,7 +16,7 @@
 	<true/>
 	<key>BindPort</key>
 	<integer>51413</integer>
-	<key>Blocklist</key>
+	<key>BlocklistNew</key>
 	<false/>
 	<key>BlocklistAutoUpdate</key>
 	<false/>
@@ -49,6 +49,8 @@
 	<key>DisplaySmallStatusRegular</key>
 	<true/>
 	<key>DisplayStatusProgressSelected</key>
+	<false/>
+	<key>DoneScriptEnabled</key>
 	<false/>
 	<key>DownloadAsk</key>
 	<true/>
@@ -110,18 +112,6 @@
 	<true/>
 	<key>PlaySeedingSound</key>
 	<false/>
-	<key>Proxy</key>
-	<false/>
-	<key>ProxyAddress</key>
-	<string></string>
-	<key>ProxyAuthorize</key>
-	<false/>
-	<key>ProxyPort</key>
-	<integer>80</integer>
-	<key>ProxyType</key>
-	<string>HTTP</string>
-	<key>ProxyUsername</key>
-	<string></string>
 	<key>Queue</key>
 	<false/>
 	<key>QueueDownloadNumber</key>

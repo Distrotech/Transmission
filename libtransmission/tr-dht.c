@@ -18,6 +18,9 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
+
+ $Id$
+
 */
 
 /* ansi */
@@ -55,7 +58,6 @@ THE SOFTWARE.
 #include "tr-dht.h"
 #include "trevent.h" /* tr_runInEventThread() */
 #include "utils.h"
-#include "version.h"
 
 static int dht_socket = -1, dht6_socket = -1;
 static struct event dht_event, dht6_event;
@@ -322,7 +324,6 @@ tr_dhtInit(tr_session *ss, const tr_address * tr_addr)
     uint8_t * nodes = NULL, * nodes6 = NULL;
     const uint8_t * raw;
     size_t len, len6;
-    char v[5];
     struct bootstrap_closure * cl;
 
     if( session ) /* already initialized */
@@ -384,12 +385,8 @@ tr_dhtInit(tr_session *ss, const tr_address * tr_addr)
         tr_cryptoRandBuf( myid, 20 );
     }
 
-    v[0] = 'T';
-    v[1] = 'R';
-    v[2] = (SVN_REVISION_NUM >> 8) & 0xFF;
-    v[3] = SVN_REVISION_NUM & 0xFF;
-    rc = dht_init( dht_socket, dht6_socket, myid, (const unsigned char*)v );
-    if(rc < 0)
+    rc = dht_init( dht_socket, dht6_socket, myid, NULL );
+    if( rc < 0 )
         goto fail;
 
     session = ss;

@@ -266,7 +266,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         }
         
         tr_benc settings;
-        tr_bencInitDict(&settings, 37);
+        tr_bencInitDict(&settings, 41);
         const char * configDir = tr_getDefaultConfigDir("Transmission");
         tr_sessionGetDefaultSettings(configDir, &settings);
         
@@ -295,7 +295,9 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         if ([fDefaults objectForKey: @"BindAddressIPv6"])
             tr_bencDictAddStr(&settings, TR_PREFS_KEY_BIND_ADDRESS_IPV6, [[fDefaults stringForKey: @"BindAddressIPv6"] UTF8String]);
         
-        tr_bencDictAddBool(&settings, TR_PREFS_KEY_BLOCKLIST_ENABLED, [fDefaults boolForKey: @"Blocklist"]);
+        tr_bencDictAddBool(&settings, TR_PREFS_KEY_BLOCKLIST_ENABLED, [fDefaults boolForKey: @"BlocklistNew"]);
+        if ([fDefaults objectForKey: @"BlocklistURL"])
+            tr_bencDictAddStr(&settings, TR_PREFS_KEY_BLOCKLIST_URL, [[fDefaults stringForKey: @"BlocklistURL"] UTF8String]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_DHT_ENABLED, [fDefaults boolForKey: @"DHTGlobal"]);
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_DOWNLOAD_DIR, [[[fDefaults stringForKey: @"DownloadFolder"]
                                                                     stringByExpandingTildeInPath] UTF8String]);
@@ -320,11 +322,6 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_PEX_ENABLED, [fDefaults boolForKey: @"PEXGlobal"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_PORT_FORWARDING, [fDefaults boolForKey: @"NatTraversal"]);
-        tr_bencDictAddBool(&settings, TR_PREFS_KEY_PROXY_AUTH_ENABLED, [fDefaults boolForKey: @"ProxyAuthorize"]);
-        tr_bencDictAddBool(&settings, TR_PREFS_KEY_PROXY_ENABLED, [fDefaults boolForKey: @"Proxy"]);
-        tr_bencDictAddInt(&settings, TR_PREFS_KEY_PROXY_PORT, [fDefaults integerForKey: @"ProxyPort"]);
-        tr_bencDictAddStr(&settings, TR_PREFS_KEY_PROXY, [[fDefaults stringForKey: @"ProxyAddress"] UTF8String]);
-        tr_bencDictAddStr(&settings, TR_PREFS_KEY_PROXY_USERNAME,  [[fDefaults stringForKey: @"ProxyUsername"] UTF8String]);
         tr_bencDictAddReal(&settings, TR_PREFS_KEY_RATIO, [fDefaults floatForKey: @"RatioLimit"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RATIO_ENABLED, [fDefaults boolForKey: @"RatioCheck"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RENAME_PARTIAL_FILES, [fDefaults boolForKey: @"RenamePartialFiles"]);
@@ -334,6 +331,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
         tr_bencDictAddStr(&settings, TR_PREFS_KEY_RPC_USERNAME,  [[fDefaults stringForKey: @"RPCUsername"] UTF8String]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_RPC_WHITELIST_ENABLED,  [fDefaults boolForKey: @"RPCUseWhitelist"]);
         tr_bencDictAddBool(&settings, TR_PREFS_KEY_START, [fDefaults boolForKey: @"AutoStartDownload"]);
+        tr_bencDictAddBool(&settings, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_ENABLED, [fDefaults boolForKey: @"DoneScriptEnabled"]);
+        tr_bencDictAddStr(&settings, TR_PREFS_KEY_SCRIPT_TORRENT_DONE_FILENAME, [[fDefaults stringForKey: @"DoneScriptPath"] UTF8String]);
         
         tr_formatter_size_init([NSApp isOnSnowLeopardOrBetter] ? 1000 : 1024,
                                     [NSLocalizedString(@"KB", "File size - kilobytes") UTF8String],
@@ -409,13 +408,21 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     if ([fDefaults boolForKey: @"SmallView"])
         [fTableView setRowHeight: ROW_HEIGHT_SMALL];
     
+    #warning remove once localizations are updated for 2.2
+    [fActionButton setBordered: NO];
+    [fActionButton setFrame: NSMakeRect(6.0, 2.0, 36.0, 18.0)];
+    [fSpeedLimitButton setBordered: NO];
+    [fSpeedLimitButton setFrame: NSMakeRect(45.0, 2.0, 36.0, 18.0)];
+    
     //window min height
     NSSize contentMinSize = [fWindow contentMinSize];
     contentMinSize.height = [[fWindow contentView] frame].size.height - [[fTableView enclosingScrollView] frame].size.height
                                 + [fTableView rowHeight] + [fTableView intercellSpacing].height;
     [fWindow setContentMinSize: contentMinSize];
     [fWindow setContentBorderThickness: NSMinY([[fTableView enclosingScrollView] frame]) forEdge: NSMinYEdge];
-        
+    
+    [[fTotalDLField cell] setBackgroundStyle: NSBackgroundStyleRaised];
+    [[fTotalULField cell] setBackgroundStyle: NSBackgroundStyleRaised];
     [[fTotalTorrentsField cell] setBackgroundStyle: NSBackgroundStyleRaised];
     
     [self updateGroupsFilterButton];
@@ -1316,6 +1323,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI];
     [self applyFilter: nil];
+    [[fWindow toolbar] validateVisibleItems];
     [self updateTorrentHistory];
 }
 
@@ -1339,6 +1347,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI];
     [self applyFilter: nil];
+    [[fWindow toolbar] validateVisibleItems];
     [self updateTorrentHistory];
 }
 
@@ -1531,7 +1540,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     {
         NSSavePanel * panel = [NSSavePanel savePanel];
         [panel setAllowedFileTypes: [NSArray arrayWithObjects: @"org.bittorrent.torrent", @"torrent", nil]];
-        [panel setCanSelectHiddenExtension: YES];
+        [panel setExtensionHidden: NO];
         
         [panel beginSheetForDirectory: nil file: [torrent name] modalForWindow: fWindow modalDelegate: self
             didEndSelector: @selector(saveTorrentCopySheetClosed:returnCode:contextInfo:) contextInfo: torrents];
@@ -1671,6 +1680,8 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
             [[QLPreviewPanelSL sharedPreviewPanel] reloadData];
         
     }
+    
+    [[fWindow toolbar] validateVisibleItems];
 }
 
 - (void) resetInfo
@@ -1780,20 +1791,21 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) setBottomCountText: (BOOL) filtering
 {
     NSString * totalTorrentsString;
-    NSInteger totalCount = [fTorrents count];
+    NSUInteger totalCount = [fTorrents count];
     if (totalCount != 1)
-        totalTorrentsString = [NSString stringWithFormat: NSLocalizedString(@"%d transfers", "Status bar transfer count"), totalCount];
+        totalTorrentsString = [NSString stringWithFormat: NSLocalizedString(@"%@ transfers", "Status bar transfer count"),
+                                [NSString formattedUInteger: totalCount]];
     else
         totalTorrentsString = NSLocalizedString(@"1 transfer", "Status bar transfer count");
     
     if (filtering)
     {
-        NSInteger count = [fTableView numberOfRows]; //have to factor in collapsed rows
+        NSUInteger count = [fTableView numberOfRows]; //have to factor in collapsed rows
         if (count > 0 && ![[fDisplayedTorrents objectAtIndex: 0] isKindOfClass: [Torrent class]])
             count -= [fDisplayedTorrents count];
         
-        totalTorrentsString = [NSString stringWithFormat: NSLocalizedString(@"%d of %@", "Status bar transfer count"),
-                                count, totalTorrentsString];
+        totalTorrentsString = [NSString stringWithFormat: NSLocalizedString(@"%@ of %@", "Status bar transfer count"),
+                                [NSString formattedUInteger: count], totalTorrentsString];
     }
     
     [fTotalTorrentsField setStringValue: totalTorrentsString];
@@ -1874,6 +1886,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
     
     [self updateUI];
     [self applyFilter: nil];
+    [[fWindow toolbar] validateVisibleItems];
     [self updateTorrentHistory];
 }
 
@@ -2926,6 +2939,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 - (void) torrentTableViewSelectionDidChange: (NSNotification *) notification
 {
     [self resetInfo];
+    [[fWindow toolbar] validateVisibleItems];
 }
 
 - (NSDragOperation) draggingEntered: (id <NSDraggingInfo>) info
@@ -3203,6 +3217,7 @@ static void sleepCallback(void * controller, io_service_t y, natural_t messageTy
 
     [self showFilterBar: [fFilterBar isHidden] animate: YES];
     [fDefaults setBool: ![fFilterBar isHidden] forKey: @"FilterBar"];
+    [[fWindow toolbar] validateVisibleItems];
 }
 
 //doesn't save shown state

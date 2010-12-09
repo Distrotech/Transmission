@@ -51,7 +51,7 @@
 
 
 
-"%d files" = "%d file";
+"%@ files" = "%@ file";
 
 /* Inspector -> Peers tab -> peers */
 "%d incoming" = "%d in arrivo";
@@ -71,7 +71,7 @@
 "%d LTEP" = "%d LTEP";
 
 /* Inspector -> selected torrents */
-"%d magnetized transfers" = "%d trasferimenti magnetici";
+"%@ magnetized transfers" = "%@ trasferimenti magnetici";
 
 /* Status bar transfer count */
 "%d of %@" = "%1$d su %2$@";
@@ -86,10 +86,10 @@
 "%d Seeding" = "%d in seed";
 
 /* Drag overlay -> torrents */
-"%d Torrent Files" = "%d file torrent";
+"%@ Torrent Files" = "%@ file torrent";
 
 /* Inspector -> selected torrents */
-"%d Torrents Selected" = "%d torrent selezionati";
+"%@ Torrents Selected" = "%@ torrent selezionati";
 
 /* Inspector -> Peers tab -> peers */
 "%d tracker" = "%d tracker";
@@ -99,7 +99,7 @@
    Torrent table -> group row -> tooltip */
 
 
-"%d transfers" = "%d trasferimenti";
+"%@ transfers" = "%@ trasferimenti";
 
 /* Torrent -> status string */
 "%d web seeds" = "%d seed web";
@@ -107,7 +107,7 @@
 /* Inspector -> selected torrents
    stats -> bytes */
 
-"%llu bytes" = "%llu byte";
+"%@ bytes" = "%@ byte";
 
 /* stats window -> times opened */
 "%llu times" = "%llu volte";
@@ -194,6 +194,9 @@
 
 /* Groups -> Button */
 "All Groups" = "Tutti i gruppi";
+
+/* blocklist fail message */
+"An address of a blocklist is needed." = "Occorre un indirizzo di una blocklist.";
 
 /* Create torrent -> failed -> warning */
 "An unknown error has occurred." = "Si è verificato un errore sconosciuto.";
@@ -1001,6 +1004,9 @@
    Move inside itself alert -> message */
 
 "The move operation of \"%@\" cannot be done." = "Impossibile eseguire l'operazione di spostamento di \"%@\".";
+
+/* blocklist fail message */
+"The specified blocklist file did not contain any valid rules." = "Il file di blocklist specificato non contiene alcuna regola valida.";
 
 /* Torrent download failed -> message */
 "The torrent could not be downloaded from %@: %@." = "Il torrent non può essere scaricato da %1$@: %2$@.";

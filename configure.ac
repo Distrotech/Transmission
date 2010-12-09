@@ -3,8 +3,8 @@ dnl STATUS: "X" for prerelease beta builds,
 dnl         "Z" for unsupported trunk builds,
 dnl         "0" for stable, supported releases
 dnl these should be the only two lines you need to change
-m4_define([user_agent_prefix],[2.10])
-m4_define([peer_id_prefix],[-TR2100-])
+m4_define([user_agent_prefix],[2.13])
+m4_define([peer_id_prefix],[-TR2130-])
 
 AC_INIT([transmission],
         [user_agent_prefix],
@@ -85,7 +85,7 @@ AC_PROG_CXX
 AC_C_INLINE
 if test "x$GCC" = "xyes" ; then
 
-    CFLAGS="$CFLAGS -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Wvariadic-macros -Waggregate-return -Winline -Wfloat-equal"
+    CFLAGS="$CFLAGS -std=gnu99 -ggdb3 -Wall -W -Wpointer-arith -Wformat-security -Wcast-align -Wundef -Wcast-align -Wstrict-prototypes -Wmissing-declarations -Wmissing-format-attribute -Wredundant-decls -Wnested-externs -Wunused-parameter -Wwrite-strings -Waggregate-return -Winline -Wfloat-equal"
 
     dnl figure out gcc version
     AC_MSG_CHECKING([gcc version])
@@ -99,12 +99,16 @@ if test "x$GCC" = "xyes" ; then
         dnl these were added in 3.4
         CFLAGS="$CFLAGS -Wextra -Wdeclaration-after-statement -Winit-self"
     fi
+    if test $GCC_VERSION_NUM -ge 403; then
+        dnl these were added in 4.3
+        CFLAGS="$CFLAGS -Wvariadic-macros"
+    fi
 fi
 
 AC_HEADER_STDC
 AC_HEADER_TIME
 
-AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strtold syslog valloc getpagesize posix_memalign])
+AC_CHECK_FUNCS([iconv_open pread pwrite lrintf strlcpy daemon dirname basename strcasecmp localtime_r fallocate64 posix_fallocate memmem strsep strtold syslog valloc getpagesize posix_memalign])
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 ACX_PTHREAD
@@ -206,7 +210,7 @@ if test -n "$LIBEVENT_LIBS"; then
 elif test -n "$LIBEVENT_CFLAGS"; then
     user_specified_libevent=yes
 fi
-if test "x$user_specified_libevent" == "xyes"; then
+if test "x$user_specified_libevent" = "xyes"; then
     AC_MSG_NOTICE([Using user-specified LIBEVENT_LIBS and LIBEVENT_CFLAGS])
 else
     AC_CHECK_LIB([event],[evutil_vsnprintf],

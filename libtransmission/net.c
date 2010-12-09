@@ -237,7 +237,7 @@ tr_netSetTOS( int s, int tos )
 }
 
 int
-tr_netSetCongestionControl( int s, const char *algorithm )
+tr_netSetCongestionControl( int s UNUSED, const char *algorithm UNUSED )
 {
 #ifdef TCP_CONGESTION
     return setsockopt( s, IPPROTO_TCP, TCP_CONGESTION,
@@ -338,7 +338,7 @@ tr_netOpenPeerSocket( tr_session        * session,
         if( ( tmperrno != ENETUNREACH && tmperrno != EHOSTUNREACH )
                 || addr->type == TR_AF_INET )
             tr_err( _( "Couldn't connect socket %d to %s, port %d (errno %d - %s)" ),
-                    s, tr_ntop_non_ts( addr ), (int)port, tmperrno,
+                    s, tr_ntop_non_ts( addr ), (int)ntohs( port ), tmperrno,
                     tr_strerror( tmperrno ) );
         tr_netClose( session, s );
         s = -tmperrno;

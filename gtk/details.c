@@ -605,6 +605,10 @@ get_short_date_string( time_t t )
 {
     char buf[64];
     struct tm tm;
+
+    if( !t )
+        return g_strdup( _( "N/A" ) );
+
     tr_localtime_r( &t, &tm );
     strftime( buf, sizeof( buf ), "%d %b %Y", &tm );
     return g_locale_to_utf8( buf, -1, NULL, NULL, NULL );
@@ -817,8 +821,8 @@ refreshInfo( struct DetailsImpl * di, tr_torrent ** torrents, int n )
         }
         {
             char buf2[32], unver[64], total[64], avail[32];
-            const double d = ( 100.0 * available ) / sizeWhenDone;
-            const double ratio = 100.0 * ( leftUntilDone ? ( haveValid + haveUnchecked ) / (double)sizeWhenDone : 1 );
+            const double d = sizeWhenDone ? ( 100.0 * available ) / sizeWhenDone : 0;
+            const double ratio = 100.0 * ( sizeWhenDone ? ( haveValid + haveUnchecked ) / (double)sizeWhenDone : 1 );
             tr_strlpercent( avail, d, sizeof( avail ) );
             tr_strlpercent( buf2, ratio, sizeof( buf2 ) );
             tr_strlsize( total, haveUnchecked + haveValid, sizeof( total ) );
@@ -972,8 +976,11 @@ info_page_new( struct DetailsImpl * di )
         hig_workarea_add_row( t, &row, _( "Last activity:" ), l, NULL );
 
         /* error */
-        l = di->error_lb = gtk_label_new( NULL );
+        l = g_object_new( GTK_TYPE_LABEL, "selectable", TRUE,
+                                          "ellipsize", PANGO_ELLIPSIZE_END,
+                                          NULL );
         hig_workarea_add_row( t, &row, _( "Error:" ), l, NULL );
+        di->error_lb = l;
 
 
     hig_workarea_add_section_divider( t, &row );
@@ -2325,7 +2332,6 @@ torrent_inspector_new( GtkWindow * parent, TrCore * core )
     gtk_window_set_role( GTK_WINDOW( d ), "tr-info" );
     g_signal_connect_swapped( d, "response",
                               G_CALLBACK( gtk_widget_destroy ), d );
-    gtk_dialog_set_has_separator( GTK_DIALOG( d ), FALSE );
     gtk_container_set_border_width( GTK_CONTAINER( d ), GUI_PAD );
     g_object_set_data_full( G_OBJECT( d ), DETAILS_KEY, di, details_free );
 

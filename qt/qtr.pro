@@ -21,12 +21,15 @@ LIBS += $${TRANSMISSION_TOP}/libtransmission/libtransmission.a
 LIBS += $${TRANSMISSION_TOP}/third-party/dht/libdht.a
 LIBS += $${TRANSMISSION_TOP}/third-party/miniupnp/libminiupnp.a
 LIBS += $${TRANSMISSION_TOP}/third-party/libnatpmp/libnatpmp.a
-unix: LIBS += -levent
+unix: LIBS += -levent -lz
 win32:DEFINES += QT_DBUS
 win32:LIBS += -levent -lws2_32 -lintl
 win32:LIBS += -lidn -liconv -lwldap32 -liphlpapi
 
-TRANSLATIONS += transmission_en.ts transmission_ru.ts
+TRANSLATIONS += translations/transmission_en.ts \
+                translations/transmission_es.ts \
+                translations/transmission_pt_BR.ts \
+                translations/transmission_ru.ts
 
 FORMS += mainwin.ui
 RESOURCES += application.qrc

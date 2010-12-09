@@ -46,10 +46,19 @@
 	return [self stringByAppendingString: [NSString ellipsis]];
 }
 
++ (NSString *) formattedUInteger: (NSUInteger) value
+{
+    NSNumberFormatter * numberFormatter = [[[NSNumberFormatter alloc] init] autorelease];
+    [numberFormatter setNumberStyle: NSNumberFormatterDecimalStyle];
+    [numberFormatter setMaximumFractionDigits: 0];
+    
+    return [numberFormatter stringFromNumber: [NSNumber numberWithUnsignedInteger: value]];
+}
+
 + (NSString *) stringForFileSize: (uint64_t) size
 {
     const CGFloat baseFloat = [NSApp isOnSnowLeopardOrBetter] ? 1000.0 : 1024.0;
-    const NSInteger baseInt = [NSApp isOnSnowLeopardOrBetter] ? 1000 : 1024;
+    const NSUInteger baseInt = [NSApp isOnSnowLeopardOrBetter] ? 1000 : 1024;
     
     if (size < baseInt)
     {
@@ -68,17 +77,17 @@
     }
     else if (size < pow(baseInt, 3))
     {
-        convertedSize = size / pow(baseFloat, 2);
+        convertedSize = size / powf(baseFloat, 2);
         unit = NSLocalizedString(@"MB", "File size - megabytes");
     }
     else if (size < pow(baseInt, 4))
     {
-        convertedSize = size / pow(baseFloat, 3);
+        convertedSize = size / powf(baseFloat, 3);
         unit = NSLocalizedString(@"GB", "File size - gigabytes");
     }
     else
     {
-        convertedSize = size / pow(baseFloat, 4);
+        convertedSize = size / powf(baseFloat, 4);
         unit = NSLocalizedString(@"TB", "File size - terabytes");
     }
     

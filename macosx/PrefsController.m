@@ -39,10 +39,6 @@
 #define DOWNLOAD_FOLDER     0
 #define DOWNLOAD_TORRENT    2
 
-#define PROXY_HTTP      0
-#define PROXY_SOCKS4    1
-#define PROXY_SOCKS5    2
-
 #define RPC_IP_ADD_TAG      0
 #define RPC_IP_REMOVE_TAG   1
 
@@ -53,9 +49,6 @@
 #define TOOLBAR_PEERS       @"TOOLBAR_PEERS"
 #define TOOLBAR_NETWORK     @"TOOLBAR_NETWORK"
 #define TOOLBAR_REMOTE      @"TOOLBAR_REMOTE"
-
-#define PROXY_KEYCHAIN_SERVICE  "Transmission:Proxy"
-#define PROXY_KEYCHAIN_NAME     "Proxy"
 
 #define RPC_KEYCHAIN_SERVICE    "Transmission:Remote"
 #define RPC_KEYCHAIN_NAME       "Remote"
@@ -69,6 +62,7 @@
 - (void) folderSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
 - (void) incompleteFolderSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
 - (void) importFolderSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
+- (void) doneScriptSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info;
 
 - (void) setKeychainPassword: (const char *) password forService: (const char *) service username: (const char *) username;
 
@@ -103,6 +97,21 @@ tr_session * fHandle;
             [fDefaults removeObjectForKey: @"DownloadChoice"];
         }
         
+        //check for old version blocklist (before 2.12)
+        NSDate * blocklistDate;
+        if ((blocklistDate = [fDefaults objectForKey: @"BlocklistLastUpdate"]))
+        {
+            [fDefaults setObject: blocklistDate forKey: @"BlocklistNewLastUpdateSuccess"];
+            [fDefaults setObject: blocklistDate forKey: @"BlocklistNewLastUpdate"];
+            [fDefaults removeObjectForKey: @"BlocklistLastUpdate"];
+            
+            NSString * blocklistDir = [NSHomeDirectory() stringByAppendingPathComponent:
+                                        @"/Library/Application Support/Transmission/blocklists/"];
+            [[NSFileManager defaultManager] moveItemAtPath: [blocklistDir stringByAppendingPathComponent: @"level1.bin"]
+                toPath: [blocklistDir stringByAppendingPathComponent: [NSString stringWithUTF8String: DEFAULT_BLOCKLIST_FILENAME]]
+                error: nil];
+        }
+        
         //save a new random port
         if ([fDefaults boolForKey: @"RandomPort"])
             [fDefaults setInteger: tr_sessionGetPeerPort(fHandle) forKey: @"BindPort"];
@@ -117,10 +126,6 @@ tr_session * fHandle;
         
         //set encryption
         [self setEncryptionMode: nil];
-        
-        //set proxy type
-        [self updateProxyType];
-        [self updateProxyPassword];
         
         //update rpc whitelist
         [self updateRPCPassword];
@@ -210,35 +215,19 @@ tr_session * fHandle;
     [fQueueSeedField setIntValue: [fDefaults integerForKey: @"QueueSeedNumber"]];
     [fStalledField setIntValue: [fDefaults integerForKey: @"StalledMinutes"]];
     
-    //set proxy type
-    [fProxyAddressField setStringValue: [fDefaults stringForKey: @"ProxyAddress"]];
-    NSInteger proxyType;
-    switch (tr_sessionGetProxyType(fHandle))
-    {
-        case TR_PROXY_SOCKS4:
-            proxyType = PROXY_SOCKS4;
-            break;
-        case TR_PROXY_SOCKS5:
-            proxyType = PROXY_SOCKS5;
-            break;
-        case TR_PROXY_HTTP:
-            proxyType = PROXY_HTTP;
-            break;
-        default:
-            NSAssert(NO, @"Unknown proxy type received");
-    }
-    [fProxyTypePopUp selectItemAtIndex: proxyType];
-    
-    //set proxy password - does NOT need to be released
-    [fProxyPasswordField setStringValue: [NSString stringWithUTF8String: tr_sessionGetProxyPassword(fHandle)]];
-    
-    //set proxy port
-    [fProxyPortField setIntValue: [fDefaults integerForKey: @"ProxyPort"]];
-    
     //set blocklist
+    NSString * blocklistURL = [fDefaults stringForKey: @"BlocklistURL"];
+    if (blocklistURL)
+        [fBlocklistURLField setStringValue: blocklistURL];
+    
+    [self updateBlocklistButton];
     [self updateBlocklistFields];
+    
     [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateBlocklistFields)
         name: @"BlocklistUpdated" object: nil];
+    
+    [[NSNotificationCenter defaultCenter] addObserver: self selector: @selector(updateBlocklistURLField)
+        name: NSControlTextDidChangeNotification object: fBlocklistURLField];
     
     //set rpc port
     [fRPCPortField setIntValue: [fDefaults integerForKey: @"RPCPort"]];
@@ -498,11 +487,11 @@ tr_session * fHandle;
 
 - (void) setBlocklistEnabled: (id) sender
 {
-    const BOOL enable = [sender state] == NSOnState;
-    [fDefaults setBool: enable forKey: @"Blocklist"];
-    tr_blocklistSetEnabled(fHandle, enable);
+    tr_blocklistSetEnabled(fHandle, [fDefaults boolForKey: @"BlocklistNew"]);
     
     [[BlocklistScheduler scheduler] updateSchedule];
+    
+    [self updateBlocklistButton];
 }
 
 - (void) updateBlocklist: (id) sender
@@ -521,12 +510,7 @@ tr_session * fHandle;
     
     if (exists)
     {
-        NSNumberFormatter * numberFormatter = [[NSNumberFormatter alloc] init];
-        [numberFormatter setNumberStyle: NSNumberFormatterDecimalStyle];
-        [numberFormatter setMaximumFractionDigits: 0];
-        NSString * countString = [numberFormatter stringFromNumber: [NSNumber numberWithInt: tr_blocklistGetRuleCount(fHandle)]];
-        [numberFormatter release];
-        
+        NSString * countString = [NSString formattedUInteger: tr_blocklistGetRuleCount(fHandle)];
         [fBlocklistMessageField setStringValue: [NSString stringWithFormat: NSLocalizedString(@"%@ IP address rules in list",
             "Prefs -> blocklist -> message"), countString]];
     }
@@ -534,13 +518,11 @@ tr_session * fHandle;
         [fBlocklistMessageField setStringValue: NSLocalizedString(@"A blocklist must first be downloaded",
             "Prefs -> blocklist -> message")];
     
-    [fBlocklistEnableCheck setEnabled: exists];
-    [fBlocklistEnableCheck setState: exists && [fDefaults boolForKey: @"Blocklist"]];
-    
     NSString * updatedDateString;
     if (exists)
     {
-        NSDate * updatedDate = [fDefaults objectForKey: @"BlocklistLastUpdate"];
+        NSDate * updatedDate = [fDefaults objectForKey: @"BlocklistNewLastUpdateSuccess"];
+        
         if (updatedDate)
         {
             if ([NSApp isOnSnowLeopardOrBetter])
@@ -564,6 +546,24 @@ tr_session * fHandle;
     
     [fBlocklistDateField setStringValue: [NSString stringWithFormat: @"%@: %@",
         NSLocalizedString(@"Last updated", "Prefs -> blocklist -> message"), updatedDateString]];
+}
+
+- (void) updateBlocklistURLField
+{
+    NSString * blocklistString = [fBlocklistURLField stringValue];
+    
+    [fDefaults setObject: blocklistString forKey: @"BlocklistURL"];
+    tr_blocklistSetURL(fHandle, [blocklistString UTF8String]);
+    
+    [self updateBlocklistButton];
+}
+
+- (void) updateBlocklistButton
+{
+    NSString * blocklistString = [fDefaults objectForKey: @"BlocklistURL"];
+    const BOOL enable = (blocklistString && ![blocklistString isEqualToString: @""])
+                            && [fDefaults boolForKey: @"BlocklistNew"];
+    [fBlocklistButton setEnabled: enable];
 }
 
 - (void) setAutoStartDownloads: (id) sender
@@ -782,6 +782,21 @@ tr_session * fHandle;
         @selector(incompleteFolderSheetClosed:returnCode:contextInfo:) contextInfo: nil];
 }
 
+- (void) doneScriptSheetShow:(id)sender
+{
+    NSOpenPanel * panel = [NSOpenPanel openPanel];
+    
+    [panel setPrompt: NSLocalizedString(@"Select", "Preferences -> Open panel prompt")];
+    [panel setAllowsMultipleSelection: NO];
+    [panel setCanChooseFiles: YES];
+    [panel setCanChooseDirectories: NO];
+    [panel setCanCreateDirectories: NO];
+    
+    [panel beginSheetForDirectory: nil file: nil types: nil
+                   modalForWindow: [self window] modalDelegate: self didEndSelector:
+     @selector(doneScriptSheetClosed:returnCode:contextInfo:) contextInfo: nil];
+}
+
 - (void) setUseIncompleteFolder: (id) sender
 {
     tr_sessionSetIncompleteDirEnabled(fHandle, [fDefaults boolForKey: @"UseIncompleteDownloadFolder"]);
@@ -790,6 +805,17 @@ tr_session * fHandle;
 - (void) setRenamePartialFiles: (id) sender
 {
     tr_sessionSetIncompleteFileNamingEnabled(fHandle, [fDefaults boolForKey: @"RenamePartialFiles"]);
+}
+
+- (void) setDoneScriptEnabled: (id) sender
+{
+    if ([fDefaults boolForKey: @"DoneScriptEnabled"] && ![[NSFileManager defaultManager] fileExistsAtPath: [fDefaults stringForKey:@"DoneScriptPath"]])
+    {
+        // enabled is set but script file doesn't exist, so prompt for one and disable until they pick one
+        [fDefaults setBool: NO forKey: @"DoneScriptEnabled"];
+        [self doneScriptSheetShow: sender];
+    }
+    tr_sessionSetTorrentDoneScriptEnabled(fHandle, [fDefaults boolForKey: @"DoneScriptEnabled"]);
 }
 
 - (void) setAutoImport: (id) sender
@@ -827,107 +853,6 @@ tr_session * fHandle;
 - (void) setAutoSize: (id) sender
 {
     [[NSNotificationCenter defaultCenter] postNotificationName: @"AutoSizeSettingChange" object: self];
-}
-
-- (void) setProxyEnabled: (id) sender
-{
-    tr_sessionSetProxyEnabled(fHandle, [fDefaults boolForKey: @"Proxy"]);
-}
-
-- (void) setProxyAddress: (id) sender
-{
-    NSString * address = [sender stringValue];
-    tr_sessionSetProxy(fHandle, [address UTF8String]);
-    [fDefaults setObject: address forKey: @"ProxyAddress"];
-}
-
-- (void) setProxyPort: (id) sender
-{
-    int port = [sender intValue];
-    [fDefaults setInteger: port forKey: @"ProxyPort"];
-    tr_sessionSetProxyPort(fHandle, port);
-}
-
-- (void) setProxyType: (id) sender
-{
-    NSString * type;
-    switch ([sender indexOfSelectedItem])
-    {
-        case PROXY_HTTP:
-            type = @"HTTP";
-            break;
-        case PROXY_SOCKS4:
-            type = @"SOCKS4";
-            break;
-        case PROXY_SOCKS5:
-            type = @"SOCKS5";
-            break;
-        default:
-            NSAssert1(NO, @"Unknown index %d received for proxy type", [sender indexOfSelectedItem]);
-    }
-    
-    [fDefaults setObject: type forKey: @"ProxyType"];
-    [self updateProxyType];
-}
-
-- (void) updateProxyType
-{
-    NSString * typeString = [fDefaults stringForKey: @"ProxyType"];
-    tr_proxy_type type;
-    if ([typeString isEqualToString: @"SOCKS4"])
-        type = TR_PROXY_SOCKS4;
-    else if ([typeString isEqualToString: @"SOCKS5"])
-        type = TR_PROXY_SOCKS5;
-    else
-    {
-        //safety
-        if (![typeString isEqualToString: @"HTTP"])
-        {
-            typeString = @"HTTP";
-            [fDefaults setObject: typeString forKey: @"ProxyType"];
-        }
-        type = TR_PROXY_HTTP;
-    }
-    
-    tr_sessionSetProxyType(fHandle, type);
-}
-
-- (void) setProxyAuthorize: (id) sender
-{
-    BOOL enable = [fDefaults boolForKey: @"ProxyAuthorize"];
-    tr_sessionSetProxyAuthEnabled(fHandle, enable);
-}
-
-- (void) setProxyUsername: (id) sender
-{
-    tr_sessionSetProxyUsername(fHandle, [[fDefaults stringForKey: @"ProxyUsername"] UTF8String]);
-}
-
-- (void) setProxyPassword: (id) sender
-{
-    const char * password = [[sender stringValue] UTF8String];
-    [self setKeychainPassword: password forService: PROXY_KEYCHAIN_SERVICE username: PROXY_KEYCHAIN_NAME];
-    
-    tr_sessionSetProxyPassword(fHandle, password);
-}
-
-- (void) updateProxyPassword
-{
-    UInt32 passwordLength;
-    const char * password = nil;
-    SecKeychainFindGenericPassword(NULL, strlen(PROXY_KEYCHAIN_SERVICE), PROXY_KEYCHAIN_SERVICE,
-        strlen(PROXY_KEYCHAIN_NAME), PROXY_KEYCHAIN_NAME, &passwordLength, (void **)&password, NULL);
-    
-    if (password != NULL)
-    {
-        char fullPassword[passwordLength+1];
-        strncpy(fullPassword, password, passwordLength);
-        fullPassword[passwordLength] = '\0';
-        SecKeychainItemFreeContent(NULL, (void *)password);
-        
-        tr_sessionSetProxyPassword(fHandle, fullPassword);
-        [fProxyPasswordField setStringValue: [NSString stringWithUTF8String: fullPassword]];
-    }
 }
 
 - (void) setRPCEnabled: (id) sender
@@ -1116,6 +1041,12 @@ tr_session * fHandle;
     [fRPCAddRemoveControl setEnabled: [fRPCWhitelistTable numberOfSelectedRows] > 0 forSegment: RPC_IP_REMOVE_TAG];
 }
 
+- (void) helpForScript: (id) sender
+{
+    [[NSHelpManager sharedHelpManager] openHelpAnchor: @"script"
+        inBook: [[NSBundle mainBundle] objectForInfoDictionaryKey: @"CFBundleHelpBookName"]];
+}
+
 - (void) helpForPeers: (id) sender
 {
     [[NSHelpManager sharedHelpManager] openHelpAnchor: @"peers"
@@ -1232,7 +1163,10 @@ tr_session * fHandle;
     
     //blocklist
     const BOOL blocklist = tr_blocklistIsEnabled(fHandle);
-    [fDefaults setBool: blocklist forKey: @"Blocklist"];
+    [fDefaults setBool: blocklist forKey: @"BlocklistNew"];
+    
+    NSString * blocklistURL = [NSString stringWithUTF8String: tr_blocklistGetURL(fHandle)];
+    [fDefaults setObject: blocklistURL forKey: @"BlocklistURL"];
     
     //seed ratio
     const BOOL ratioLimited = tr_sessionIsRatioLimited(fHandle);
@@ -1247,6 +1181,13 @@ tr_session * fHandle;
     
     const NSUInteger idleLimitMin = tr_sessionGetIdleLimit(fHandle);
     [fDefaults setInteger: idleLimitMin forKey: @"IdleLimitMinutes"];
+    
+    //done script
+    const BOOL doneScriptEnabled = tr_sessionIsTorrentDoneScriptEnabled(fHandle);
+    [fDefaults setBool: doneScriptEnabled forKey: @"DoneScriptEnabled"];
+    
+    NSString * doneScriptPath = [NSString stringWithUTF8String: tr_sessionGetTorrentDoneScript(fHandle)];
+    [fDefaults setObject: doneScriptPath forKey: @"DoneScriptPath"];
     
     //update gui if loaded
     if (fHasLoaded)
@@ -1282,6 +1223,8 @@ tr_session * fHandle;
         
         //speed limit schedule times and day handled by bindings
         
+        [fBlocklistURLField setStringValue: blocklistURL];
+        [self updateBlocklistButton];
         [self updateBlocklistFields];
         
         //ratio limit enabled handled by bindings
@@ -1410,6 +1353,28 @@ tr_session * fHandle;
         [fDefaults setBool: NO forKey: @"AutoImport"];
     
     [fImportFolderPopUp selectItemAtIndex: 0];
+}
+
+- (void) doneScriptSheetClosed: (NSOpenPanel *) openPanel returnCode: (int) code contextInfo: (void *) info
+{
+    if (code == NSOKButton)
+    {
+        NSString * filePath = [[openPanel filenames] objectAtIndex: 0];
+        
+        if ([[NSFileManager defaultManager] fileExistsAtPath: filePath])  // script file exists
+        {
+            [fDefaults setObject: filePath forKey: @"DoneScriptPath"];
+            [fDefaults setBool: YES forKey: @"DoneScriptEnabled"];
+        }
+        else // script file doesn't exist so don't enable
+        {
+            [fDefaults setObject: nil forKey:@"DoneScriptPath"];
+            [fDefaults setBool: NO forKey: @"DoneScriptEnabled"];
+        }
+        tr_sessionSetTorrentDoneScript(fHandle, [[fDefaults stringForKey:@"DoneScriptPath"] UTF8String]);
+        tr_sessionSetTorrentDoneScriptEnabled(fHandle, [fDefaults boolForKey:@"DoneScriptEnabled"]);
+    }
+    [fDoneScriptPopUp selectItemAtIndex: 0];
 }
 
 - (void) setKeychainPassword: (const char *) password forService: (const char *) service username: (const char *) username
